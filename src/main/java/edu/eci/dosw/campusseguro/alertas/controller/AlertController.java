@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
+import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 
 @RestController
 @RequestMapping("/api/v1/alertas")
@@ -37,8 +39,11 @@ public class AlertController {
     private final AlertService alertService;
     private final ActorResolver actorResolver;
 
-    public AlertController(AlertService alertService, ActorResolver actorResolver) {
+    private final AlertLifecycleService alertLifecycleService;
+
+    public AlertController(AlertService alertService, AlertLifecycleService alertLifecycleService, ActorResolver actorResolver) {
         this.alertService = alertService;
+        this.alertLifecycleService = alertLifecycleService;
         this.actorResolver = actorResolver;
     }
 
@@ -77,4 +82,11 @@ public class AlertController {
     public AlertResponse update(@PathVariable UUID id, @Valid @RequestBody AlertUpdateRequest request) {
         return alertService.update(id, request, actorResolver.resolve());
     }
+    
+    @PutMapping("/{id}/programacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse schedule(@PathVariable UUID id, @Valid @RequestBody AlertScheduleRequest request) {
+        return alertLifecycleService.schedule(id, request, actorResolver.resolve());
+    }
+
 }

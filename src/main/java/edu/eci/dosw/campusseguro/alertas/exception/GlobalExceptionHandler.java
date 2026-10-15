@@ -47,7 +47,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleInvalidTransition(InvalidTransitionException ex, HttpServletRequest request) {
         return respond(ErrorCode.INVALID_TRANSITION, ex.getMessage(), request.getRequestURI(), List.of());
     }
-
+    @ExceptionHandler(InvalidActivationDateException.class)
+    public ResponseEntity<Object> handleInvalidActivationDate(InvalidActivationDateException ex, HttpServletRequest request) {
+        return respond(ErrorCode.INVALID_ACTIVATION_DATE, ex.getMessage(), request.getRequestURI(), List.of());
+    }
     @ExceptionHandler(InvalidReferenceException.class)
     public ResponseEntity<Object> handleInvalidReference(InvalidReferenceException ex, HttpServletRequest request) {
         List<ErrorResponse.Detail> details = ex.getInvalidIds().stream()
