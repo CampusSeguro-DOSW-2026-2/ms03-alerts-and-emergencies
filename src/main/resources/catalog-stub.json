@@ -1,0 +1,29 @@
+{
+  "buildings": [
+    { "id": "BLD-001", "name": "Edificio Central" },
+    { "id": "BLD-002", "name": "Biblioteca" },
+    { "id": "BLD-003", "name": "Laboratorios" },
+    { "id": "BLD-004", "name": "Bienestar Universitario" },
+    { "id": "BLD-005", "name": "Cafetería" }
+  ],
+  "zones": [
+    { "id": "ZON-001", "name": "Parqueadero Norte" },
+    { "id": "ZON-002", "name": "Plazoleta Principal" },
+    { "id": "ZON-003", "name": "Zona Deportiva" },
+    { "id": "ZON-004", "name": "Punto de Encuentro 1" }
+  ],
+  "roles": [
+    { "id": "STUDENT", "name": "Estudiante" },
+    { "id": "TEACHER", "name": "Docente" },
+    { "id": "STAFF", "name": "Administrativo" },
+    { "id": "SECURITY", "name": "Seguridad" }
+  ],
+  "users": [
+    { "id": "usr-001", "name": "Laura Gómez", "email": "laura.gomez@example.edu.co", "roles": ["STUDENT"] },
+    { "id": "usr-002", "name": "Andrés Rojas", "email": "andres.rojas@example.edu.co", "roles": ["STUDENT"] },
+    { "id": "usr-003", "name": "Marta Pineda", "email": "marta.pineda@example.edu.co", "roles": ["TEACHER"] },
+    { "id": "usr-004", "name": "Camilo Duarte", "email": "camilo.duarte@example.edu.co", "roles": ["TEACHER", "STAFF"] },
+    { "id": "usr-005", "name": "Sofía Herrera", "email": "sofia.herrera@example.edu.co", "roles": ["STAFF"] },
+    { "id": "usr-006", "name": "Jorge Salazar", "email": "jorge.salazar@example.edu.co", "roles": ["SECURITY"] }
+  ]
+}
