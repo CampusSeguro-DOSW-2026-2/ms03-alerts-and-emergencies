@@ -9,4 +9,6 @@ public interface AlertLifecycleService {
     AlertResponse schedule(UUID id, AlertScheduleRequest request, String actor);
 
     AlertResponse activate(UUID id, String actor);
+    
+    void activateScheduledAlerts();
 }

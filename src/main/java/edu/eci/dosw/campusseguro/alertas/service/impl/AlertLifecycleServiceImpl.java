@@ -8,6 +8,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
@@ -20,7 +21,6 @@ import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 
 @Service
 public class AlertLifecycleServiceImpl implements AlertLifecycleService {
@@ -101,7 +101,10 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         AlertStatus previousStatus = alert.getStatus();
 
+        stateMachine.assertTransition(previousStatus, AlertStatus.ACTIVE);
+
         alert.setStatus(AlertStatus.ACTIVE);
+        alert.setActivatedAt(now);
         alert.setUpdatedAt(now);
 
         alertRepository.saveAndFlush(alert);
@@ -118,5 +121,34 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 alert,
                 scopeItemRepository.findByAlertId(id),
                 recipientRepository.findByAlertId(id));
+    }
+
+    @Override
+    @Transactional
+    public void activateScheduledAlerts() {
+        Instant now = clock.instant();
+
+        var alerts = alertRepository.findByStatusAndActivationAtLessThanEqual(
+                AlertStatus.SCHEDULED, now);
+
+        for (AlertEntity alert : alerts) {
+            AlertStatus previousStatus = alert.getStatus();
+
+            stateMachine.assertTransition(previousStatus, AlertStatus.ACTIVE);
+
+            alert.setStatus(AlertStatus.ACTIVE);
+            alert.setActivatedAt(now);
+            alert.setUpdatedAt(now);
+
+            alertRepository.saveAndFlush(alert);
+
+            auditService.record(
+                    alert.getId(),
+                    AuditAction.ACTIVATE,
+                    "system",
+                    previousStatus,
+                    alert.getStatus(),
+                    "Alerta activada automáticamente");
+        }
     }
 }
