@@ -192,4 +192,45 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 recipientRepository.findByAlertId(id));
     }
 
+    
+    @Override
+    @Transactional
+    public AlertResponse archive(UUID id, String actor) {
+        AlertEntity alert = alertRepository.findForUpdate(id)
+                .orElseThrow(() -> new AlertNotFoundException(id));
+
+        if (alert.getStatus() == AlertStatus.ARCHIVED) {
+            return alertMapper.toResponse(
+                    alert,
+                    scopeItemRepository.findByAlertId(id),
+                    recipientRepository.findByAlertId(id));
+        }
+
+        AlertStatus previousStatus = alert.getStatus();
+
+        stateMachine.assertTransition(previousStatus, AlertStatus.ARCHIVED);
+
+        Instant now = clock.instant();
+
+        alert.setStatus(AlertStatus.ARCHIVED);
+        alert.setArchivedAt(now);
+        alert.setUpdatedAt(now);
+
+        alertRepository.saveAndFlush(alert);
+
+        auditService.record(
+                alert.getId(),
+                AuditAction.ARCHIVE,
+                actor,
+                previousStatus,
+                alert.getStatus(),
+                "Alerta archivada");
+
+        return alertMapper.toResponse(
+                alert,
+                scopeItemRepository.findByAlertId(id),
+                recipientRepository.findByAlertId(id));
+    }
+
+
 }

@@ -102,5 +102,12 @@ public class AlertController {
         return alertLifecycleService.end(id, actorResolver.resolve());
     }
 
+    @PutMapping("/{id}/archivado")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse archive(@PathVariable UUID id) {
+        return alertLifecycleService.archive(id, actorResolver.resolve());
+    }
+
+
 
 }

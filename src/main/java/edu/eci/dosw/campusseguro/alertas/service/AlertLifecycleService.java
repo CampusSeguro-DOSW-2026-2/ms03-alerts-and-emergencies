@@ -14,4 +14,7 @@ public interface AlertLifecycleService {
     void activateScheduledAlerts();
 
     AlertResponse end(UUID id, String actor);
+
+    AlertResponse archive(UUID id, String actor);
+
 }
