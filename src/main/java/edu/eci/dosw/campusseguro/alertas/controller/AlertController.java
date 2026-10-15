@@ -95,4 +95,12 @@ public class AlertController {
         return alertLifecycleService.activate(id, actorResolver.resolve());
     }
 
+    
+    @PutMapping("/{id}/finalizacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse end(@PathVariable UUID id) {
+        return alertLifecycleService.end(id, actorResolver.resolve());
+    }
+
+
 }

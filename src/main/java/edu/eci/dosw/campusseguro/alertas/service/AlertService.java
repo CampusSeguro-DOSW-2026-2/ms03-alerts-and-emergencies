@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
