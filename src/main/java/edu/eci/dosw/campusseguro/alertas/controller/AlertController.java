@@ -89,4 +89,10 @@ public class AlertController {
         return alertLifecycleService.schedule(id, request, actorResolver.resolve());
     }
 
+    @PutMapping("/{id}/activacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse activate(@PathVariable UUID id) {
+        return alertLifecycleService.activate(id, actorResolver.resolve());
+    }
+
 }

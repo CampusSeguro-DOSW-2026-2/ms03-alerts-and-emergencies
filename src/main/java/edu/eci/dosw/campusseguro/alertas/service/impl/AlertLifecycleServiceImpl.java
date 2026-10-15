@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 
 @Service
 public class AlertLifecycleServiceImpl implements AlertLifecycleService {
@@ -79,6 +80,39 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 previousStatus,
                 alert.getStatus(),
                 "Alerta programada para " + activationAt);
+
+        return alertMapper.toResponse(
+                alert,
+                scopeItemRepository.findByAlertId(id),
+                recipientRepository.findByAlertId(id));
+    }
+
+    @Override
+    @Transactional
+    public AlertResponse activate(UUID id, String actor) {
+        AlertEntity alert = alertRepository.findForUpdate(id)
+                .orElseThrow(() -> new AlertNotFoundException(id));
+
+        Instant now = clock.instant();
+
+        if (alert.getStatus() != AlertStatus.SCHEDULED) {
+            throw new InvalidTransitionException(alert.getStatus(), AlertStatus.ACTIVE);
+        }
+
+        AlertStatus previousStatus = alert.getStatus();
+
+        alert.setStatus(AlertStatus.ACTIVE);
+        alert.setUpdatedAt(now);
+
+        alertRepository.saveAndFlush(alert);
+
+        auditService.record(
+                alert.getId(),
+                AuditAction.ACTIVATE,
+                actor,
+                previousStatus,
+                alert.getStatus(),
+                "Alerta activada");
 
         return alertMapper.toResponse(
                 alert,
