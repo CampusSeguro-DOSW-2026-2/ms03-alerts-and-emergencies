@@ -1,7 +1,8 @@
+
 package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
@@ -10,21 +11,58 @@ import org.springframework.stereotype.Component;
 @Component
 public class AlertStateMachine {
 
-    // Mapa de transiciones permitidas: estado actual -> estados a los que puede pasar
-    private static final Map<AlertStatus, Set<AlertStatus>> ALLOWED = Map.of(
-            AlertStatus.DRAFT, EnumSet.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE),
-            AlertStatus.SCHEDULED, EnumSet.of(AlertStatus.ACTIVE),
-            AlertStatus.ACTIVE, EnumSet.of(AlertStatus.ENDED),
-            AlertStatus.ENDED, EnumSet.of(AlertStatus.ARCHIVED),
-            AlertStatus.ARCHIVED, EnumSet.noneOf(AlertStatus.class));
+    private final Map<AlertStatus, Set<AlertStatus>> transitions =
+            new EnumMap<>(AlertStatus.class);
 
-    public boolean canTransition(AlertStatus from, AlertStatus to) {
-        return ALLOWED.getOrDefault(from, Set.of()).contains(to);
+    public AlertStateMachine() {
+        transitions.put(
+                AlertStatus.DRAFT,
+                EnumSet.of(
+                        AlertStatus.SCHEDULED,
+                        AlertStatus.ACTIVE));
+
+        transitions.put(
+                AlertStatus.SCHEDULED,
+                EnumSet.of(AlertStatus.ACTIVE));
+
+        transitions.put(
+                AlertStatus.ACTIVE,
+                EnumSet.of(AlertStatus.ENDED));
+
+        transitions.put(
+                AlertStatus.ENDED,
+                EnumSet.of(AlertStatus.ARCHIVED));
+
+        transitions.put(
+                AlertStatus.ARCHIVED,
+                EnumSet.noneOf(AlertStatus.class));
     }
 
-    public void assertTransition(AlertStatus from, AlertStatus to) {
-        if (!canTransition(from, to)) {
-            throw new InvalidTransitionException(from, to);
+    public boolean canTransition(
+            AlertStatus currentStatus,
+            AlertStatus nextStatus) {
+
+        if (currentStatus == null || nextStatus == null) {
+            return false;
+        }
+
+        return transitions
+                .getOrDefault(
+                        currentStatus,
+                        EnumSet.noneOf(AlertStatus.class))
+                .contains(nextStatus);
+    }
+
+    public void assertTransition(
+            AlertStatus currentStatus,
+            AlertStatus nextStatus) {
+
+        if (!canTransition(currentStatus, nextStatus)) {
+            throw new IllegalStateException(
+                    "Invalid alert status transition from "
+                            + currentStatus
+                            + " to "
+                            + nextStatus);
         }
     }
 }

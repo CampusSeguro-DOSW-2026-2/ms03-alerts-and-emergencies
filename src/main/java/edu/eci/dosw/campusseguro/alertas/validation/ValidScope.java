@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.validation;
 
 import jakarta.validation.Constraint;
@@ -14,7 +15,7 @@ import java.lang.annotation.Target;
 @Constraint(validatedBy = ScopeValidator.class)
 public @interface ValidScope {
 
-    String message() default "El alcance no es válido";
+    String message() default "The selected scope is invalid";
 
     Class<?>[] groups() default {};
 

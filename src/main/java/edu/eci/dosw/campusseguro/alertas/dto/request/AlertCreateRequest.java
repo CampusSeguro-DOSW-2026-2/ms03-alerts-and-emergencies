@@ -1,27 +1,168 @@
-package edu.eci.dosw.campusseguro.alertas.dto.request;
+package edu.eci.dosw.campusseguro.alertas.controller;
 
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
+import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
-import java.time.Instant;
-import java.util.List;
+import java.net.URI;
+import java.time.LocalDate;
+import java.util.UUID;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-public record AlertCreateRequest(
-        @NotNull(message = "El tipo de alerta es obligatorio") AlertType tipo,
-        @NotNull(message = "El alcance es obligatorio") @Valid ScopeRequest alcance,
-        @NotBlank(message = "Las instrucciones son obligatorias")
-        @Size(max = 1000, message = "Las instrucciones no pueden superar 1000 caracteres") String instrucciones,
-        @NotEmpty(message = "Debe indicar al menos un destinatario")
-        List<@NotNull(message = "El destinatario no puede ser nulo") @Valid RecipientRequest> destinatarios,
-        @Valid AlertOriginRequest origen,
-        Instant activationAt,
-        Boolean activarInmediatamente) {
+@RestController
+@RequestMapping("/api/v1/alertas")
+public class AlertController {
 
-    public AlertCreateRequest(
-            AlertType tipo, ScopeRequest alcance, String instrucciones, List<RecipientRequest> destinatarios) {
-        this(tipo, alcance, instrucciones, destinatarios, null, null, null);
+    private static final String COORDINATOR_ONLY =
+            "hasRole('COORDINATOR')";
+
+    private static final String READ_ACCESS =
+            "hasAnyRole('COORDINATOR', 'AUDITOR', 'SERVICE_MS06')";
+
+    private static final String EVENT_SERVICE_ONLY =
+            "hasRole('SERVICE_MS06')";
+
+    private final AlertService alertService;
+    private final AlertLifecycleService alertLifecycleService;
+    private final ActorResolver actorResolver;
+
+    public AlertController(
+            AlertService alertService,
+            AlertLifecycleService alertLifecycleService,
+            ActorResolver actorResolver) {
+        this.alertService = alertService;
+        this.alertLifecycleService = alertLifecycleService;
+        this.actorResolver = actorResolver;
+    }
+
+    @PostMapping
+    @PreAuthorize(COORDINATOR_ONLY)
+    public ResponseEntity<AlertResponse> create(
+            @Valid @RequestBody AlertCreateRequest request) {
+
+        AlertResponse response =
+                alertService.create(request, actorResolver.resolve());
+
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{id}")
+                .buildAndExpand(response.id())
+                .toUri();
+
+        return ResponseEntity.created(location).body(response);
+    }
+
+    @GetMapping
+    @PreAuthorize(READ_ACCESS)
+    public PageResponse<AlertSummaryResponse> search(
+            @RequestParam(required = false) AlertStatus status,
+            @RequestParam(required = false) AlertType type,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate endDate,
+            @RequestParam(required = false) UUID eventId,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+
+        AlertFilter filter = new AlertFilter(
+                status,
+                type,
+                startDate,
+                endDate,
+                eventId,
+                page,
+                size);
+
+        return alertService.search(filter);
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize(READ_ACCESS)
+    public AlertResponse findById(@PathVariable UUID id) {
+        return alertService.findById(id);
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse update(
+            @PathVariable UUID id,
+            @Valid @RequestBody AlertUpdateRequest request) {
+
+        return alertService.update(
+                id,
+                request,
+                actorResolver.resolve());
+    }
+
+    @PutMapping("/{id}/programacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse schedule(
+            @PathVariable UUID id,
+            @Valid @RequestBody AlertScheduleRequest request) {
+
+        return alertLifecycleService.schedule(
+                id,
+                request,
+                actorResolver.resolve());
+    }
+
+    @PutMapping("/{id}/activacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse activate(@PathVariable UUID id) {
+        return alertLifecycleService.activate(
+                id,
+                actorResolver.resolve());
+    }
+
+    @PutMapping("/{id}/finalizacion")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse end(@PathVariable UUID id) {
+        return alertLifecycleService.end(
+                id,
+                actorResolver.resolve());
+    }
+
+    @PutMapping("/{id}/archivado")
+    @PreAuthorize(COORDINATOR_ONLY)
+    public AlertResponse archive(@PathVariable UUID id) {
+        return alertLifecycleService.archive(
+                id,
+                actorResolver.resolve());
+    }
+
+    @PutMapping("/eventos/{eventId}/sincronizacion")
+    @PreAuthorize(EVENT_SERVICE_ONLY)
+    public AlertResponse synchronizeFromEvent(
+            @PathVariable UUID eventId,
+            @Valid @RequestBody EventAlertSyncRequest request) {
+
+        return alertService.synchronizeFromEvent(
+                eventId,
+                request,
+                actorResolver.resolve());
     }
 }

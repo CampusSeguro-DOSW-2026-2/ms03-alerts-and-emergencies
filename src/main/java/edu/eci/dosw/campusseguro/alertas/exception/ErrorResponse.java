@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import java.time.Instant;
@@ -14,7 +15,19 @@ public record ErrorResponse(
     public record Detail(String field, String message) {
     }
 
-    public static ErrorResponse of(Instant timestamp, ErrorCode code, String message, String path, List<Detail> details) {
-        return new ErrorResponse(timestamp, code.status().value(), code.name(), message, path, details);
+    public static ErrorResponse of(
+            Instant timestamp,
+            ErrorCode code,
+            String message,
+            String path,
+            List<Detail> details) {
+
+        return new ErrorResponse(
+                timestamp,
+                code.status().value(),
+                code.name(),
+                message,
+                path,
+                details);
     }
 }

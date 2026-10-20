@@ -9,6 +9,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import java.util.UUID;
+import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 
 public interface AlertService {
 
@@ -19,4 +20,6 @@ public interface AlertService {
     AlertResponse findById(UUID id, AccessActor actor);
 
     PageResponse<AlertSummaryResponse> search(AlertFilter filter);
+
+    AlertResponse synchronizeFromEvent(UUID eventId, EventAlertSyncRequest request, String actor);
 }

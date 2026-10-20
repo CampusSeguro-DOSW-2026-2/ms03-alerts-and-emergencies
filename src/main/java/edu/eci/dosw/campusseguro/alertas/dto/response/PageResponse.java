@@ -1,16 +1,24 @@
+
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
 import java.util.List;
 import org.springframework.data.domain.Page;
 
 public record PageResponse<T>(
-        List<T> contenido,
-        int pagina,
-        int tamano,
-        long totalElementos,
-        int totalPaginas) {
+        List<T> content,
+        int page,
+        int size,
+        long totalElements,
+        int totalPages
+) {
 
-    public static <T> PageResponse<T> of(List<T> contenido, Page<?> page) {
-        return new PageResponse<>(contenido, page.getNumber(), page.getSize(), page.getTotalElements(), page.getTotalPages());
+    public static <T> PageResponse<T> of(List<T> content, Page<?> page) {
+        return new PageResponse<>(
+                content,
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages()
+        );
     }
 }
