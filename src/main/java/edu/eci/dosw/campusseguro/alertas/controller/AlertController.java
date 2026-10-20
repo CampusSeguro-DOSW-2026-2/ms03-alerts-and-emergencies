@@ -5,18 +5,23 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.AuditEventResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditQueryService;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,17 +39,23 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 public class AlertController {
 
     private static final String COORDINATOR_ONLY = "hasRole('COORDINATOR')";
-    private static final String READ_ACCESS = "hasAnyRole('COORDINATOR', 'AUDITOR', 'SERVICE_MS06')";
+    private static final String COORDINATOR_OR_SERVICE = "hasAnyRole('COORDINATOR', 'SERVICE_MS06')";
+    private static final String LIST_ACCESS = "hasAnyRole('COORDINATOR', 'AUDITOR')";
 
     private final AlertService alertService;
     private final ActorResolver actorResolver;
-
     private final AlertLifecycleService alertLifecycleService;
+    private final AuditQueryService auditQueryService;
 
-    public AlertController(AlertService alertService, AlertLifecycleService alertLifecycleService, ActorResolver actorResolver) {
+    public AlertController(
+            AlertService alertService,
+            AlertLifecycleService alertLifecycleService,
+            ActorResolver actorResolver,
+            AuditQueryService auditQueryService) {
         this.alertService = alertService;
         this.alertLifecycleService = alertLifecycleService;
         this.actorResolver = actorResolver;
+        this.auditQueryService = auditQueryService;
     }
 
     @PostMapping
@@ -59,7 +70,7 @@ public class AlertController {
     }
 
     @GetMapping
-    @PreAuthorize(READ_ACCESS)
+    @PreAuthorize(LIST_ACCESS)
     public PageResponse<AlertSummaryResponse> search(
             @RequestParam(required = false) AlertStatus estado,
             @RequestParam(required = false) AlertType tipo,
@@ -72,9 +83,15 @@ public class AlertController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize(READ_ACCESS)
-    public AlertResponse findById(@PathVariable UUID id) {
-        return alertService.findById(id);
+    @PreAuthorize("!isAnonymous()")
+    public AlertResponse findById(@PathVariable UUID id, Authentication authentication) {
+        return alertService.findById(id, AccessActor.from(authentication));
+    }
+
+    @GetMapping("/{id}/auditoria")
+    @PreAuthorize(LIST_ACCESS)
+    public List<AuditEventResponse> audit(@PathVariable UUID id) {
+        return auditQueryService.findByAlert(id);
     }
 
     @PutMapping("/{id}")
@@ -90,14 +107,14 @@ public class AlertController {
     }
 
     @PutMapping("/{id}/activacion")
-    @PreAuthorize(COORDINATOR_ONLY)
+    @PreAuthorize(COORDINATOR_OR_SERVICE)
     public AlertResponse activate(@PathVariable UUID id) {
         return alertLifecycleService.activate(id, actorResolver.resolve());
     }
 
     
     @PutMapping("/{id}/finalizacion")
-    @PreAuthorize(COORDINATOR_ONLY)
+    @PreAuthorize(COORDINATOR_OR_SERVICE)
     public AlertResponse end(@PathVariable UUID id) {
         return alertLifecycleService.end(id, actorResolver.resolve());
     }

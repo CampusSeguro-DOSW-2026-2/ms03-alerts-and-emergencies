@@ -21,6 +21,8 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
+import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
@@ -57,6 +59,7 @@ public class AlertServiceImpl implements AlertService {
     private final AuditService auditService;
     private final AlertMapper alertMapper;
     private final AlertStateRules stateRules;
+    private final AlertAccessPolicy accessPolicy;
     private final Clock clock;
 
     public AlertServiceImpl(
@@ -67,6 +70,7 @@ public class AlertServiceImpl implements AlertService {
             AuditService auditService,
             AlertMapper alertMapper,
             AlertStateRules stateRules,
+            AlertAccessPolicy accessPolicy,
             Clock clock) {
         this.alertRepository = alertRepository;
         this.scopeItemRepository = scopeItemRepository;
@@ -75,6 +79,7 @@ public class AlertServiceImpl implements AlertService {
         this.auditService = auditService;
         this.alertMapper = alertMapper;
         this.stateRules = stateRules;
+        this.accessPolicy = accessPolicy;
         this.clock = clock;
     }
 
@@ -105,6 +110,7 @@ public class AlertServiceImpl implements AlertService {
     @Transactional
     public AlertResponse update(UUID id, AlertUpdateRequest request, String actor) {
         AlertEntity alert = alertRepository.findForUpdate(id).orElseThrow(() -> new AlertNotFoundException(id));
+        stateRules.assertNotArchived(alert);
         stateRules.assertEditable(alert);
 
         List<AlertScopeItemEntity> currentScope = scopeItemRepository.findByAlertId(id);
@@ -175,8 +181,9 @@ public class AlertServiceImpl implements AlertService {
 
     @Override
     @Transactional(readOnly = true)
-    public AlertResponse findById(UUID id) {
+    public AlertResponse findById(UUID id, AccessActor actor) {
         AlertEntity alert = alertRepository.findById(id).orElseThrow(() -> new AlertNotFoundException(id));
+        accessPolicy.assertCanView(alert, actor);
         return alertMapper.toResponse(
                 alert, scopeItemRepository.findByAlertId(id), recipientRepository.findByAlertId(id));
     }

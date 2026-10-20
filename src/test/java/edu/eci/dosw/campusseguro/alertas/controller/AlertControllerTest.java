@@ -25,9 +25,11 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditQueryService;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -79,6 +81,9 @@ class AlertControllerTest {
     @Mock
     private ActorResolver actorResolver;
 
+    @Mock
+    private AuditQueryService auditQueryService;
+
     private MockMvc mockMvc;
 
     private AlertResponse response;
@@ -90,7 +95,11 @@ class AlertControllerTest {
         response = mock(AlertResponse.class);
         lenient().when(response.id()).thenReturn(ID);
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AlertController(alertService, alertLifecycleService, actorResolver))
+                .standaloneSetup(new AlertController(
+                        alertService,
+                        alertLifecycleService,
+                        actorResolver,
+                        auditQueryService))
                 .build();
     }
 
@@ -210,7 +219,7 @@ class AlertControllerTest {
 
     @Test
     void findById_shouldReturn200WithAlert_whenAlertExists() throws Exception {
-        when(alertService.findById(ID)).thenReturn(response);
+        when(alertService.findById(eq(ID), any(AccessActor.class))).thenReturn(response);
 
         mockMvc.perform(get(BASE_URL + "/{id}", ID))
                 .andExpect(status().isOk())

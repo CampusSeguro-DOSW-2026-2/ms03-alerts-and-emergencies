@@ -43,6 +43,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleInvalidAlertState(InvalidAlertStateException ex, HttpServletRequest request) {
         return respond(ErrorCode.INVALID_ALERT_STATE, ex.getMessage(), request.getRequestURI(), List.of());
     }
+
+    @ExceptionHandler(NotARecipientException.class)
+    public ResponseEntity<Object> handleNotARecipient(NotARecipientException ex, HttpServletRequest request) {
+        return respond(ErrorCode.NOT_A_RECIPIENT, ex.getMessage(), request.getRequestURI(), List.of());
+    }
+
+    @ExceptionHandler(AlertNotActiveException.class)
+    public ResponseEntity<Object> handleAlertNotActive(AlertNotActiveException ex, HttpServletRequest request) {
+        return respond(ErrorCode.ALERT_NOT_ACTIVE, ex.getMessage(), request.getRequestURI(), List.of());
+    }
     @ExceptionHandler(InvalidTransitionException.class)
     public ResponseEntity<Object> handleInvalidTransition(InvalidTransitionException ex, HttpServletRequest request) {
         return respond(ErrorCode.INVALID_TRANSITION, ex.getMessage(), request.getRequestURI(), List.of());

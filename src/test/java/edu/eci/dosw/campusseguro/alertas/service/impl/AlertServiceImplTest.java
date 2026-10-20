@@ -35,6 +35,8 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
+import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -87,6 +89,9 @@ class AlertServiceImplTest {
     @Mock
     private AlertStateRules stateRules;
 
+    @Mock
+    private AlertAccessPolicy accessPolicy;
+
     private AlertServiceImpl service;
 
     @BeforeEach
@@ -99,6 +104,7 @@ class AlertServiceImplTest {
                 auditService,
                 alertMapper,
                 stateRules,
+                accessPolicy,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -358,14 +364,16 @@ class AlertServiceImplTest {
         when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
-        assertSame(expected, service.findById(ID));
+        assertSame(expected, service.findById(ID, new AccessActor("usr-001", java.util.Set.of("STUDENT"))));
     }
 
     @Test
     void findById_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findById(ID)).thenReturn(Optional.empty());
 
-        assertThrows(AlertNotFoundException.class, () -> service.findById(ID));
+        assertThrows(
+                AlertNotFoundException.class,
+                () -> service.findById(ID, new AccessActor("usr-001", java.util.Set.of("STUDENT"))));
     }
 
     // search

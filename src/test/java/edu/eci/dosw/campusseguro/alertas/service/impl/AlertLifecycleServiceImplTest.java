@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -19,6 +20,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
@@ -26,6 +28,7 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
+import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -41,6 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +72,9 @@ class AlertLifecycleServiceImplTest {
     @Mock
     private AlertMapper alertMapper;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private AlertLifecycleServiceImpl service;
 
     @BeforeEach
@@ -80,7 +87,8 @@ class AlertLifecycleServiceImplTest {
                 stateMachine,
                 auditService,
                 alertMapper,
-                fixedClock);
+                fixedClock,
+                eventPublisher);
     }
 
     // helpers 
@@ -209,18 +217,26 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldActivateAlert_whenAlertIsScheduled() {
-        AlertEntity alert = alertWithStatus(AlertStatus.SCHEDULED);
-        givenAlertExists(alert);
+        AlertEntity alert = alertWithStatus(AlertStatus.ACTIVE);
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.SCHEDULED));
+        when(alertRepository.activateIfPending(
+                        eq(ID),
+                        eq(NOW),
+                        eq(AlertStatus.ACTIVE),
+                        eq(List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED))))
+                .thenReturn(1);
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
         AlertResponse expected = givenMapperReturnsResponse(alert);
 
         AlertResponse result = service.activate(ID, ACTOR);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.ACTIVE, alert.getStatus());
-        assertEquals(NOW, alert.getActivatedAt());
-        assertEquals(NOW, alert.getUpdatedAt());
         verify(stateMachine).assertTransition(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
-        verify(alertRepository).saveAndFlush(alert);
+        verify(alertRepository).activateIfPending(
+                ID,
+                NOW,
+                AlertStatus.ACTIVE,
+                List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED));
         verify(auditService).record(
                 ID,
                 AuditAction.ACTIVATE,
@@ -228,11 +244,52 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alerta activada");
+        verify(eventPublisher).publishEvent(any(AlertActivatedEvent.class));
+    }
+
+    @Test
+    void activate_shouldActivateAlert_whenAlertIsDraft() {
+        AlertEntity alert = alertWithStatus(AlertStatus.ACTIVE);
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.DRAFT));
+        when(alertRepository.activateIfPending(
+                        eq(ID),
+                        eq(NOW),
+                        eq(AlertStatus.ACTIVE),
+                        eq(List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED))))
+                .thenReturn(1);
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
+        AlertResponse expected = givenMapperReturnsResponse(alert);
+
+        AlertResponse result = service.activate(ID, ACTOR);
+
+        assertSame(expected, result);
+        verify(stateMachine).assertTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE);
+        verify(auditService).record(
+                ID,
+                AuditAction.ACTIVATE,
+                ACTOR,
+                AlertStatus.DRAFT,
+                AlertStatus.ACTIVE,
+                "Alerta activada");
+    }
+
+    @Test
+    void activate_shouldReturnAlertWithoutAudit_whenAlertIsAlreadyActive() {
+        AlertEntity alert = alertWithStatus(AlertStatus.ACTIVE);
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.ACTIVE));
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
+        AlertResponse expected = givenMapperReturnsResponse(alert);
+
+        AlertResponse result = service.activate(ID, ACTOR);
+
+        assertSame(expected, result);
+        verifyNoInteractions(stateMachine, auditService);
+        verify(alertRepository, never()).activateIfPending(any(), any(), any(), anyList());
     }
 
     @Test
     void activate_shouldThrowNotFound_whenAlertDoesNotExist() {
-        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.empty());
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.empty());
 
         assertThrows(AlertNotFoundException.class, () -> service.activate(ID, ACTOR));
 
@@ -240,18 +297,19 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
-    void activate_shouldThrowInvalidTransition_whenAlertIsNotScheduled() {
-        AlertEntity alert = alertWithStatus(AlertStatus.DRAFT);
-        givenAlertExists(alert);
+    void activate_shouldThrowInvalidTransition_whenAlertCannotBeActivated() {
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.ENDED));
+        doThrow(new InvalidTransitionException(AlertStatus.ENDED, AlertStatus.ACTIVE))
+                .when(stateMachine)
+                .assertTransition(AlertStatus.ENDED, AlertStatus.ACTIVE);
 
         assertThrows(InvalidTransitionException.class, () -> service.activate(ID, ACTOR));
 
-        assertEquals(AlertStatus.DRAFT, alert.getStatus());
-        verifyNoInteractions(stateMachine, auditService);
-        verify(alertRepository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+        verify(alertRepository, never()).activateIfPending(any(), any(), any(), anyList());
+        verifyNoInteractions(auditService);
     }
 
-    // activateScheduledAlerts 
+    // activateScheduledAlerts
 
     @Test
     void activateScheduledAlerts_shouldActivateAllAlerts_whenTheyAreDue() {
@@ -260,30 +318,42 @@ class AlertLifecycleServiceImplTest {
         AlertEntity second = alertWithStatus(AlertStatus.SCHEDULED, secondId);
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of(first, second));
+        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.SCHEDULED));
+        when(alertRepository.findStatusById(secondId)).thenReturn(Optional.of(AlertStatus.SCHEDULED));
+        when(alertRepository.activateIfPending(
+                        eq(ID),
+                        eq(NOW),
+                        eq(AlertStatus.ACTIVE),
+                        eq(List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED))))
+                .thenReturn(1);
+        when(alertRepository.activateIfPending(
+                        eq(secondId),
+                        eq(NOW),
+                        eq(AlertStatus.ACTIVE),
+                        eq(List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED))))
+                .thenReturn(1);
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alertWithStatus(AlertStatus.ACTIVE, ID)));
+        when(alertRepository.findById(secondId))
+                .thenReturn(Optional.of(alertWithStatus(AlertStatus.ACTIVE, secondId)));
 
         service.activateScheduledAlerts();
 
-        assertEquals(AlertStatus.ACTIVE, first.getStatus());
-        assertEquals(AlertStatus.ACTIVE, second.getStatus());
-        assertEquals(NOW, first.getActivatedAt());
-        assertEquals(NOW, second.getActivatedAt());
         verify(stateMachine, times(2)).assertTransition(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
-        verify(alertRepository).saveAndFlush(first);
-        verify(alertRepository).saveAndFlush(second);
         verify(auditService).record(
                 ID,
                 AuditAction.ACTIVATE,
-                "system",
+                ActorResolver.SYSTEM_SCHEDULER,
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alerta activada automáticamente");
         verify(auditService).record(
                 secondId,
                 AuditAction.ACTIVATE,
-                "system",
+                ActorResolver.SYSTEM_SCHEDULER,
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alerta activada automáticamente");
+        verify(eventPublisher, times(2)).publishEvent(any(AlertActivatedEvent.class));
     }
 
     @Test
