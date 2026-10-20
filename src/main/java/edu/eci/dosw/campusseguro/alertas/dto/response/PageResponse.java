@@ -5,8 +5,8 @@ import org.springframework.data.domain.Page;
 
 public record PageResponse<T>(
         List<T> contenido,
-        int page,
-        int size,
+        int pagina,
+        int tamano,
         long totalElementos,
         int totalPaginas) {
 

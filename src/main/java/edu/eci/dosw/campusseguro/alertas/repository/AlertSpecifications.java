@@ -3,7 +3,6 @@ package edu.eci.dosw.campusseguro.alertas.repository;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -17,7 +16,6 @@ public final class AlertSpecifications {
     public static Specification<AlertEntity> fromFilter(AlertFilter filter, ZoneId zone) {
         return Specification.allOf(
                 hasStatus(filter.estado()),
-                hasType(filter.tipo()),
                 createdFrom(startOfDay(filter.fechaInicio(), zone)),
                 createdBefore(startOfDay(nextDay(filter.fechaFin()), zone)),
                 hasSimulationId(filter.simulationId()));
@@ -25,10 +23,6 @@ public final class AlertSpecifications {
 
     private static Specification<AlertEntity> hasStatus(AlertStatus status) {
         return (root, query, cb) -> status == null ? cb.conjunction() : cb.equal(root.get("status"), status);
-    }
-
-    private static Specification<AlertEntity> hasType(AlertType type) {
-        return (root, query, cb) -> type == null ? cb.conjunction() : cb.equal(root.get("type"), type);
     }
 
     private static Specification<AlertEntity> createdFrom(Instant from) {

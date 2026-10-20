@@ -27,18 +27,31 @@ public class AlertAccessPolicy {
     }
 
     public void assertCanView(AlertEntity alert, AccessActor actor) {
+        assertCanView(alert, actor, recipientRepository.findByAlertId(alert.getId()));
+    }
+
+    public void assertCanView(AlertEntity alert, AccessActor actor, List<AlertRecipientEntity> recipients) {
         if (actor.roles().stream().anyMatch(PRIVILEGED_ROLES::contains)) {
             return;
         }
-        boolean delivered = deliveryRepository.existsByAlertIdAndUserId(alert.getId(), actor.userId());
-        if (isRecipient(alert.getId(), actor) || delivered) {
+        if (isRecipient(recipients, actor) || isDelivered(alert.getId(), actor)) {
             return;
         }
         throw new NotARecipientException(alert.getId());
     }
 
-    private boolean isRecipient(UUID alertId, AccessActor actor) {
-        List<AlertRecipientEntity> recipients = recipientRepository.findByAlertId(alertId);
+    public void assertCanConfirm(UUID alertId, AccessActor actor, List<AlertRecipientEntity> recipients) {
+        if (isRecipient(recipients, actor) || isDelivered(alertId, actor)) {
+            return;
+        }
+        throw new NotARecipientException(alertId);
+    }
+
+    private boolean isDelivered(UUID alertId, AccessActor actor) {
+        return deliveryRepository.existsByAlertIdAndUserId(alertId, actor.userId());
+    }
+
+    private boolean isRecipient(List<AlertRecipientEntity> recipients, AccessActor actor) {
         return recipients.stream().anyMatch(recipient -> matches(recipient, actor));
     }
 

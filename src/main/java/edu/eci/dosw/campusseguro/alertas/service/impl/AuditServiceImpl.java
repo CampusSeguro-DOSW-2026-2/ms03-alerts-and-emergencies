@@ -27,7 +27,7 @@ public class AuditServiceImpl implements AuditService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.MANDATORY)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void record(UUID alertId, AuditAction action, String actor, AlertStatus fromStatus, AlertStatus toStatus, String details) {
         Instant now = clock.instant();
         AuditEventEntity event = new AuditEventEntity();

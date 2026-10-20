@@ -61,6 +61,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<Object> handleInvalidActivationDate(InvalidActivationDateException ex, HttpServletRequest request) {
         return respond(ErrorCode.INVALID_ACTIVATION_DATE, ex.getMessage(), request.getRequestURI(), List.of());
     }
+    @ExceptionHandler(InvalidAlertRequestException.class)
+    public ResponseEntity<Object> handleInvalidAlertRequest(InvalidAlertRequestException ex, HttpServletRequest request) {
+        List<ErrorResponse.Detail> details = List.of(new ErrorResponse.Detail(ex.getField(), ex.getMessage()));
+        return respond(ErrorCode.VALIDATION_ERROR, ErrorCode.VALIDATION_ERROR.defaultMessage(), request.getRequestURI(), details);
+    }
+
+    @ExceptionHandler(SimulationMismatchException.class)
+    public ResponseEntity<Object> handleSimulationMismatch(SimulationMismatchException ex, HttpServletRequest request) {
+        return respond(ErrorCode.SIMULATION_MISMATCH, ex.getMessage(), request.getRequestURI(), List.of());
+    }
+
+    @ExceptionHandler(DuplicateSimulationAlertException.class)
+    public ResponseEntity<Object> handleDuplicateSimulationAlert(
+            DuplicateSimulationAlertException ex, HttpServletRequest request) {
+        return respond(ErrorCode.DUPLICATE_SIMULATION_ALERT, ex.getMessage(), request.getRequestURI(), List.of());
+    }
+
     @ExceptionHandler(InvalidReferenceException.class)
     public ResponseEntity<Object> handleInvalidReference(InvalidReferenceException ex, HttpServletRequest request) {
         List<ErrorResponse.Detail> details = ex.getInvalidIds().stream()

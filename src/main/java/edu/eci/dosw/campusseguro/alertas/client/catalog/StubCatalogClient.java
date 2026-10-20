@@ -8,6 +8,7 @@ import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.context.annotation.Profile;
@@ -58,6 +59,14 @@ public class StubCatalogClient implements CatalogClient {
         if (!invalid.isEmpty()) {
             throw new InvalidReferenceException(RECIPIENTS_FIELD, invalid);
         }
+    }
+
+    @Override
+    public Optional<ResolvedUser> findUserById(String userId) {
+        return users.stream()
+                .filter(user -> user.id().equals(userId))
+                .findFirst()
+                .map(user -> new ResolvedUser(user.id(), user.email(), user.name()));
     }
 
     @Override

@@ -4,6 +4,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import jakarta.persistence.LockModeType;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -21,6 +22,10 @@ public interface AlertRepository extends JpaRepository<AlertEntity, UUID>, JpaSp
     Optional<AlertEntity> findForUpdate(@Param("id") UUID id);
 
     List<AlertEntity> findByStatusAndActivationAtLessThanEqual(AlertStatus status, Instant activationAt);
+
+    Optional<AlertEntity> findFirstBySimulationIdAndStatusIn(String simulationId, Collection<AlertStatus> statuses);
+
+    Optional<AlertEntity> findBySimulationId(String simulationId);
 
     @Query("select a.status from AlertEntity a where a.id = :id")
     Optional<AlertStatus> findStatusById(@Param("id") UUID id);

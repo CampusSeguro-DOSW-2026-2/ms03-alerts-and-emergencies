@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 public class ActorResolver {
 
     public static final String SYSTEM_SCHEDULER = "SYSTEM_SCHEDULER";
+    public static final String SYSTEM_NOTIFIER = "SYSTEM_NOTIFIER";
 
     private static final int MAX_ACTOR_LENGTH = 64;
 

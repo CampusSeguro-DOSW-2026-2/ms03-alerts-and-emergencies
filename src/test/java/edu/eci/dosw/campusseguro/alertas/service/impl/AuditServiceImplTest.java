@@ -106,7 +106,7 @@ class AuditServiceImplTest {
     }
 
     @Test
-    void record_shouldRequireExistingTransaction() throws NoSuchMethodException {
+    void record_shouldJoinOrCreateTransaction() throws NoSuchMethodException {
         Method method = AuditServiceImpl.class.getMethod(
                 "record",
                 UUID.class,
@@ -118,6 +118,6 @@ class AuditServiceImplTest {
 
         Transactional transactional = method.getAnnotation(Transactional.class);
 
-        assertEquals(Propagation.MANDATORY, transactional.propagation());
+        assertEquals(Propagation.REQUIRED, transactional.propagation());
     }
 }

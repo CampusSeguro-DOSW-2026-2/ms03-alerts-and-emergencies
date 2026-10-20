@@ -12,7 +12,7 @@ import java.util.UUID;
 
 public interface AlertService {
 
-    AlertResponse create(AlertCreateRequest request, String actor);
+    AlertCreationResult create(AlertCreateRequest request, String actor);
 
     AlertResponse update(UUID id, AlertUpdateRequest request, String actor);
 

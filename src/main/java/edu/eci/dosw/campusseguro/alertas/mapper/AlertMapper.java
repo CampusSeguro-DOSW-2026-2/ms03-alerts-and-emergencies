@@ -39,7 +39,8 @@ public class AlertMapper {
         AlertEntity alert = new AlertEntity();
         alert.setType(request.tipo());
         alert.setStatus(AlertStatus.DRAFT);
-        alert.setOrigin(AlertOrigin.MANUAL);
+        alert.setOrigin(request.origen() == null ? AlertOrigin.MANUAL : request.origen().tipo());
+        alert.setSimulationId(request.origen() == null ? null : blankToNull(request.origen().simulationId()));
         alert.setInstructions(request.instrucciones().strip());
         alert.setCreatedBy(actor);
         alert.setCreatedAt(now);
@@ -133,5 +134,9 @@ public class AlertMapper {
         item.setCreatedAt(now);
         item.setUpdatedAt(now);
         return item;
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
     }
 }

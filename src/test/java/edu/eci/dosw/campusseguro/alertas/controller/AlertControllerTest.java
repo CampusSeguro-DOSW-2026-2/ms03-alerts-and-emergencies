@@ -1,4 +1,4 @@
-package edu.eci.dosw.campusseguro.alertas.controller;
+﻿package edu.eci.dosw.campusseguro.alertas.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -23,8 +24,8 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.StateChangeResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
@@ -88,12 +89,14 @@ class AlertControllerTest {
 
     private AlertResponse response;
 
+    private StateChangeResponse stateChange;
+
     @BeforeEach
     void setUp() {
         lenient().when(actorResolver.resolve()).thenReturn(ACTOR);
-        // Created here (not inside thenReturn(...)) to avoid nested stubbing
         response = mock(AlertResponse.class);
         lenient().when(response.id()).thenReturn(ID);
+        stateChange = new StateChangeResponse(ID, AlertStatus.DRAFT, AlertStatus.SCHEDULED, java.time.Instant.EPOCH);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AlertController(
                         alertService,
@@ -157,7 +160,6 @@ class AlertControllerTest {
         verify(alertService).search(captor.capture());
         AlertFilter filter = captor.getValue();
         assertNull(filter.estado());
-        assertNull(filter.tipo());
         assertNull(filter.fechaInicio());
         assertNull(filter.fechaFin());
         assertNull(filter.simulationId());
@@ -171,7 +173,6 @@ class AlertControllerTest {
 
         mockMvc.perform(get(BASE_URL)
                         .param("estado", "ACTIVE")
-                        .param("tipo", "EARTHQUAKE")
                         .param("fechaInicio", "2026-10-01")
                         .param("fechaFin", "2026-10-10")
                         .param("simulationId", "SIM-1")
@@ -183,7 +184,6 @@ class AlertControllerTest {
         verify(alertService).search(captor.capture());
         AlertFilter filter = captor.getValue();
         assertEquals(AlertStatus.ACTIVE, filter.estado());
-        assertEquals(AlertType.EARTHQUAKE, filter.tipo());
         assertEquals(LocalDate.of(2026, 10, 1), filter.fechaInicio());
         assertEquals(LocalDate.of(2026, 10, 10), filter.fechaFin());
         assertEquals("SIM-1", filter.simulationId());
@@ -262,20 +262,20 @@ class AlertControllerTest {
     @Test
     void schedule_shouldReturn200AndPassResolvedActor_whenRequestIsValid() throws Exception {
         when(alertLifecycleService.schedule(eq(ID), any(AlertScheduleRequest.class), eq(ACTOR)))
-                .thenReturn(response);
+                .thenReturn(stateChange);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/programacion", ID)
+        mockMvc.perform(patch(BASE_URL + "/{id}/programar", ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_SCHEDULE_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
+                .andExpect(jsonPath("$.idAlerta").value(ID.toString()));
 
         verify(alertLifecycleService).schedule(eq(ID), any(AlertScheduleRequest.class), eq(ACTOR));
     }
 
     @Test
     void schedule_shouldReturn400AndNotCallService_whenBodyIsMissing() throws Exception {
-        mockMvc.perform(put(BASE_URL + "/{id}/programacion", ID).contentType(MediaType.APPLICATION_JSON))
+        mockMvc.perform(patch(BASE_URL + "/{id}/programar", ID).contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(alertLifecycleService);
@@ -285,18 +285,18 @@ class AlertControllerTest {
 
     @Test
     void activate_shouldReturn200AndPassResolvedActor_whenAlertExists() throws Exception {
-        when(alertLifecycleService.activate(ID, ACTOR)).thenReturn(response);
+        when(alertLifecycleService.activate(ID, ACTOR)).thenReturn(stateChange);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/activacion", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/activar", ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
+                .andExpect(jsonPath("$.idAlerta").value(ID.toString()));
 
         verify(alertLifecycleService).activate(ID, ACTOR);
     }
 
     @Test
     void activate_shouldReturn400AndNotCallService_whenIdIsNotAUuid() throws Exception {
-        mockMvc.perform(put(BASE_URL + "/{id}/activacion", "not-a-uuid"))
+        mockMvc.perform(patch(BASE_URL + "/{id}/activar", "not-a-uuid"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(alertLifecycleService);
@@ -306,11 +306,11 @@ class AlertControllerTest {
 
     @Test
     void end_shouldReturn200AndPassResolvedActor_whenAlertExists() throws Exception {
-        when(alertLifecycleService.end(ID, ACTOR)).thenReturn(response);
+        when(alertLifecycleService.end(ID, ACTOR)).thenReturn(stateChange);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/finalizacion", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
+                .andExpect(jsonPath("$.idAlerta").value(ID.toString()));
 
         verify(alertLifecycleService).end(ID, ACTOR);
     }
@@ -319,11 +319,11 @@ class AlertControllerTest {
 
     @Test
     void archive_shouldReturn200AndPassResolvedActor_whenAlertExists() throws Exception {
-        when(alertLifecycleService.archive(ID, ACTOR)).thenReturn(response);
+        when(alertLifecycleService.archive(ID, ACTOR)).thenReturn(stateChange);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/archivado", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/archivar", ID))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
+                .andExpect(jsonPath("$.idAlerta").value(ID.toString()));
 
         verify(alertLifecycleService).archive(ID, ACTOR);
     }

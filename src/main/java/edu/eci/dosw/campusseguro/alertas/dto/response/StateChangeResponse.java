@@ -5,7 +5,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record StateChangeResponse(
-        UUID id,
-        AlertStatus estado,
-        Instant fechaActivacionProgramada) {
+        UUID idAlerta,
+        AlertStatus estadoAnterior,
+        AlertStatus estadoNuevo,
+        Instant fechaCambio) {
 }
