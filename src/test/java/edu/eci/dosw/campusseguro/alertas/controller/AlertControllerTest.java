@@ -1,4 +1,4 @@
-﻿package edu.eci.dosw.campusseguro.alertas.controller;
+package edu.eci.dosw.campusseguro.alertas.controller;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -23,14 +23,21 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.AuditEventResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.ConfirmationResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.StateChangeResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import edu.eci.dosw.campusseguro.alertas.service.AuditQueryService;
+import edu.eci.dosw.campusseguro.alertas.service.ConfirmationResult;
+import edu.eci.dosw.campusseguro.alertas.service.ConfirmationService;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -85,6 +92,9 @@ class AlertControllerTest {
     @Mock
     private AuditQueryService auditQueryService;
 
+    @Mock
+    private ConfirmationService confirmationService;
+
     private MockMvc mockMvc;
 
     private AlertResponse response;
@@ -102,7 +112,8 @@ class AlertControllerTest {
                         alertService,
                         alertLifecycleService,
                         actorResolver,
-                        auditQueryService))
+                        auditQueryService,
+                        confirmationService))
                 .build();
     }
 
@@ -116,7 +127,8 @@ class AlertControllerTest {
 
     @Test
     void create_shouldReturn201WithLocationHeader_whenRequestIsValid() throws Exception {
-        when(alertService.create(any(AlertCreateRequest.class), eq(ACTOR))).thenReturn(response);
+        when(alertService.create(any(AlertCreateRequest.class), eq(ACTOR)))
+                .thenReturn(new AlertCreationResult(response, true));
 
         mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,6 +138,19 @@ class AlertControllerTest {
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
         verify(alertService).create(any(AlertCreateRequest.class), eq(ACTOR));
+    }
+
+    @Test
+    void create_shouldReturn200WithoutLocation_whenSimulationIsIdempotent() throws Exception {
+        when(alertService.create(any(AlertCreateRequest.class), eq(ACTOR)))
+                .thenReturn(new AlertCreationResult(response, false));
+
+        mockMvc.perform(post(BASE_URL)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(VALID_CREATE_JSON))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("Location"))
+                .andExpect(jsonPath("$.id").value(ID.toString()));
     }
 
     @Test
@@ -306,13 +331,86 @@ class AlertControllerTest {
 
     @Test
     void end_shouldReturn200AndPassResolvedActor_whenAlertExists() throws Exception {
-        when(alertLifecycleService.end(ID, ACTOR)).thenReturn(stateChange);
+        when(alertLifecycleService.end(eq(ID), any(), eq(ACTOR))).thenReturn(stateChange);
 
         mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idAlerta").value(ID.toString()));
 
-        verify(alertLifecycleService).end(ID, ACTOR);
+        verify(alertLifecycleService).end(eq(ID), any(), eq(ACTOR));
+    }
+
+    @Test
+    void end_shouldBindSimulationId_whenBodyIsProvided() throws Exception {
+        when(alertLifecycleService.end(eq(ID), any(), eq(ACTOR))).thenReturn(stateChange);
+
+        mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"simulationId\":\"SIM-9\"}"))
+                .andExpect(status().isOk());
+
+        verify(alertLifecycleService).end(eq(ID),
+                org.mockito.ArgumentMatchers.argThat(request -> "SIM-9".equals(request.simulationId())),
+                eq(ACTOR));
+    }
+
+    @Test
+    void end_shouldReturn400AndNotCallService_whenSimulationIdIsTooLong() throws Exception {
+        String tooLong = "x".repeat(65);
+        mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"simulationId\":\"" + tooLong + "\"}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(alertLifecycleService);
+    }
+
+    // confirmations 
+
+    @Test
+    void confirm_shouldReturn201_whenConfirmationIsCreated() throws Exception {
+        ConfirmationResponse confirmation =
+                new ConfirmationResponse(UUID.randomUUID(), ID, "usr-001", Instant.EPOCH);
+        when(confirmationService.confirm(eq(ID), any(AccessActor.class)))
+                .thenReturn(new ConfirmationResult(confirmation, true));
+
+        mockMvc.perform(post(BASE_URL + "/{id}/confirmaciones", ID))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.idAlerta").value(ID.toString()))
+                .andExpect(jsonPath("$.usuarioId").value("usr-001"));
+    }
+
+    @Test
+    void confirm_shouldReturn200_whenConfirmationAlreadyExists() throws Exception {
+        ConfirmationResponse confirmation =
+                new ConfirmationResponse(UUID.randomUUID(), ID, "usr-001", Instant.EPOCH);
+        when(confirmationService.confirm(eq(ID), any(AccessActor.class)))
+                .thenReturn(new ConfirmationResult(confirmation, false));
+
+        mockMvc.perform(post(BASE_URL + "/{id}/confirmaciones", ID))
+                .andExpect(status().isOk());
+    }
+
+    // audit 
+
+    @Test
+    void audit_shouldReturnEvents_whenAlertExists() throws Exception {
+        AuditEventResponse event = new AuditEventResponse(UUID.randomUUID(), ID, ACTOR, "USER",
+                AuditAction.CREATE, null, AlertStatus.DRAFT, "detalle", Instant.EPOCH);
+        when(auditQueryService.findByAlert(ID)).thenReturn(List.of(event));
+
+        mockMvc.perform(get(BASE_URL + "/{id}/auditoria", ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].action").value("CREATE"))
+                .andExpect(jsonPath("$[0].actor").value(ACTOR));
+    }
+
+    @Test
+    void audit_shouldReturn400_whenIdIsNotAUuid() throws Exception {
+        mockMvc.perform(get(BASE_URL + "/{id}/auditoria", "not-a-uuid"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(auditQueryService);
     }
 
     // archive 

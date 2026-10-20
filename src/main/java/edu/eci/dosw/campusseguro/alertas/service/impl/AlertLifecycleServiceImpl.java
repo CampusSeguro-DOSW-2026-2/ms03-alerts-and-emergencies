@@ -9,6 +9,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
@@ -27,6 +28,7 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -77,6 +79,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         }
 
         stateMachine.assertTransition(alert.getStatus(), AlertStatus.SCHEDULED);
+        assertNoOtherLiveSimulation(alert);
 
         AlertStatus previousStatus = alert.getStatus();
 
@@ -84,7 +87,11 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         alert.setStatus(AlertStatus.SCHEDULED);
         alert.setUpdatedAt(now);
 
-        alertRepository.saveAndFlush(alert);
+        try {
+            alertRepository.saveAndFlush(alert);
+        } catch (DataIntegrityViolationException ex) {
+            throw duplicateOrRethrow(alert, ex);
+        }
 
         auditService.record(
                 alert.getId(),
@@ -100,8 +107,9 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     @Override
     @Transactional
     public StateChangeResponse activate(UUID id, String actor) {
-        AlertStatus previousStatus = alertRepository.findStatusById(id)
+        AlertEntity alert = alertRepository.findById(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
+        AlertStatus previousStatus = alert.getStatus();
 
         Instant now = clock.instant();
 
@@ -112,12 +120,18 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         assertNotArchived(previousStatus);
 
         stateMachine.assertTransition(previousStatus, AlertStatus.ACTIVE);
+        assertNoOtherLiveSimulation(alert);
 
-        int updated = alertRepository.activateIfPending(
-                id,
-                now,
-                AlertStatus.ACTIVE,
-                List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED));
+        int updated;
+        try {
+            updated = alertRepository.activateIfPending(
+                    id,
+                    now,
+                    AlertStatus.ACTIVE,
+                    List.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED));
+        } catch (DataIntegrityViolationException ex) {
+            throw duplicateOrRethrow(alert, ex);
+        }
 
         if (updated == 0) {
             AlertStatus currentStatus = alertRepository.findStatusById(id)
@@ -235,6 +249,34 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 "Alerta archivada");
 
         return new StateChangeResponse(id, previousStatus, AlertStatus.ARCHIVED, now);
+    }
+
+    private void assertNoOtherLiveSimulation(AlertEntity alert) {
+        DuplicateSimulationAlertException conflict = liveSimulationConflict(alert);
+        if (conflict != null) {
+            throw conflict;
+        }
+    }
+
+    private RuntimeException duplicateOrRethrow(AlertEntity alert, DataIntegrityViolationException ex) {
+        if (alert.getSimulationId() == null) {
+            return ex;
+        }
+        DuplicateSimulationAlertException conflict =
+                requiresNewTransaction.execute(status -> liveSimulationConflict(alert));
+        return conflict != null ? conflict : ex;
+    }
+
+    private DuplicateSimulationAlertException liveSimulationConflict(AlertEntity alert) {
+        if (alert.getSimulationId() == null) {
+            return null;
+        }
+        return alertRepository.findFirstBySimulationIdAndStatusIn(
+                        alert.getSimulationId(), List.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE))
+                .filter(existing -> !existing.getId().equals(alert.getId()))
+                .map(existing -> new DuplicateSimulationAlertException(
+                        alert.getSimulationId(), existing.getId()))
+                .orElse(null);
     }
 
     private void assertSimulationMatches(AlertEntity alert, AlertEndRequest request, String actor) {

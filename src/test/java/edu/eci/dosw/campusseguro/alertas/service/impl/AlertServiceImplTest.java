@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -25,6 +26,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
@@ -37,6 +39,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -60,6 +63,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class AlertServiceImplTest {
@@ -92,10 +99,27 @@ class AlertServiceImplTest {
     @Mock
     private AlertAccessPolicy accessPolicy;
 
+    @Mock
+    private AlertLifecycleService alertLifecycleService;
+
     private AlertServiceImpl service;
 
     @BeforeEach
     void setUp() {
+        PlatformTransactionManager transactionManager = new PlatformTransactionManager() {
+            @Override
+            public TransactionStatus getTransaction(TransactionDefinition definition) {
+                return new SimpleTransactionStatus();
+            }
+
+            @Override
+            public void commit(TransactionStatus status) {
+            }
+
+            @Override
+            public void rollback(TransactionStatus status) {
+            }
+        };
         service = new AlertServiceImpl(
                 alertRepository,
                 scopeItemRepository,
@@ -105,7 +129,9 @@ class AlertServiceImplTest {
                 alertMapper,
                 stateRules,
                 accessPolicy,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                alertLifecycleService,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                transactionManager);
     }
 
     // some functions to avoid repeating code
@@ -148,6 +174,7 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instrucciones");
+        saved.setOrigin(AlertOrigin.MANUAL);
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
         List<AlertRecipientEntity> recipientEntities = List.of(new AlertRecipientEntity());
         AlertResponse expected = mock(AlertResponse.class);
@@ -162,9 +189,10 @@ class AlertServiceImplTest {
         when(recipientRepository.saveAll(recipientEntities)).thenReturn(recipientEntities);
         when(alertMapper.toResponse(saved, scopeItems, recipientEntities)).thenReturn(expected);
 
-        AlertResponse result = service.create(request, ACTOR);
+        var result = service.create(request, ACTOR);
 
-        assertSame(expected, result);
+        assertTrue(result.created());
+        assertSame(expected, result.alert());
         verify(catalogClient, never()).validateBuildingsZones(any(), any());
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
@@ -173,7 +201,7 @@ class AlertServiceImplTest {
                 ACTOR,
                 null,
                 AlertStatus.DRAFT,
-                "Alerta creada: tipo=EARTHQUAKE, alcance=CAMPUS, destinatarios=1");
+                "Alerta creada: tipo=EARTHQUAKE, origen=MANUAL, alcance=CAMPUS, destinatarios=1");
     }
 
     @Test

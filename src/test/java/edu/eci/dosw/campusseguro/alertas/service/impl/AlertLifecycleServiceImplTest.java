@@ -19,6 +19,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
@@ -163,7 +164,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldActivateAlert_whenAlertIsScheduled() {
-        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.SCHEDULED));
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alertWithStatus(AlertStatus.SCHEDULED)));
         when(alertRepository.activateIfPending(
                         eq(ID),
                         eq(NOW),
@@ -189,7 +190,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldActivateAlert_whenAlertIsDraft() {
-        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.DRAFT));
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alertWithStatus(AlertStatus.DRAFT)));
         when(alertRepository.activateIfPending(
                         eq(ID),
                         eq(NOW),
@@ -206,7 +207,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldReturnCurrentState_whenAlertIsAlreadyActive() {
-        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.ACTIVE));
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alertWithStatus(AlertStatus.ACTIVE)));
 
         StateChangeResponse result = service.activate(ID, ACTOR);
 
@@ -218,7 +219,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldThrowNotFound_whenAlertDoesNotExist() {
-        when(alertRepository.findStatusById(ID)).thenReturn(Optional.empty());
+        when(alertRepository.findById(ID)).thenReturn(Optional.empty());
 
         assertThrows(AlertNotFoundException.class, () -> service.activate(ID, ACTOR));
 
@@ -227,7 +228,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldThrowInvalidTransition_whenAlertCannotBeActivated() {
-        when(alertRepository.findStatusById(ID)).thenReturn(Optional.of(AlertStatus.ENDED));
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alertWithStatus(AlertStatus.ENDED)));
         doThrow(new InvalidTransitionException(AlertStatus.ENDED, AlertStatus.ACTIVE))
                 .when(stateMachine)
                 .assertTransition(AlertStatus.ENDED, AlertStatus.ACTIVE);
@@ -239,6 +240,42 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
+    void activate_shouldThrowDuplicate_whenAnotherLiveAlertUsesTheSameSimulation() {
+        UUID existingId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        AlertEntity alert = alertWithStatus(AlertStatus.DRAFT);
+        alert.setSimulationId("sim-001");
+        AlertEntity existing = alertWithStatus(AlertStatus.ACTIVE, existingId);
+        when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
+        when(alertRepository.findFirstBySimulationIdAndStatusIn(
+                        "sim-001", List.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE)))
+                .thenReturn(Optional.of(existing));
+
+        assertThrows(DuplicateSimulationAlertException.class, () -> service.activate(ID, ACTOR));
+
+        verify(alertRepository, never()).activateIfPending(any(), any(), any(), anyList());
+        verifyNoInteractions(auditService, eventPublisher);
+    }
+
+    @Test
+    void schedule_shouldThrowDuplicate_whenAnotherLiveAlertUsesTheSameSimulation() {
+        UUID existingId = UUID.fromString("44444444-4444-4444-4444-444444444444");
+        AlertEntity alert = alertWithStatus(AlertStatus.DRAFT);
+        alert.setSimulationId("sim-001");
+        AlertEntity existing = alertWithStatus(AlertStatus.SCHEDULED, existingId);
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
+        when(alertRepository.findFirstBySimulationIdAndStatusIn(
+                        "sim-001", List.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE)))
+                .thenReturn(Optional.of(existing));
+
+        assertThrows(
+                DuplicateSimulationAlertException.class,
+                () -> service.schedule(ID, requestWithActivation(NOW.plusSeconds(60)), ACTOR));
+
+        verify(alertRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
     void activateScheduledAlerts_shouldActivateDueAlertsAndContinueAfterFailure() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         AlertEntity first = alertWithStatus(AlertStatus.SCHEDULED, ID);
@@ -246,8 +283,8 @@ class AlertLifecycleServiceImplTest {
 
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of(first, second));
-        when(alertRepository.findStatusById(ID)).thenThrow(new IllegalStateException("boom"));
-        when(alertRepository.findStatusById(secondId)).thenReturn(Optional.of(AlertStatus.SCHEDULED));
+        when(alertRepository.findById(ID)).thenThrow(new IllegalStateException("boom"));
+        when(alertRepository.findById(secondId)).thenReturn(Optional.of(alertWithStatus(AlertStatus.SCHEDULED, secondId)));
         when(alertRepository.activateIfPending(
                         eq(secondId),
                         eq(NOW),
