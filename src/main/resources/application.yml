@@ -25,3 +25,13 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   security:
     roles-claim: ${JWT_ROLES_CLAIM:roles}
+  mail:
+    from: ${MAIL_FROM:no-reply@campusseguro.local}
+    from-name: ${MAIL_FROM_NAME:CampusSeguro}
+    app-base-url: ${APP_BASE_URL:http://localhost:5173}
+    daily-limit: ${MAIL_DAILY_LIMIT:300}
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      base-url: ${BREVO_API_URL:https://api.brevo.com}
+      max-attempts: ${BREVO_MAX_ATTEMPTS:3}
+      retry-delay-ms: ${BREVO_RETRY_DELAY_MS:200}
