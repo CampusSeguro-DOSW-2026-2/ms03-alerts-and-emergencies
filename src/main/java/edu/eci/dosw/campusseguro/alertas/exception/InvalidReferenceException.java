@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import java.util.List;
@@ -8,7 +9,8 @@ public class InvalidReferenceException extends RuntimeException {
     private final List<String> invalidIds;
 
     public InvalidReferenceException(String field, List<String> invalidIds) {
-        super("Referencias inexistentes en " + field + ": " + String.join(", ", invalidIds));
+        super("Invalid references in " + field + ": "
+                + String.join(", ", invalidIds));
         this.field = field;
         this.invalidIds = List.copyOf(invalidIds);
     }

@@ -9,10 +9,21 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record AlertCreateRequest(
-        @NotNull(message = "El tipo de alerta es obligatorio") AlertType tipo,
-        @NotNull(message = "El alcance es obligatorio") @Valid ScopeRequest alcance,
-        @NotBlank(message = "Las instrucciones son obligatorias")
-        @Size(max = 1000, message = "Las instrucciones no pueden superar 1000 caracteres") String instrucciones,
-        @NotEmpty(message = "Debe indicar al menos un destinatario")
-        List<@NotNull(message = "El destinatario no puede ser nulo") @Valid RecipientRequest> destinatarios) {
+        @NotNull(message = "Alert type is required")
+        AlertType type,
+
+        @NotNull(message = "Alert scope is required")
+        @Valid
+        ScopeRequest scope,
+
+        @NotBlank(message = "Instructions are required")
+        @Size(max = 1000, message = "Instructions cannot exceed 1000 characters")
+        String instructions,
+
+        @NotEmpty(message = "At least one recipient is required")
+        List<
+                @NotNull(message = "Recipient cannot be null")
+                @Valid RecipientRequest
+        > recipients
+) {
 }

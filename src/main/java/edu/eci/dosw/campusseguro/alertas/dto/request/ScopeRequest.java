@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
@@ -7,6 +8,9 @@ import java.util.List;
 
 @ValidScope
 public record ScopeRequest(
-        @NotNull(message = "El tipo de alcance es obligatorio") ScopeType tipo,
-        List<String> ids) {
+        @NotNull(message = "Scope type is required")
+        ScopeType type,
+
+        List<String> ids
+) {
 }

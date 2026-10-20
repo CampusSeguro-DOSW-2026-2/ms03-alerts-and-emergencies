@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.entity;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
@@ -38,8 +39,8 @@ public class AlertEntity extends BaseEntity {
     @Column(name = "origin", nullable = false, length = 20)
     private AlertOrigin origin;
 
-    @Column(name = "simulation_id", length = 64)
-    private String simulationId;
+    @Column(name = "event_id")
+    private UUID eventId;
 
     @Column(name = "created_by", nullable = false, length = 64)
     private String createdBy;
@@ -96,12 +97,12 @@ public class AlertEntity extends BaseEntity {
         this.origin = origin;
     }
 
-    public String getSimulationId() {
-        return simulationId;
+    public UUID getEventId() {
+        return eventId;
     }
 
-    public void setSimulationId(String simulationId) {
-        this.simulationId = simulationId;
+    public void setEventId(UUID eventId) {
+        this.eventId = eventId;
     }
 
     public String getCreatedBy() {

@@ -52,7 +52,7 @@ public class StubCatalogClient implements CatalogClient {
     public void validateRecipients(List<RecipientRequest> recipients) {
         Set<String> userIds = users.stream().map(UserEntry::id).collect(Collectors.toSet());
         List<String> invalid = recipients.stream()
-                .filter(recipient -> !(recipient.tipo() == RecipientType.USER ? userIds : roleIds).contains(recipient.id()))
+                .filter(recipient -> !(recipient.type() == RecipientType.USER ? userIds : roleIds).contains(recipient.id()))
                 .map(RecipientRequest::id)
                 .toList();
         if (!invalid.isEmpty()) {

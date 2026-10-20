@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.validation;
 
 import jakarta.validation.Constraint;
@@ -14,7 +15,7 @@ import java.lang.annotation.Target;
 @Constraint(validatedBy = AtLeastOneFieldValidator.class)
 public @interface AtLeastOneField {
 
-    String message() default "Debe enviar al menos un campo para modificar";
+    String message() default "At least one field must be provided for the update";
 
     Class<?>[] groups() default {};
 

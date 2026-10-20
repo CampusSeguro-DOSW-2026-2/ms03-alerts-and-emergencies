@@ -5,6 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 
 public record AlertScheduleRequest(
-        @NotNull(message = "La fecha de activación es obligatoria")
+        @NotNull(message = "The activation date is mandatory.")
         Instant activationAt) {
 }

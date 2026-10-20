@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
@@ -11,18 +12,19 @@ import java.util.UUID;
 
 public record AlertResponse(
         UUID id,
-        AlertType tipo,
-        AlertStatus estado,
-        AlertOrigin origen,
-        String simulationId,
-        ScopeRequest alcance,
-        String instrucciones,
-        List<RecipientRequest> destinatarios,
-        String creadaPor,
-        Instant fechaCreacion,
-        Instant fechaActualizacion,
-        Instant fechaActivacionProgramada,
-        Instant fechaActivacion,
-        Instant fechaFinalizacion,
-        Instant fechaArchivado) {
+        AlertType type,
+        AlertStatus status,
+        AlertOrigin origin,
+        UUID eventId,
+        ScopeRequest scope,
+        String instructions,
+        List<RecipientRequest> recipients,
+        String createdBy,
+        Instant createdAt,
+        Instant updatedAt,
+        Instant activationAt,
+        Instant activatedAt,
+        Instant endedAt,
+        Instant archivedAt
+) {
 }

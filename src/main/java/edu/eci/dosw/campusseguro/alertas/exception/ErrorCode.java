@@ -1,28 +1,34 @@
+
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import org.springframework.http.HttpStatus;
 
 public enum ErrorCode {
 
-    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Los datos enviados no son válidos"),
-    INVALID_REFERENCE(HttpStatus.BAD_REQUEST, "Una o más referencias no existen"),
-    INVALID_PAGINATION(HttpStatus.BAD_REQUEST, "Los parámetros de consulta no son válidos"),
-    INVALID_ACTIVATION_DATE(HttpStatus.BAD_REQUEST, "La fecha de activación no es válida"),
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Autenticación requerida o token inválido"),
-    FORBIDDEN(HttpStatus.FORBIDDEN, "No tiene permisos para realizar esta operación"),
-    NOT_A_RECIPIENT(HttpStatus.FORBIDDEN, "No es destinatario de esta alerta"),
-    ALERT_NOT_FOUND(HttpStatus.NOT_FOUND, "La alerta no existe"),
-    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "El recurso solicitado no existe"),
-    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "Método HTTP no permitido"),
-    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Tipo de contenido no soportado"),
-    INVALID_ALERT_STATE(HttpStatus.CONFLICT, "La alerta no está en un estado que admita esta operación"),
-    INVALID_TRANSITION(HttpStatus.CONFLICT, "La transición de estado no es válida"),
-    ALERT_NOT_ACTIVE(HttpStatus.CONFLICT, "La alerta no está activa"),
-    SIMULATION_MISMATCH(HttpStatus.CONFLICT, "El simulacro no corresponde a la alerta"),
-    DUPLICATE_SIMULATION_ALERT(HttpStatus.CONFLICT, "Ya existe una alerta vigente para este simulacro"),
-    CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "La alerta fue modificada por otra persona"),
-    EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Servicio no disponible, intente de nuevo"),
-    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Ocurrió un error inesperado");
+    VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "The submitted data is invalid"),
+    INVALID_REFERENCE(HttpStatus.BAD_REQUEST, "One or more references do not exist"),
+    INVALID_PAGINATION(HttpStatus.BAD_REQUEST, "The query parameters are invalid"),
+    INVALID_ACTIVATION_DATE(HttpStatus.BAD_REQUEST, "The activation date is invalid"),
+
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Authentication is required or the token is invalid"),
+    FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to perform this operation"),
+    NOT_A_RECIPIENT(HttpStatus.FORBIDDEN, "You are not a recipient of this alert"),
+
+    ALERT_NOT_FOUND(HttpStatus.NOT_FOUND, "The alert does not exist"),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "The requested resource was not found"),
+
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "The HTTP method is not allowed"),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "The content type is not supported"),
+
+    INVALID_ALERT_STATE(HttpStatus.CONFLICT, "The alert state does not allow this operation"),
+    INVALID_TRANSITION(HttpStatus.CONFLICT, "The requested state transition is invalid"),
+    ALERT_NOT_ACTIVE(HttpStatus.CONFLICT, "The alert is not active"),
+    EVENT_MISMATCH(HttpStatus.CONFLICT, "The event does not match the alert"),
+    DUPLICATE_EVENT_ALERT(HttpStatus.CONFLICT, "An active or scheduled alert already exists for this event"),
+    CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "The alert was modified by another user"),
+
+    EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "An external service is temporarily unavailable. Please try again later"),
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
 
     private final HttpStatus status;
     private final String defaultMessage;

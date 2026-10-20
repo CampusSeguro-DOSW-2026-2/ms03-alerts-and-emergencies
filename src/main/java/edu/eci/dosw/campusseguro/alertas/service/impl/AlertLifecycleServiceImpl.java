@@ -4,20 +4,22 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
+import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,44 +30,51 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     private final AlertRepository alertRepository;
     private final AlertScopeItemRepository scopeItemRepository;
     private final AlertRecipientRepository recipientRepository;
-    private final AlertStateMachine stateMachine;
-    private final AuditService auditService;
     private final AlertMapper alertMapper;
+    private final AuditService auditService;
+    private final AlertStateMachine alertStateMachine;
     private final Clock clock;
+
 
     public AlertLifecycleServiceImpl(
             AlertRepository alertRepository,
             AlertScopeItemRepository scopeItemRepository,
             AlertRecipientRepository recipientRepository,
-            AlertStateMachine stateMachine,
-            AuditService auditService,
             AlertMapper alertMapper,
+            AuditService auditService,
+            AlertStateMachine alertStateMachine,
             Clock clock) {
         this.alertRepository = alertRepository;
         this.scopeItemRepository = scopeItemRepository;
         this.recipientRepository = recipientRepository;
-        this.stateMachine = stateMachine;
-        this.auditService = auditService;
         this.alertMapper = alertMapper;
+        this.auditService = auditService;
+        this.alertStateMachine = alertStateMachine;
         this.clock = clock;
     }
 
     @Override
     @Transactional
-    public AlertResponse schedule(UUID id, AlertScheduleRequest request, String actor) {
-        AlertEntity alert = alertRepository.findForUpdate(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
+    public AlertResponse schedule(
+            UUID id,
+            AlertScheduleRequest request,
+            String actor) {
+
+        AlertEntity alert = findAlertForUpdate(id);
 
         Instant now = clock.instant();
         Instant activationAt = request.activationAt();
 
         if (activationAt == null || !activationAt.isAfter(now)) {
-            throw new InvalidActivationDateException();
+            throw new IllegalArgumentException(
+                    "The activation date must be in the future.");
         }
 
-        stateMachine.assertTransition(alert.getStatus(), AlertStatus.SCHEDULED);
-
         AlertStatus previousStatus = alert.getStatus();
+
+        alertStateMachine.assertTransition(
+                previousStatus,
+                AlertStatus.SCHEDULED);
 
         alert.setActivationAt(activationAt);
         alert.setStatus(AlertStatus.SCHEDULED);
@@ -79,29 +88,30 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 actor,
                 previousStatus,
                 alert.getStatus(),
-                "Alerta programada para " + activationAt);
+                "Alert scheduled for " + activationAt);
 
-        return alertMapper.toResponse(
-                alert,
-                scopeItemRepository.findByAlertId(id),
-                recipientRepository.findByAlertId(id));
+        return toResponse(alert);
     }
 
     @Override
     @Transactional
     public AlertResponse activate(UUID id, String actor) {
-        AlertEntity alert = alertRepository.findForUpdate(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
+        AlertEntity alert = findAlertForUpdate(id);
 
-        Instant now = clock.instant();
-
-        if (alert.getStatus() != AlertStatus.SCHEDULED) {
-            throw new InvalidTransitionException(alert.getStatus(), AlertStatus.ACTIVE);
+        if (alert.getStatus() == AlertStatus.SCHEDULED
+                && alert.getActivationAt() != null
+                && alert.getActivationAt().isAfter(clock.instant())) {
+            throw new IllegalStateException(
+                    "A scheduled alert cannot be activated before its activation date.");
         }
 
         AlertStatus previousStatus = alert.getStatus();
 
-        stateMachine.assertTransition(previousStatus, AlertStatus.ACTIVE);
+        alertStateMachine.assertTransition(
+                previousStatus,
+                AlertStatus.ACTIVE);
+
+        Instant now = clock.instant();
 
         alert.setStatus(AlertStatus.ACTIVE);
         alert.setActivatedAt(now);
@@ -115,12 +125,9 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 actor,
                 previousStatus,
                 alert.getStatus(),
-                "Alerta activada");
+                "Alert activated manually");
 
-        return alertMapper.toResponse(
-                alert,
-                scopeItemRepository.findByAlertId(id),
-                recipientRepository.findByAlertId(id));
+        return toResponse(alert);
     }
 
     @Override
@@ -128,13 +135,17 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     public void activateScheduledAlerts() {
         Instant now = clock.instant();
 
-        var alerts = alertRepository.findByStatusAndActivationAtLessThanEqual(
-                AlertStatus.SCHEDULED, now);
+        List<AlertEntity> alerts =
+                alertRepository.findByStatusAndActivationAtLessThanEqual(
+                        AlertStatus.SCHEDULED,
+                        now);
 
         for (AlertEntity alert : alerts) {
             AlertStatus previousStatus = alert.getStatus();
 
-            stateMachine.assertTransition(previousStatus, AlertStatus.ACTIVE);
+            alertStateMachine.assertTransition(
+                    previousStatus,
+                    AlertStatus.ACTIVE);
 
             alert.setStatus(AlertStatus.ACTIVE);
             alert.setActivatedAt(now);
@@ -145,32 +156,29 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
             auditService.record(
                     alert.getId(),
                     AuditAction.ACTIVATE,
-                    "system",
+                    ActorResolver.SYSTEM_SCHEDULER,
                     previousStatus,
                     alert.getStatus(),
-                    "Alerta activada automáticamente");
+                    "Alert activated automatically");
         }
     }
 
-    
     @Override
     @Transactional
     public AlertResponse end(UUID id, String actor) {
-        AlertEntity alert = alertRepository.findForUpdate(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
+        AlertEntity alert = findAlertForUpdate(id);
 
-        if (alert.getStatus() == AlertStatus.ENDED) {
-            return alertMapper.toResponse(
-                    alert,
-                    scopeItemRepository.findByAlertId(id),
-                    recipientRepository.findByAlertId(id));
+        if (alert.getStatus() == AlertStatus.ENDED
+                || alert.getStatus() == AlertStatus.ARCHIVED) {
+            return toResponse(alert);
         }
 
         AlertStatus previousStatus = alert.getStatus();
-
-        stateMachine.assertTransition(previousStatus, AlertStatus.ENDED);
-
         Instant now = clock.instant();
+
+        alertStateMachine.assertTransition(
+                previousStatus,
+                AlertStatus.ENDED);
 
         alert.setStatus(AlertStatus.ENDED);
         alert.setEndedAt(now);
@@ -184,33 +192,26 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 actor,
                 previousStatus,
                 alert.getStatus(),
-                "Alerta finalizada");
+                "Alert ended");
 
-        return alertMapper.toResponse(
-                alert,
-                scopeItemRepository.findByAlertId(id),
-                recipientRepository.findByAlertId(id));
+        return toResponse(alert);
     }
 
-    
     @Override
     @Transactional
     public AlertResponse archive(UUID id, String actor) {
-        AlertEntity alert = alertRepository.findForUpdate(id)
-                .orElseThrow(() -> new AlertNotFoundException(id));
+        AlertEntity alert = findAlertForUpdate(id);
 
         if (alert.getStatus() == AlertStatus.ARCHIVED) {
-            return alertMapper.toResponse(
-                    alert,
-                    scopeItemRepository.findByAlertId(id),
-                    recipientRepository.findByAlertId(id));
+            return toResponse(alert);
         }
 
         AlertStatus previousStatus = alert.getStatus();
-
-        stateMachine.assertTransition(previousStatus, AlertStatus.ARCHIVED);
-
         Instant now = clock.instant();
+
+        alertStateMachine.assertTransition(
+                previousStatus,
+                AlertStatus.ARCHIVED);
 
         alert.setStatus(AlertStatus.ARCHIVED);
         alert.setArchivedAt(now);
@@ -224,13 +225,26 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 actor,
                 previousStatus,
                 alert.getStatus(),
-                "Alerta archivada");
+                "Alert archived");
+
+        return toResponse(alert);
+    }
+
+    private AlertEntity findAlertForUpdate(UUID id) {
+        return alertRepository.findForUpdate(id)
+                .orElseThrow(() -> new AlertNotFoundException(id));
+    }
+
+    private AlertResponse toResponse(AlertEntity alert) {
+        List<AlertScopeItemEntity> scopeItems =
+                scopeItemRepository.findByAlertId(alert.getId());
+
+        List<AlertRecipientEntity> recipients =
+                recipientRepository.findByAlertId(alert.getId());
 
         return alertMapper.toResponse(
                 alert,
-                scopeItemRepository.findByAlertId(id),
-                recipientRepository.findByAlertId(id));
+                scopeItems,
+                recipients);
     }
-
-
 }
