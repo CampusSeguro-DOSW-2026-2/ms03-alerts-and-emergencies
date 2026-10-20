@@ -1,6 +1,7 @@
 CREATE TABLE alerts (
     id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
     type           VARCHAR(20)   NOT NULL,
+    title          VARCHAR(150)  NOT NULL,
     status         VARCHAR(20)   NOT NULL DEFAULT 'DRAFT',
     instructions   VARCHAR(1000) NOT NULL,
     origin         VARCHAR(20)   NOT NULL DEFAULT 'MANUAL',
@@ -24,6 +25,9 @@ CREATE TABLE alerts (
 
     CONSTRAINT ck_alerts_origin
         CHECK (origin IN ('MANUAL', 'EVENT')),
+
+    CONSTRAINT ck_alerts_title_not_blank
+        CHECK (length(btrim(title)) > 0),
 
     CONSTRAINT ck_alerts_instructions_not_blank
         CHECK (length(btrim(instructions)) > 0),
