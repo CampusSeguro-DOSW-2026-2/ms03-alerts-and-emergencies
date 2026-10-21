@@ -15,7 +15,7 @@ CREATE TABLE alerts (
     updated_at     TIMESTAMPTZ   NOT NULL DEFAULT now(),
 
     CONSTRAINT ck_alerts_type
-        CHECK (type IN ('EARTHQUAKE')),
+        CHECK (type IN ('EARTHQUAKE', 'SIMULATION', 'FIRE', 'OTHER')),
     CONSTRAINT ck_alerts_status
         CHECK (status IN ('DRAFT', 'SCHEDULED', 'ACTIVE', 'ENDED', 'ARCHIVED')),
     CONSTRAINT ck_alerts_origin
@@ -124,8 +124,8 @@ CREATE TABLE audit_events (
         FOREIGN KEY (alert_id) REFERENCES alerts (id) ON DELETE RESTRICT,
     CONSTRAINT ck_audit_action
         CHECK (action IN ('CREATE', 'UPDATE', 'SCHEDULE', 'ACTIVATE', 'END',
-                          'ARCHIVE', 'CONFIRM', 'NOTIFICATION_FAILED',
-                          'RECIPIENT_RESOLUTION_FAILED')),
+                          'ARCHIVE', 'CONFIRM', 'NOTIFICATION_SENT',
+                          'NOTIFICATION_FAILED', 'RECIPIENT_RESOLUTION_FAILED')),
     CONSTRAINT ck_audit_from_status
         CHECK (from_status IS NULL
             OR from_status IN ('DRAFT', 'SCHEDULED', 'ACTIVE', 'ENDED', 'ARCHIVED')),

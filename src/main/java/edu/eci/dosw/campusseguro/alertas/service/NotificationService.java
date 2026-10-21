@@ -1,7 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
-import edu.eci.dosw.campusseguro.alertas.client.email.EmailMessage;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailSender;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailTemplateBuilder;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
@@ -9,7 +8,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.NotificationDeliveryEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.DeliveryStatus;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
-import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.NotificationDeliveryRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
@@ -99,15 +97,16 @@ public class NotificationService {
             }
 
             try {
-                EmailMessage message = templateBuilder.build(alert, recipient);
-                emailSender.send(message);
-                saveSent(alertId, recipient, delivery, now);
-                sent++;
-            } catch (EmailSendException ex) {
+                emailSender.send(templateBuilder.build(alert, recipient));
+            } catch (RuntimeException ex) {
                 log.warn("No se pudo enviar la notificación de la alerta {} a {}", alertId, recipient.id());
-                saveFailure(alertId, recipient, delivery, now, ex.getMessage());
+                String reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+                saveFailure(alertId, recipient, delivery, now, reason);
                 failed++;
+                continue;
             }
+            saveSent(alertId, recipient, delivery, now);
+            sent++;
         }
 
         String details = "Notificaciones de alerta: enviadas=" + sent + ", fallidas=" + failed;
