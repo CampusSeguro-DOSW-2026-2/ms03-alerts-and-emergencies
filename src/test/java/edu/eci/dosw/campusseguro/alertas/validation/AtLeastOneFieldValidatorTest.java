@@ -28,16 +28,16 @@ class AtLeastOneFieldValidatorTest {
 
     @Test
     void shouldRejectRequestWithoutAnyField() {
-        assertFalse(validator.isValid(new AlertUpdateRequest(null, null, null, null), context));
+        assertFalse(validator.isValid(new AlertUpdateRequest(null, null, null, null, null), context));
     }
 
     @Test
     void shouldAcceptRequestWithAtLeastOneField() {
-        assertTrue(validator.isValid(new AlertUpdateRequest(AlertType.FIRE, null, null, null), context));
+        assertTrue(validator.isValid(new AlertUpdateRequest(AlertType.FIRE, null, null, null, null), context));
         assertTrue(validator.isValid(
-                new AlertUpdateRequest(null, new ScopeRequest(ScopeType.CAMPUS, null), null, null), context));
-        assertTrue(validator.isValid(new AlertUpdateRequest(null, null, "Evacuar", null), context));
-        assertTrue(validator.isValid(new AlertUpdateRequest(null, null, null,
+                new AlertUpdateRequest(null, null, new ScopeRequest(ScopeType.CAMPUS, null), null, null), context));
+        assertTrue(validator.isValid(new AlertUpdateRequest(null, null, null, "Evacuar", null), context));
+        assertTrue(validator.isValid(new AlertUpdateRequest(null, null, null, null,
                 List.of(new RecipientRequest(RecipientType.USER, "usr-001"))), context));
     }
 }

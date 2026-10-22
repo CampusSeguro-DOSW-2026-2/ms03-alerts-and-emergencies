@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 import org.junit.jupiter.api.Test;
 
 class AlertStateMachineTest {
@@ -27,7 +26,7 @@ class AlertStateMachineTest {
     void shouldRejectInvalidTransitions() {
         assertFalse(stateMachine.canTransition(AlertStatus.ACTIVE, AlertStatus.DRAFT));
         assertFalse(stateMachine.canTransition(AlertStatus.ARCHIVED, AlertStatus.ACTIVE));
-        assertThrows(InvalidTransitionException.class,
+        assertThrows(IllegalStateException.class,
                 () -> stateMachine.assertTransition(AlertStatus.ENDED, AlertStatus.ACTIVE));
     }
 

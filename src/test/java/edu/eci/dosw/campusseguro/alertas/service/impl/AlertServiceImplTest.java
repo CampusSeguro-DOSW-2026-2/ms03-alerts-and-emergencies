@@ -3,7 +3,6 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -26,7 +25,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
@@ -37,9 +35,6 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
-import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
-import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
-import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -63,10 +58,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.SimpleTransactionStatus;
 
 @ExtendWith(MockitoExtension.class)
 class AlertServiceImplTest {
@@ -96,30 +87,10 @@ class AlertServiceImplTest {
     @Mock
     private AlertStateRules stateRules;
 
-    @Mock
-    private AlertAccessPolicy accessPolicy;
-
-    @Mock
-    private AlertLifecycleService alertLifecycleService;
-
     private AlertServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        PlatformTransactionManager transactionManager = new PlatformTransactionManager() {
-            @Override
-            public TransactionStatus getTransaction(TransactionDefinition definition) {
-                return new SimpleTransactionStatus();
-            }
-
-            @Override
-            public void commit(TransactionStatus status) {
-            }
-
-            @Override
-            public void rollback(TransactionStatus status) {
-            }
-        };
         service = new AlertServiceImpl(
                 alertRepository,
                 scopeItemRepository,
@@ -128,18 +99,15 @@ class AlertServiceImplTest {
                 auditService,
                 alertMapper,
                 stateRules,
-                accessPolicy,
-                alertLifecycleService,
-                Clock.fixed(NOW, ZoneOffset.UTC),
-                transactionManager);
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
-    // some functions to avoid repeating code
     private AlertEntity alert(AlertStatus status, String instructions) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
         alert.setType(AlertType.EARTHQUAKE);
+        alert.setTitle("Simulacro");
         alert.setInstructions(instructions);
         return alert;
     }
@@ -154,11 +122,10 @@ class AlertServiceImplTest {
 
     private ScopeRequest scopeRequest(ScopeType type) {
         ScopeRequest scope = mock(ScopeRequest.class);
-        when(scope.tipo()).thenReturn(type);
+        when(scope.type()).thenReturn(type);
         return scope;
     }
 
-    // Mockito returns 0 (not null) for unstubbed Integer getters, so page/size must be stubbed explicitly
     private AlertFilter filterWith(Integer page, Integer size) {
         AlertFilter filter = mock(AlertFilter.class);
         when(filter.page()).thenReturn(page);
@@ -166,15 +133,12 @@ class AlertServiceImplTest {
         return filter;
     }
 
-    // create
-
     @Test
     void create_shouldSaveAndAudit_whenScopeIsCampus() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        AlertEntity saved = alert(AlertStatus.DRAFT, "instrucciones");
-        saved.setOrigin(AlertOrigin.MANUAL);
+        AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
         List<AlertRecipientEntity> recipientEntities = List.of(new AlertRecipientEntity());
         AlertResponse expected = mock(AlertResponse.class);
@@ -189,10 +153,9 @@ class AlertServiceImplTest {
         when(recipientRepository.saveAll(recipientEntities)).thenReturn(recipientEntities);
         when(alertMapper.toResponse(saved, scopeItems, recipientEntities)).thenReturn(expected);
 
-        var result = service.create(request, ACTOR);
+        AlertResponse result = service.create(request, ACTOR);
 
-        assertTrue(result.created());
-        assertSame(expected, result.alert());
+        assertSame(expected, result);
         verify(catalogClient, never()).validateBuildingsZones(any(), any());
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
@@ -201,7 +164,7 @@ class AlertServiceImplTest {
                 ACTOR,
                 null,
                 AlertStatus.DRAFT,
-                "Alerta creada: tipo=EARTHQUAKE, origen=MANUAL, alcance=CAMPUS, destinatarios=1");
+                "Alert created: title=Simulacro, type=EARTHQUAKE, scope=CAMPUS, recipients=1");
     }
 
     @Test
@@ -209,7 +172,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.BUILDING);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        AlertEntity saved = alert(AlertStatus.DRAFT, "instrucciones");
+        AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
@@ -255,8 +218,6 @@ class AlertServiceImplTest {
         verifyNoInteractions(auditService);
     }
 
-    // update
-
     @Test
     void update_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.empty());
@@ -270,7 +231,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldPropagateError_whenAlertIsNotEditable() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, "texto");
+        AlertEntity alert = alert(AlertStatus.ACTIVE, "text");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         doThrow(new IllegalStateException("not editable")).when(stateRules).assertEditable(alert);
 
@@ -284,8 +245,8 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNotSaveNorAudit_whenThereAreNoChanges() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
-        AlertUpdateRequest request = mock(AlertUpdateRequest.class); // all fields null
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
@@ -299,9 +260,9 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNotCountAsChange_whenInstructionsAreEqual() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
-        when(request.instrucciones()).thenReturn("  texto  ");
+        when(request.instructions()).thenReturn("  text  ");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
         service.update(ID, request, ACTOR);
@@ -312,17 +273,17 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNormalizeSaveAndAudit_whenInstructionsChange() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto viejo");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "old text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
-        when(request.instrucciones()).thenReturn("  texto nuevo  ");
+        when(request.instructions()).thenReturn("  new text  ");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
         AlertResponse result = service.update(ID, request, ACTOR);
 
         assertSame(expected, result);
-        assertEquals("texto nuevo", alert.getInstructions());
+        assertEquals("new text", alert.getInstructions());
         assertEquals(NOW, alert.getUpdatedAt());
         verify(stateRules).assertEditable(alert);
         verify(alertRepository).saveAndFlush(alert);
@@ -332,16 +293,16 @@ class AlertServiceImplTest {
                 ACTOR,
                 AlertStatus.DRAFT,
                 AlertStatus.DRAFT,
-                "Campos modificados: instrucciones");
+                "Modified fields: instructions");
     }
 
     @Test
     void update_shouldNotValidateNorReplace_whenScopeIsTheSame() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         List<AlertScopeItemEntity> current = List.of(scopeItem(ScopeType.CAMPUS, null));
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         ScopeRequest newScope = mock(ScopeRequest.class);
-        when(request.alcance()).thenReturn(newScope);
+        when(request.scope()).thenReturn(newScope);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(scopeItemRepository.findByAlertId(ID)).thenReturn(current);
         when(alertMapper.normalizeScope(newScope)).thenReturn(newScope);
@@ -356,12 +317,12 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldValidateAndReplaceItems_whenScopeChanges() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertScopeItemEntity oldItem = scopeItem(ScopeType.CAMPUS, null);
         AlertScopeItemEntity newItem = scopeItem(ScopeType.BUILDING, "B1");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         ScopeRequest newScope = scopeRequest(ScopeType.BUILDING);
-        when(request.alcance()).thenReturn(newScope);
+        when(request.scope()).thenReturn(newScope);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(scopeItemRepository.findByAlertId(ID)).thenReturn(List.of(oldItem));
         when(alertMapper.normalizeScope(newScope)).thenReturn(newScope);
@@ -380,94 +341,88 @@ class AlertServiceImplTest {
                 ACTOR,
                 AlertStatus.DRAFT,
                 AlertStatus.DRAFT,
-                "Campos modificados: alcance");
+                "Modified fields: scope");
     }
-
-    // findBy
 
     @Test
     void findById_shouldReturnMappedAlert_whenAlertExists() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertResponse expected = mock(AlertResponse.class);
         when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
-        assertSame(expected, service.findById(ID, new AccessActor("usr-001", java.util.Set.of("STUDENT"))));
+        assertSame(expected, service.findById(ID));
     }
 
     @Test
     void findById_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findById(ID)).thenReturn(Optional.empty());
 
-        assertThrows(
-                AlertNotFoundException.class,
-                () -> service.findById(ID, new AccessActor("usr-001", java.util.Set.of("STUDENT"))));
+        assertThrows(AlertNotFoundException.class, () -> service.findById(ID));
     }
-
-    // search
 
     @Test
     void search_shouldThrowInvalidPagination_whenPageIsNegative() {
         AlertFilter filter = mock(AlertFilter.class);
         when(filter.page()).thenReturn(-1);
- 
+
         assertThrows(InvalidPaginationException.class, () -> service.search(filter));
- 
+
         verifyNoInteractions(alertRepository);
     }
- 
+
     @Test
     void search_shouldThrowInvalidPagination_whenSizeIsLessThanOne() {
         AlertFilter filter = mock(AlertFilter.class);
         when(filter.size()).thenReturn(0);
- 
+
         assertThrows(InvalidPaginationException.class, () -> service.search(filter));
- 
+
         verifyNoInteractions(alertRepository);
     }
- 
+
     @Test
     void search_shouldThrowInvalidPagination_whenSizeIsGreaterThan100() {
         AlertFilter filter = mock(AlertFilter.class);
         when(filter.size()).thenReturn(101);
- 
+
         assertThrows(InvalidPaginationException.class, () -> service.search(filter));
- 
+
         verifyNoInteractions(alertRepository);
     }
- 
+
     @Test
     void search_shouldThrowInvalidPagination_whenStartDateIsAfterEndDate() {
         AlertFilter filter = filterWith(0, 20);
-        when(filter.fechaInicio()).thenReturn(LocalDate.of(2026, 10, 20));
-        when(filter.fechaFin()).thenReturn(LocalDate.of(2026, 10, 10));
- 
+        when(filter.startDate()).thenReturn(LocalDate.of(2026, 10, 20));
+        when(filter.endDate()).thenReturn(LocalDate.of(2026, 10, 10));
+
         assertThrows(InvalidPaginationException.class, () -> service.search(filter));
- 
+
         verifyNoInteractions(alertRepository);
     }
- 
+
     @Test
     void search_shouldNotQueryScopes_whenThereAreNoResults() {
         AlertFilter filter = filterWith(null, null);
         Page<AlertEntity> empty = new PageImpl<>(List.of());
         when(alertRepository.findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), any(Pageable.class)))
                 .thenReturn(empty);
- 
+
         PageResponse<AlertSummaryResponse> result = service.search(filter);
- 
-        assertEquals(0, result.contenido().size());
+
+        assertEquals(0, result.content().size());
         verify(scopeItemRepository, never()).findByAlertIdIn(any());
     }
- 
+
     @Test
     void search_shouldUseDefaultPaginationAndSortByCreatedAtDesc_whenNoPageOrSizeGiven() {
         AlertFilter filter = filterWith(null, null);
         when(alertRepository.findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
- 
+
         service.search(filter);
- 
+
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(alertRepository).findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), captor.capture());
         Pageable pageable = captor.getValue();
@@ -477,7 +432,7 @@ class AlertServiceImplTest {
                 Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id")),
                 pageable.getSort());
     }
- 
+
     @Test
     void search_shouldRespectRequestedPageAndSize_whenValuesAreProvided() {
         AlertFilter filter = mock(AlertFilter.class);
@@ -485,19 +440,19 @@ class AlertServiceImplTest {
         when(filter.size()).thenReturn(50);
         when(alertRepository.findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
- 
+
         service.search(filter);
- 
+
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(alertRepository).findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), captor.capture());
         assertEquals(2, captor.getValue().getPageNumber());
         assertEquals(50, captor.getValue().getPageSize());
     }
- 
+
     @Test
     void search_shouldGroupScopesByAlert_whenThereAreResults() {
         AlertFilter filter = filterWith(null, null);
-        AlertEntity alert = alert(AlertStatus.DRAFT, "texto");
+        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertScopeItemEntity item = scopeItem(ScopeType.CAMPUS, null);
         AlertSummaryResponse summary = mock(AlertSummaryResponse.class);
         Page<AlertEntity> page = new PageImpl<>(List.of(alert), PageRequest.of(0, 20), 1);
@@ -505,10 +460,10 @@ class AlertServiceImplTest {
                 .thenReturn(page);
         when(scopeItemRepository.findByAlertIdIn(List.of(ID))).thenReturn(List.of(item));
         when(alertMapper.toSummary(alert, List.of(item))).thenReturn(summary);
- 
+
         PageResponse<AlertSummaryResponse> result = service.search(filter);
- 
-        assertEquals(1, result.contenido().size());
-        assertSame(summary, result.contenido().get(0));
+
+        assertEquals(1, result.content().size());
+        assertSame(summary, result.content().get(0));
     }
 }

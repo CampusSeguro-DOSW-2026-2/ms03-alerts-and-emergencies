@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
 import org.junit.jupiter.api.Test;
 
 class AlertStateRulesTest {
@@ -22,25 +21,25 @@ class AlertStateRulesTest {
 
     @Test
     void shouldAllowEditingDraftAndScheduled() {
-        assertTrue(rules.isEditable(AlertStatus.DRAFT));
-        assertTrue(rules.isEditable(AlertStatus.SCHEDULED));
+        assertTrue(rules.isEditable(alert(AlertStatus.DRAFT)));
+        assertTrue(rules.isEditable(alert(AlertStatus.SCHEDULED)));
         assertDoesNotThrow(() -> rules.assertEditable(alert(AlertStatus.DRAFT)));
         assertDoesNotThrow(() -> rules.assertEditable(alert(AlertStatus.SCHEDULED)));
     }
 
     @Test
     void shouldRejectEditingOtherStates() {
-        assertFalse(rules.isEditable(AlertStatus.ACTIVE));
-        assertFalse(rules.isEditable(AlertStatus.ENDED));
-        assertFalse(rules.isEditable(AlertStatus.ARCHIVED));
-        assertThrows(InvalidAlertStateException.class,
+        assertFalse(rules.isEditable(alert(AlertStatus.ACTIVE)));
+        assertFalse(rules.isEditable(alert(AlertStatus.ENDED)));
+        assertFalse(rules.isEditable(alert(AlertStatus.ARCHIVED)));
+        assertThrows(IllegalStateException.class,
                 () -> rules.assertEditable(alert(AlertStatus.ACTIVE)));
     }
 
     @Test
     void shouldRejectChangesOnlyForArchivedAlerts() {
         assertDoesNotThrow(() -> rules.assertNotArchived(alert(AlertStatus.ENDED)));
-        assertThrows(InvalidAlertStateException.class,
+        assertThrows(IllegalStateException.class,
                 () -> rules.assertNotArchived(alert(AlertStatus.ARCHIVED)));
     }
 }

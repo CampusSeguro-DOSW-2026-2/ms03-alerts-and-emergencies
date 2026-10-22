@@ -9,15 +9,21 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
-import java.time.Duration;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
+import java.util.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.web.client.RestClient;
 
 class BrevoEmailSenderTest {
@@ -30,11 +36,13 @@ class BrevoEmailSenderTest {
             "Evacuar");
 
     private WireMockServer server;
+    private JavaMailSender mailSender;
 
     @BeforeEach
     void setUp() {
         server = new WireMockServer(WireMockConfiguration.options().dynamicPort());
         server.start();
+        mailSender = mock(JavaMailSender.class);
     }
 
     @AfterEach
@@ -43,13 +51,13 @@ class BrevoEmailSenderTest {
     }
 
     private BrevoEmailSender sender(String apiKey, int maxAttempts) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofMillis(500));
-        factory.setReadTimeout(Duration.ofMillis(1000));
         return new BrevoEmailSender(
-                RestClient.builder().requestFactory(factory),
+                mailSender,
+                RestClient.builder(),
                 apiKey,
                 server.baseUrl(),
+                500,
+                1000,
                 "no-reply@campusseguro.local",
                 "CampusSeguro",
                 maxAttempts,
@@ -76,12 +84,33 @@ class BrevoEmailSenderTest {
     }
 
     @Test
-    void send_shouldThrowWithoutCallingBrevo_whenApiKeyIsMissing() {
-        EmailSendException ex = assertThrows(
-                EmailSendException.class,
-                () -> sender("", 3).send(MESSAGE));
+    void send_shouldFallbackToSmtp_whenApiKeyIsMissing() {
+        when(mailSender.createMimeMessage())
+                .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
 
-        assertTrue(ex.getMessage().contains("API key"));
+        sender("", 3).send(MESSAGE);
+
+        verify(mailSender).send(any(MimeMessage.class));
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
+    }
+
+    @Test
+    void send_shouldThrow_whenSenderIsBlank() {
+        BrevoEmailSender sender = new BrevoEmailSender(
+                mailSender,
+                RestClient.builder(),
+                "api-key",
+                server.baseUrl(),
+                500,
+                1000,
+                "",
+                "CampusSeguro",
+                3,
+                10);
+
+        EmailSendException ex = assertThrows(EmailSendException.class, () -> sender.send(MESSAGE));
+
+        assertTrue(ex.getMessage().contains("remitente"));
         server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
     }
 
@@ -141,14 +170,14 @@ class BrevoEmailSenderTest {
     void send_shouldRetryAndThrow_whenConnectionTimesOut() {
         server.stubFor(post("/v3/smtp/email")
                 .willReturn(aResponse().withStatus(201).withFixedDelay(500)));
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofMillis(200));
-        factory.setReadTimeout(Duration.ofMillis(100));
 
         BrevoEmailSender sender = new BrevoEmailSender(
-                RestClient.builder().requestFactory(factory),
+                mailSender,
+                RestClient.builder(),
                 "api-key",
                 server.baseUrl(),
+                200,
+                100,
                 "no-reply@campusseguro.local",
                 "CampusSeguro",
                 2,

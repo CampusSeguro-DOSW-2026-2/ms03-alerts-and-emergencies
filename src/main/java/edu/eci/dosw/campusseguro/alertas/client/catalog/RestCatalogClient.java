@@ -81,7 +81,7 @@ public class RestCatalogClient implements CatalogClient {
             return;
         }
         List<RecipientPayload> payload = recipients.stream()
-                .map(recipient -> new RecipientPayload(recipient.tipo().name(), recipient.id()))
+                .map(recipient -> new RecipientPayload(recipient.type().name(), recipient.id()))
                 .toList();
         ValidationResponse response = postValidation(
                 ms01,

@@ -5,36 +5,25 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import edu.eci.dosw.campusseguro.alertas.client.email.EmailMessage;
-import edu.eci.dosw.campusseguro.alertas.client.email.EmailSender;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
-import edu.eci.dosw.campusseguro.alertas.dto.response.StateChangeResponse;
-import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
+import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.NotificationDeliveryEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
-import edu.eci.dosw.campusseguro.alertas.repository.AlertConfirmationRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
-import edu.eci.dosw.campusseguro.alertas.repository.NotificationDeliveryRepository;
 import edu.eci.dosw.campusseguro.alertas.security.local.LocalTokenService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import java.time.Instant;
@@ -56,14 +45,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(properties = {
         "spring.sql.init.mode=always",
-        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql",
-        "app.alerts.activation-check-ms=3600000"
+        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "local"})
@@ -95,12 +82,6 @@ class AlertApiIntegrationIT {
     private AlertRecipientRepository recipientRepository;
 
     @Autowired
-    private AlertConfirmationRepository confirmationRepository;
-
-    @Autowired
-    private NotificationDeliveryRepository deliveryRepository;
-
-    @Autowired
     private AuditEventRepository auditEventRepository;
 
     @Autowired
@@ -111,9 +92,6 @@ class AlertApiIntegrationIT {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
-
-    @MockitoBean
-    private EmailSender emailSender;
 
     @BeforeEach
     void cleanDatabase() {
@@ -127,14 +105,14 @@ class AlertApiIntegrationIT {
     }
 
     @Test
-    void search_shouldFilterByStatusDateRangeAndSimulation() {
-        alertRepository.save(newAlert(AlertStatus.DRAFT, null, Instant.parse("2026-10-01T10:00:00Z")));
-        alertRepository.save(newAlert(AlertStatus.ACTIVE, null, Instant.parse("2026-10-05T10:00:00Z")));
-        alertRepository.save(newAlert(
-                AlertStatus.SCHEDULED, "sim-001", Instant.parse("2026-10-10T10:00:00Z")));
+    void search_shouldFilterByStatusTypeAndDateRange() {
+        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.parse("2026-10-01T10:00:00Z"), null));
+        alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.parse("2026-10-05T10:00:00Z"), null));
+        alertRepository.save(newAlert(AlertStatus.SCHEDULED, Instant.parse("2026-10-10T10:00:00Z"), null));
 
         AlertFilter filter = new AlertFilter(
                 AlertStatus.ACTIVE,
+                AlertType.EARTHQUAKE,
                 LocalDate.parse("2026-10-04"),
                 LocalDate.parse("2026-10-06"),
                 null,
@@ -147,23 +125,32 @@ class AlertApiIntegrationIT {
 
         assertEquals(1, result.getTotalElements());
         assertEquals(AlertStatus.ACTIVE, result.getContent().getFirst().getStatus());
+    }
 
-        var bySimulation = alertRepository.findAll(
+    @Test
+    void search_shouldFilterByEventId() {
+        UUID eventId = UUID.randomUUID();
+        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), eventId));
+        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
+
+        var result = alertRepository.findAll(
                 AlertSpecifications.fromFilter(
-                        new AlertFilter(null, null, null, "sim-001", null, null), ZoneOffset.UTC));
-        assertEquals(1, bySimulation.size());
-        assertEquals("sim-001", bySimulation.getFirst().getSimulationId());
+                        new AlertFilter(null, null, null, null, eventId, null, null), ZoneOffset.UTC));
+
+        assertEquals(1, result.size());
+        assertEquals(eventId, result.getFirst().getEventId());
     }
 
     @Test
     void search_shouldPageAndOrderByCreatedAtDescending() {
         for (int i = 0; i < 5; i++) {
             alertRepository.save(newAlert(
-                    AlertStatus.DRAFT, null, Instant.parse("2026-10-0" + (i + 1) + "T10:00:00Z")));
+                    AlertStatus.DRAFT, Instant.parse("2026-10-0" + (i + 1) + "T10:00:00Z"), null));
         }
 
         var firstPage = alertRepository.findAll(
-                AlertSpecifications.fromFilter(new AlertFilter(null, null, null, null, null, null), ZoneOffset.UTC),
+                AlertSpecifications.fromFilter(
+                        new AlertFilter(null, null, null, null, null, null, null), ZoneOffset.UTC),
                 PageRequest.of(0, 2, Sort.by(Sort.Order.desc("createdAt"))));
 
         assertEquals(2, firstPage.getNumberOfElements());
@@ -173,79 +160,45 @@ class AlertApiIntegrationIT {
     }
 
     @Test
-    void activation_shouldBeIdempotentAndNotifyOnlyOnce() throws Exception {
-        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.DRAFT, null, Instant.now()));
-        recipientRepository.save(newRecipient(alert.getId(), "usr-001"));
+    void activation_shouldMoveAlertToActiveAndAuditOnce() {
+        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
 
-        StateChangeResponse first = alertLifecycleService.activate(alert.getId(), "it-coordinator");
-        StateChangeResponse second = alertLifecycleService.activate(alert.getId(), "it-coordinator");
+        AlertResponse response = alertLifecycleService.activate(alert.getId(), "it-coordinator");
 
-        assertEquals(AlertStatus.DRAFT, first.estadoAnterior());
-        assertEquals(AlertStatus.ACTIVE, first.estadoNuevo());
-        assertEquals(AlertStatus.ACTIVE, second.estadoNuevo());
+        assertEquals(AlertStatus.ACTIVE, response.status());
         assertEquals(AlertStatus.ACTIVE, alertRepository.findById(alert.getId()).orElseThrow().getStatus());
         assertEquals(1, auditEventRepository.findByAlertIdOrderByCreatedAtAsc(alert.getId()).stream()
                 .filter(event -> event.getAction() == AuditAction.ACTIVATE)
                 .count());
-
-        verify(emailSender, timeout(5000)).send(any(EmailMessage.class));
-
-        List<NotificationDeliveryEntity> deliveries = awaitDeliveries(alert.getId());
-        assertEquals(1, deliveries.size());
-        assertEquals("usr-001", deliveries.getFirst().getUserId());
-
-        Thread.sleep(500);
-        verify(emailSender, times(1)).send(any(EmailMessage.class));
-        assertEquals(1, awaitDeliveries(alert.getId()).size());
     }
 
     @Test
-    void activation_shouldReturn409_whenAnotherLiveAlertUsesTheSameSimulation() throws Exception {
-        AlertEntity live = alertRepository.save(newAlert(AlertStatus.ACTIVE, "sim-conflict", Instant.now()));
-        AlertEntity draft = alertRepository.save(newAlert(AlertStatus.DRAFT, "sim-conflict", Instant.now()));
-        String token = localTokenService.generate("coordinator-1", List.of("COORDINATOR"));
+    void scheduledAlert_shouldRejectManualActivationBeforeItsDate() {
+        AlertEntity alert = newAlert(AlertStatus.SCHEDULED, Instant.now(), null);
+        alert.setActivationAt(Instant.now().plusSeconds(3600));
+        AlertEntity saved = alertRepository.save(alert);
 
-        mockMvc.perform(patch("/api/v1/alertas/{id}/activar", draft.getId())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("DUPLICATE_SIMULATION_ALERT"));
-
-        assertEquals(AlertStatus.ACTIVE, alertRepository.findById(live.getId()).orElseThrow().getStatus());
-        assertEquals(AlertStatus.DRAFT, alertRepository.findById(draft.getId()).orElseThrow().getStatus());
+        assertThrows(IllegalStateException.class,
+                () -> alertLifecycleService.activate(saved.getId(), "it-coordinator"));
     }
 
     @Test
-    void uniqueIndex_shouldRejectSecondLiveAlertForSameSimulation() {
-        alertRepository.saveAndFlush(newAlert(AlertStatus.SCHEDULED, "sim-live", Instant.now()));
+    void uniqueConstraint_shouldRejectDuplicatedConfirmation() {
+        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+        jdbcTemplate.update(
+                "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
+                alert.getId(), "usr-001");
 
-        AlertEntity duplicate = newAlert(AlertStatus.ACTIVE, "sim-live", Instant.now());
-
-        assertThrows(DataIntegrityViolationException.class, () -> alertRepository.saveAndFlush(duplicate));
-    }
-
-    @Test
-    void uniqueIndex_shouldAllowDraftAndEndedAlertsForSameSimulation() {
-        alertRepository.saveAndFlush(newAlert(AlertStatus.DRAFT, "sim-live", Instant.now()));
-        alertRepository.saveAndFlush(newAlert(AlertStatus.SCHEDULED, "sim-live", Instant.now()));
-        alertRepository.saveAndFlush(newAlert(AlertStatus.ENDED, "sim-live", Instant.now()));
-
-        assertEquals(3, alertRepository.findAll().stream()
-                .filter(alert -> "sim-live".equals(alert.getSimulationId()))
-                .count());
-    }
-
-    @Test
-    void confirmation_shouldBeUniquePerUserAndAlert() {
-        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.ACTIVE, null, Instant.now()));
-        confirmationRepository.saveAndFlush(newConfirmation(alert.getId(), "usr-001"));
-
-        assertThrows(DataIntegrityViolationException.class,
-                () -> confirmationRepository.saveAndFlush(newConfirmation(alert.getId(), "usr-001")));
+        assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
+                "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
+                alert.getId(), "usr-001"));
     }
 
     @Test
     void create_shouldReturnUnauthorizedWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/v1/alertas"))
+        mockMvc.perform(post("/api/v1/alertas")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createRequestJson()))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -262,9 +215,9 @@ class AlertApiIntegrationIT {
     }
 
     @Test
-    void coordinator_shouldCreateAlertAndRecipientShouldViewIt() throws Exception {
+    void coordinator_shouldCreateAlertAndAuditorShouldViewIt() throws Exception {
         String coordinatorToken = localTokenService.generate("coordinator-1", List.of("COORDINATOR"));
-        String recipientToken = localTokenService.generate("usr-001", List.of("STUDENT"));
+        String auditorToken = localTokenService.generate("auditor-1", List.of("AUDITOR"));
 
         String location = mockMvc.perform(post("/api/v1/alertas")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + coordinatorToken)
@@ -273,59 +226,26 @@ class AlertApiIntegrationIT {
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, notNullValue()))
                 .andExpect(jsonPath("$.id").value(notNullValue()))
-                .andExpect(jsonPath("$.estado").value("DRAFT"))
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.recipients", hasSize(1)))
                 .andReturn().getResponse().getHeader(HttpHeaders.LOCATION);
 
         assertNotNull(location);
         String path = location.substring(location.indexOf("/api/"));
 
-        mockMvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + recipientToken))
+        mockMvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + auditorToken))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.destinatarios", hasSize(1)))
-                .andExpect(jsonPath("$.destinatarios[0].id").value("usr-001"));
-
-        String strangerToken = localTokenService.generate("usr-999", List.of("STUDENT"));
-        mockMvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + strangerToken))
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("NOT_A_RECIPIENT"));
+                .andExpect(jsonPath("$.recipients[0].id").value("usr-001"));
     }
 
-    @Test
-    void recipient_shouldConfirmOnlyOnce() throws Exception {
-        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.ACTIVE, null, Instant.now()));
-        recipientRepository.save(newRecipient(alert.getId(), "usr-001"));
-        String token = localTokenService.generate("usr-001", List.of("STUDENT"));
-
-        mockMvc.perform(post("/api/v1/alertas/{id}/confirmaciones", alert.getId())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.idAlerta").value(alert.getId().toString()));
-
-        mockMvc.perform(post("/api/v1/alertas/{id}/confirmaciones", alert.getId())
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk());
-
-        assertEquals(1, confirmationRepository.findAll().size());
-    }
-
-    private List<NotificationDeliveryEntity> awaitDeliveries(UUID alertId) throws InterruptedException {
-        for (int i = 0; i < 50; i++) {
-            List<NotificationDeliveryEntity> deliveries = deliveryRepository.findByAlertId(alertId);
-            if (!deliveries.isEmpty()) {
-                return deliveries;
-            }
-            Thread.sleep(100);
-        }
-        return deliveryRepository.findByAlertId(alertId);
-    }
-
-    private AlertEntity newAlert(AlertStatus status, String simulationId, Instant createdAt) {
+    private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID eventId) {
         AlertEntity alert = new AlertEntity();
         alert.setType(AlertType.EARTHQUAKE);
+        alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
-        alert.setOrigin(simulationId == null ? AlertOrigin.MANUAL : AlertOrigin.SIMULATION);
-        alert.setSimulationId(simulationId);
+        alert.setOrigin(eventId == null ? AlertOrigin.MANUAL : AlertOrigin.EVENT);
+        alert.setEventId(eventId);
         alert.setCreatedBy("it-user");
         alert.setCreatedAt(createdAt);
         alert.setUpdatedAt(createdAt);
@@ -352,21 +272,14 @@ class AlertApiIntegrationIT {
         return recipient;
     }
 
-    private AlertConfirmationEntity newConfirmation(UUID alertId, String userId) {
-        AlertConfirmationEntity confirmation = new AlertConfirmationEntity();
-        confirmation.setAlertId(alertId);
-        confirmation.setUserId(userId);
-        confirmation.setConfirmedAt(Instant.now());
-        return confirmation;
-    }
-
     private String createRequestJson() {
         return """
                 {
-                  "tipo": "EARTHQUAKE",
-                  "alcance": {"tipo": "CAMPUS", "ids": []},
-                  "instrucciones": "Evacuar el campus",
-                  "destinatarios": [{"tipo": "USER", "id": "usr-001"}]
+                  "type": "EARTHQUAKE",
+                  "title": "Simulacro sismico",
+                  "scope": {"type": "CAMPUS"},
+                  "instructions": "Evacuar el campus",
+                  "recipients": [{"type": "USER", "id": "usr-001"}]
                 }
                 """;
     }
