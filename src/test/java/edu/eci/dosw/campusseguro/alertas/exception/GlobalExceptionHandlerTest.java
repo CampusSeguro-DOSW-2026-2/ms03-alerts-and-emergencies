@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import static org.mockito.Mockito.mock;
@@ -41,8 +42,18 @@ import org.springframework.web.bind.annotation.RestController;
  */
 class GlobalExceptionHandlerTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
-    private static final UUID ID = UUID.fromString("66666666-6666-6666-6666-666666666666");
+    private static final Instant NOW =
+            Instant.parse("2026-10-15T18:00:00Z");
+
+    private static final UUID ID =
+            UUID.fromString("66666666-6666-6666-6666-666666666666");
+
+    private static final UUID EVENT_ID =
+            UUID.fromString("88888888-8888-8888-8888-888888888888");
+
+    private static final UUID OTHER_ID =
+            UUID.fromString("99999999-9999-9999-9999-999999999999");
+
     private static final String FAIL_URL = "/test/fail";
 
     private ThrowingController controller;
@@ -51,28 +62,35 @@ class GlobalExceptionHandlerTest {
     @BeforeEach
     void setUp() {
         controller = new ThrowingController();
+
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setControllerAdvice(new GlobalExceptionHandler(Clock.fixed(NOW, ZoneOffset.UTC)))
+                .setControllerAdvice(
+                        new GlobalExceptionHandler(
+                                Clock.fixed(NOW, ZoneOffset.UTC)))
                 .build();
     }
 
-    // ---------- helpers ----------
+    // ---------- Helpers ----------
 
-    private ResultActions performFailingWith(Exception exception) throws Exception {
+    private ResultActions performFailingWith(Exception exception)
+            throws Exception {
         controller.toThrow = exception;
         return mockMvc.perform(get(FAIL_URL));
     }
 
-    // ---------- domain exceptions ----------
+    // ---------- Domain exceptions ----------
 
     @Test
-    void handleAlertNotFound_shouldReturn404WithAlertNotFoundCode_whenAlertDoesNotExist() throws Exception {
+    void handleAlertNotFound_shouldReturn404WithAlertNotFoundCode_whenAlertDoesNotExist()
+            throws Exception {
+
         performFailingWith(new AlertNotFoundException(ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.code").value("ALERT_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("No existe una alerta con id " + ID))
+                .andExpect(jsonPath("$.message")
+                        .value("Alert not found with ID: " + ID))
                 .andExpect(jsonPath("$.path").value(FAIL_URL))
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.details").isEmpty());
@@ -81,193 +99,283 @@ class GlobalExceptionHandlerTest {
     @Test
     void handleInvalidAlertState_shouldReturn409WithInvalidAlertStateCode_whenStateDoesNotAllowOperation()
             throws Exception {
-        performFailingWith(new InvalidAlertStateException(AlertStatus.ACTIVE))
+
+        performFailingWith(
+                new InvalidAlertStateException(AlertStatus.ACTIVE))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.code").value("INVALID_ALERT_STATE"))
-                .andExpect(jsonPath("$.message").value("La alerta está en estado ACTIVE y no admite esta operación"))
+                .andExpect(jsonPath("$.message")
+                        .value("The alert is in status ACTIVE and does not allow this operation"))
                 .andExpect(jsonPath("$.path").value(FAIL_URL));
     }
 
     @Test
     void handleInvalidTransition_shouldReturn409WithInvalidTransitionCode_whenTransitionIsNotAllowed()
             throws Exception {
-        performFailingWith(new InvalidTransitionException(AlertStatus.ACTIVE, AlertStatus.DRAFT))
+
+        performFailingWith(
+                new InvalidTransitionException(
+                        AlertStatus.ACTIVE, AlertStatus.DRAFT))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
-                .andExpect(jsonPath("$.message").value("No se puede pasar de ACTIVE a DRAFT"));
+                .andExpect(jsonPath("$.message")
+                        .value("Cannot transition the alert from ACTIVE to DRAFT"));
     }
 
     @Test
     void handleInvalidActivationDate_shouldReturn400WithInvalidActivationDateCode_whenDateIsNotValid()
             throws Exception {
+
         performFailingWith(new InvalidActivationDateException())
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_ACTIVATION_DATE"))
                 .andExpect(jsonPath("$.message")
-                        .value("La fecha de activación debe ser posterior a la fecha y hora actuales"));
+                        .value("The activation date and time must be in the future"));
     }
 
     @Test
     void handleInvalidReference_shouldReturn400WithOneDetailPerInvalidId_whenReferencesDoNotExist()
             throws Exception {
-        performFailingWith(new InvalidReferenceException("alcance.ids", List.of("B1", "B2")))
+
+        performFailingWith(
+                new InvalidReferenceException(
+                        "alcance.ids", List.of("B1", "B2")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_REFERENCE"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.INVALID_REFERENCE.defaultMessage()))
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.INVALID_REFERENCE.defaultMessage()))
                 .andExpect(jsonPath("$.details.length()").value(2))
-                .andExpect(jsonPath("$.details[0].field").value("alcance.ids"))
-                .andExpect(jsonPath("$.details[0].message").value("El identificador no existe: B1"))
-                .andExpect(jsonPath("$.details[1].field").value("alcance.ids"))
-                .andExpect(jsonPath("$.details[1].message").value("El identificador no existe: B2"));
+                .andExpect(jsonPath("$.details[0].field")
+                        .value("alcance.ids"))
+                .andExpect(jsonPath("$.details[0].message")
+                        .value("The referenced ID does not exist: B1"))
+                .andExpect(jsonPath("$.details[1].field")
+                        .value("alcance.ids"))
+                .andExpect(jsonPath("$.details[1].message")
+                        .value("The referenced ID does not exist: B2"));
     }
 
     @Test
-    void handleInvalidPagination_shouldReturn400WithFieldDetail_whenQueryParamsAreInvalid() throws Exception {
-        performFailingWith(new InvalidPaginationException("size", "El tamaño de página debe estar entre 1 y 100"))
+    void handleInvalidPagination_shouldReturn400WithFieldDetail_whenQueryParamsAreInvalid()
+            throws Exception {
+
+        performFailingWith(
+                new InvalidPaginationException(
+                        "size", "Page size must be between 1 and 100"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.INVALID_PAGINATION.defaultMessage()))
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.INVALID_PAGINATION.defaultMessage()))
                 .andExpect(jsonPath("$.details.length()").value(1))
                 .andExpect(jsonPath("$.details[0].field").value("size"))
-                .andExpect(jsonPath("$.details[0].message").value("El tamaño de página debe estar entre 1 y 100"));
+                .andExpect(jsonPath("$.details[0].message")
+                        .value("Page size must be between 1 and 100"));
     }
 
     @Test
-    void handleExternalServiceUnavailable_shouldReturn503_whenExternalServiceIsDown() throws Exception {
-        performFailingWith(new ExternalServiceUnavailableException("catalogo"))
+    void handleExternalServiceUnavailable_shouldReturn503_whenExternalServiceIsDown()
+            throws Exception {
+
+        performFailingWith(
+                new ExternalServiceUnavailableException("catalogo"))
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("EXTERNAL_SERVICE_UNAVAILABLE"))
+                .andExpect(jsonPath("$.code")
+                        .value("EXTERNAL_SERVICE_UNAVAILABLE"))
                 .andExpect(jsonPath("$.message")
-                        .value("El servicio catalogo no está disponible, intente de nuevo"));
+                        .value("Service catalogo is unavailable. Please try again later."));
     }
 
     @Test
     void handleOptimisticLocking_shouldReturn409WithDefaultMessage_whenAlertWasModifiedConcurrently()
             throws Exception {
-        performFailingWith(new OptimisticLockingFailureException("row was updated by another transaction"))
+
+        performFailingWith(
+                new OptimisticLockingFailureException(
+                        "row was updated by another transaction"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.CONCURRENT_MODIFICATION.defaultMessage()));
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.CONCURRENT_MODIFICATION.defaultMessage()));
     }
 
-    // ---------- validation / security / unexpected ----------
+    // ---------- Event exceptions ----------
+
+    @Test
+    void handleEventMismatch_shouldReturn409WithEventMismatchCode_whenEventDoesNotMatchAlert()
+            throws Exception {
+
+        performFailingWith(new EventMismatchException(ID, EVENT_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("EVENT_MISMATCH"))
+                .andExpect(jsonPath("$.message")
+                        .value("Alert " + ID
+                                + " does not correspond to event " + EVENT_ID));
+    }
+
+    @Test
+    void handleDuplicateEventAlert_shouldReturn409WithDuplicateCode_whenLiveAlertAlreadyExists()
+            throws Exception {
+
+        performFailingWith(
+                new DuplicateEventAlertException(EVENT_ID, OTHER_ID))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.code").value("DUPLICATE_EVENT_ALERT"))
+                .andExpect(jsonPath("$.message")
+                        .value("A live alert already exists for event "
+                                + EVENT_ID
+                                + " with different data: " + OTHER_ID));
+    }
+
+    // ---------- Validation / security / unexpected exceptions ----------
 
     @Test
     void handleConstraintViolation_shouldReturn400WithOneDetailPerViolation_whenConstraintsAreViolated()
             throws Exception {
+
         Path path = mock(Path.class);
         when(path.toString()).thenReturn("name");
+
         @SuppressWarnings("unchecked")
-        ConstraintViolation<Object> violation = mock(ConstraintViolation.class);
+        ConstraintViolation<Object> violation =
+                mock(ConstraintViolation.class);
+
         when(violation.getPropertyPath()).thenReturn(path);
         when(violation.getMessage()).thenReturn("must not be blank");
 
-        performFailingWith(new ConstraintViolationException(Set.of(violation)))
+        performFailingWith(
+                new ConstraintViolationException(Set.of(violation)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.details.length()").value(1))
                 .andExpect(jsonPath("$.details[0].field").value("name"))
-                .andExpect(jsonPath("$.details[0].message").value("must not be blank"));
+                .andExpect(jsonPath("$.details[0].message")
+                        .value("must not be blank"));
     }
 
     @Test
-    void handleAccessDenied_shouldReturn403WithDefaultMessage_whenUserHasNoPermission() throws Exception {
+    void handleAccessDenied_shouldReturn403WithDefaultMessage_whenUserHasNoPermission()
+            throws Exception {
+
         performFailingWith(new AccessDeniedException("role missing"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.FORBIDDEN.defaultMessage()));
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.FORBIDDEN.defaultMessage()));
     }
 
     @Test
-    void handleAuthentication_shouldReturn401WithDefaultMessage_whenAuthenticationFails() throws Exception {
+    void handleAuthentication_shouldReturn401WithDefaultMessage_whenAuthenticationFails()
+            throws Exception {
+
         performFailingWith(new BadCredentialsException("bad token"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.UNAUTHORIZED.defaultMessage()));
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.UNAUTHORIZED.defaultMessage()));
     }
 
     @Test
     void handleUnexpected_shouldReturn500WithoutLeakingExceptionMessage_whenExceptionIsNotHandled()
             throws Exception {
-        performFailingWith(new IllegalStateException("secret internal detail"))
+
+        performFailingWith(
+                new IllegalStateException("secret internal detail"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.status").value(500))
                 .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.INTERNAL_ERROR.defaultMessage()))
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.INTERNAL_ERROR.defaultMessage()))
                 .andExpect(jsonPath("$.details").isEmpty());
     }
 
-    // ---------- Spring MVC exceptions (overridden methods) ----------
+    // ---------- Spring MVC exceptions ----------
 
     @Test
-    void handleMethodArgumentNotValid_shouldReturn400WithFieldDetails_whenBodyFailsValidation() throws Exception {
+    void handleMethodArgumentNotValid_shouldReturn400WithFieldDetails_whenBodyFailsValidation()
+            throws Exception {
+
         mockMvc.perform(post("/test/body")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\": \"\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.VALIDATION_ERROR.defaultMessage()))
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.VALIDATION_ERROR.defaultMessage()))
                 .andExpect(jsonPath("$.path").value("/test/body"))
                 .andExpect(jsonPath("$.details.length()").value(1))
                 .andExpect(jsonPath("$.details[0].field").value("name"));
     }
 
     @Test
-    void handleHttpMessageNotReadable_shouldReturn400_whenBodyIsMalformedJson() throws Exception {
+    void handleHttpMessageNotReadable_shouldReturn400_whenBodyIsMalformedJson()
+            throws Exception {
+
         mockMvc.perform(post("/test/body")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ not json"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.message").value("El cuerpo de la solicitud no es un JSON válido"))
+                .andExpect(jsonPath("$.message")
+                        .value("The request body is missing, malformed, or contains invalid values"))
                 .andExpect(jsonPath("$.path").value("/test/body"));
     }
 
     @Test
-    void handleTypeMismatch_shouldReturn400WithParamName_whenPathVariableHasWrongType() throws Exception {
+    void handleTypeMismatch_shouldReturn400WithParamName_whenPathVariableHasWrongType()
+            throws Exception {
+
         mockMvc.perform(get("/test/typed/{id}", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
                 .andExpect(jsonPath("$.details.length()").value(1))
                 .andExpect(jsonPath("$.details[0].field").value("id"))
-                .andExpect(jsonPath("$.details[0].message").value("El valor enviado no es válido"));
+                .andExpect(jsonPath("$.details[0].message")
+                        .value("The supplied value is invalid"));
     }
 
     @Test
     void handleExceptionInternal_shouldReturn405WithMethodNotAllowedCode_whenHttpMethodIsNotSupported()
             throws Exception {
+
         mockMvc.perform(post("/test/only-get"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.status").value(405))
                 .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.METHOD_NOT_ALLOWED.defaultMessage()))
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.METHOD_NOT_ALLOWED.defaultMessage()))
                 .andExpect(jsonPath("$.path").value("/test/only-get"));
     }
 
     @Test
     void handleExceptionInternal_shouldReturn415WithUnsupportedMediaTypeCode_whenContentTypeIsNotSupported()
             throws Exception {
+
         mockMvc.perform(post("/test/body")
                         .contentType(MediaType.TEXT_PLAIN)
                         .content("name"))
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.status").value(415))
                 .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage()));
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage()));
     }
 
     @Test
     void handleExceptionInternal_shouldReturn404WithResourceNotFoundCode_whenNoHandlerMatchesThePath()
             throws Exception {
+
         mockMvc.perform(get("/test/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
                 .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value(ErrorCode.RESOURCE_NOT_FOUND.defaultMessage()));
+                .andExpect(jsonPath("$.message")
+                        .value(ErrorCode.RESOURCE_NOT_FOUND.defaultMessage()));
     }
 
-    // ---------- throwaway controller used only by this test ----------
+    // ---------- Throwaway controller ----------
 
     @RestController
     @RequestMapping("/test")

@@ -9,6 +9,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
@@ -23,7 +24,6 @@ import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import org.springframework.dao.DataIntegrityViolationException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -109,7 +109,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
 
         List<ErrorResponse.Detail> details = List.of(
-                new ErrorResponse.Detail(ex.getField(), ex.getMessage()));
+                new ErrorResponse.Detail(
+                        ex.getField(),
+                        ex.getMessage()));
 
         return respond(
                 ErrorCode.INVALID_PAGINATION,
@@ -137,11 +139,45 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             OptimisticLockingFailureException ex,
             HttpServletRequest request) {
 
-        log.warn("Concurrent modification detected at {}", request.getRequestURI());
+        log.warn(
+                "Concurrent modification detected at {}",
+                request.getRequestURI());
 
         return respond(
                 ErrorCode.CONCURRENT_MODIFICATION,
                 ErrorCode.CONCURRENT_MODIFICATION.defaultMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
+    /*
+     * Handles a mismatch between the alert and the event.
+     * Returns HTTP 409 Conflict.
+     */
+    @ExceptionHandler(EventMismatchException.class)
+    public ResponseEntity<Object> handleEventMismatch(
+            EventMismatchException ex,
+            HttpServletRequest request) {
+
+        return respond(
+                ErrorCode.EVENT_MISMATCH,
+                ex.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
+    /*
+     * Handles a duplicate live alert for the same event.
+     * Returns HTTP 409 Conflict.
+     */
+    @ExceptionHandler(DuplicateEventAlertException.class)
+    public ResponseEntity<Object> handleDuplicateEventAlert(
+            DuplicateEventAlertException ex,
+            HttpServletRequest request) {
+
+        return respond(
+                ErrorCode.DUPLICATE_EVENT_ALERT,
+                ex.getMessage(),
                 request.getRequestURI(),
                 List.of());
     }
@@ -151,11 +187,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             ConstraintViolationException ex,
             HttpServletRequest request) {
 
-        List<ErrorResponse.Detail> details = ex.getConstraintViolations().stream()
-                .map(violation -> new ErrorResponse.Detail(
-                        violation.getPropertyPath().toString(),
-                        violation.getMessage()))
-                .toList();
+        List<ErrorResponse.Detail> details =
+                ex.getConstraintViolations().stream()
+                        .map(violation -> new ErrorResponse.Detail(
+                                violation.getPropertyPath().toString(),
+                                violation.getMessage()))
+                        .toList();
 
         return respond(
                 ErrorCode.VALIDATION_ERROR,
@@ -193,7 +230,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             Exception ex,
             HttpServletRequest request) {
 
-        log.error("Unexpected error at {}", request.getRequestURI(), ex);
+        log.error(
+                "Unexpected error at {}",
+                request.getRequestURI(),
+                ex);
 
         return respond(
                 ErrorCode.INTERNAL_ERROR,
@@ -251,12 +291,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode status,
             WebRequest request) {
 
-        String field = ex instanceof MethodArgumentTypeMismatchException mismatch
-                ? mismatch.getName()
-                : ex.getPropertyName();
+        String field =
+                ex instanceof MethodArgumentTypeMismatchException mismatch
+                        ? mismatch.getName()
+                        : ex.getPropertyName();
 
         List<ErrorResponse.Detail> details = List.of(
-                new ErrorResponse.Detail(field, "The supplied value is invalid"));
+                new ErrorResponse.Detail(
+                        field,
+                        "The supplied value is invalid"));
 
         return respond(
                 ErrorCode.VALIDATION_ERROR,
@@ -323,7 +366,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 path,
                 details);
 
-        return ResponseEntity.status(code.status()).body(response);
+        return ResponseEntity.status(code.status())
+                .body(response);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -331,7 +375,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             DataIntegrityViolationException ex,
             HttpServletRequest request) {
 
-        log.warn("Data integrity violation at {}", request.getRequestURI(), ex);
+        log.warn(
+                "Data integrity violation at {}",
+                request.getRequestURI(),
+                ex);
 
         return respond(
                 ErrorCode.DUPLICATE_EVENT_ALERT,

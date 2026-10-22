@@ -2,11 +2,13 @@ package edu.eci.dosw.campusseguro.alertas.mapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
@@ -30,7 +32,9 @@ class AlertMapperTest {
 
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ALERT_ID = UUID.fromString("77777777-7777-7777-7777-777777777777");
+    private static final UUID EVENT_ID = UUID.fromString("88888888-8888-8888-8888-888888888888");
     private static final String ACTOR = "admin";
+    private static final String TITLE = "Simulacro Sismico";
 
     private AlertMapper mapper;
 
@@ -39,7 +43,7 @@ class AlertMapperTest {
         mapper = new AlertMapper();
     }
 
-    // helpers 
+    // helpers
 
     private AlertScopeItemEntity scopeItem(ScopeType type, String refId) {
         AlertScopeItemEntity item = new AlertScopeItemEntity();
@@ -61,9 +65,10 @@ class AlertMapperTest {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
         alert.setType(AlertType.EARTHQUAKE);
+        alert.setTitle(TITLE);
         alert.setStatus(AlertStatus.ACTIVE);
-        alert.setOrigin(AlertOrigin.SIMULATION);
-        alert.setSimulationId("SIM-1");
+        alert.setOrigin(AlertOrigin.EVENT);
+        alert.setEventId(EVENT_ID);
         alert.setInstructions("Evacuar");
         alert.setCreatedBy(ACTOR);
         alert.setCreatedAt(NOW.minusSeconds(300));
@@ -75,7 +80,7 @@ class AlertMapperTest {
         return alert;
     }
 
-    // normalizeScope 
+    // normalizeScope
 
     @Test
     void normalizeScope_shouldReturnCampusWithEmptyIds_whenScopeIsCampus() {
@@ -99,7 +104,7 @@ class AlertMapperTest {
         assertEquals(new ScopeRequest(ScopeType.ZONE, List.of("Z1")), result);
     }
 
-    // normalizeRecipients 
+    // normalizeRecipients
 
     @Test
     void normalizeRecipients_shouldStripIds_whenIdsHaveWhitespace() {
@@ -132,17 +137,19 @@ class AlertMapperTest {
         assertTrue(mapper.normalizeRecipients(List.of()).isEmpty());
     }
 
-    // toEntity 
+    // toEntity
 
     @Test
     void toEntity_shouldBuildDraftManualAlert_whenRequestIsValid() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.tipo()).thenReturn(AlertType.EARTHQUAKE);
-        when(request.instrucciones()).thenReturn("  Evacuar el edificio  ");
+        when(request.type()).thenReturn(AlertType.EARTHQUAKE);
+        when(request.title()).thenReturn("  " + TITLE + "  ");
+        when(request.instructions()).thenReturn("  Evacuar el edificio  ");
 
         AlertEntity result = mapper.toEntity(request, ACTOR, NOW);
 
         assertEquals(AlertType.EARTHQUAKE, result.getType());
+        assertEquals(TITLE, result.getTitle());
         assertEquals(AlertStatus.DRAFT, result.getStatus());
         assertEquals(AlertOrigin.MANUAL, result.getOrigin());
         assertEquals("Evacuar el edificio", result.getInstructions());
@@ -150,11 +157,38 @@ class AlertMapperTest {
         assertEquals(NOW, result.getCreatedAt());
         assertEquals(NOW, result.getUpdatedAt());
         assertNull(result.getId());
-        assertNull(result.getSimulationId());
+        assertNull(result.getEventId());
         assertNull(result.getActivationAt());
     }
 
-    // toScopeItems 
+    // toEventEntity
+
+    @Test
+    void toEventEntity_shouldBuildScheduledEventAlert_whenRequestIsValid() {
+        Instant activationAt = NOW.plusSeconds(3600);
+        EventAlertSyncRequest request = new EventAlertSyncRequest(
+                AlertType.EARTHQUAKE,
+                "  " + TITLE + "  ",
+                new ScopeRequest(ScopeType.CAMPUS, List.of()),
+                "  Evacuar  ",
+                List.of(new RecipientRequest(RecipientType.ROLE, "STUDENT")),
+                activationAt);
+
+        AlertEntity result = mapper.toEventEntity(EVENT_ID, request, ACTOR, NOW);
+
+        assertEquals(AlertType.EARTHQUAKE, result.getType());
+        assertEquals(TITLE, result.getTitle());
+        assertEquals(AlertStatus.SCHEDULED, result.getStatus());
+        assertEquals(AlertOrigin.EVENT, result.getOrigin());
+        assertEquals(EVENT_ID, result.getEventId());
+        assertEquals("Evacuar", result.getInstructions());
+        assertEquals(activationAt, result.getActivationAt());
+        assertEquals(ACTOR, result.getCreatedBy());
+        assertEquals(NOW, result.getCreatedAt());
+        assertEquals(NOW, result.getUpdatedAt());
+    }
+
+    // toScopeItems
 
     @Test
     void toScopeItems_shouldCreateSingleItemWithoutRef_whenScopeIsCampus() {
@@ -184,7 +218,7 @@ class AlertMapperTest {
         assertEquals(NOW, result.get(1).getCreatedAt());
     }
 
-    // toRecipients 
+    // toRecipients
 
     @Test
     void toRecipients_shouldMapEachRecipientToEntity_whenListIsNotEmpty() {
@@ -207,7 +241,7 @@ class AlertMapperTest {
         assertTrue(mapper.toRecipients(ALERT_ID, List.of(), NOW).isEmpty());
     }
 
-    // toScope 
+    // toScope
 
     @Test
     void toScope_shouldReturnNull_whenThereAreNoItems() {
@@ -231,15 +265,15 @@ class AlertMapperTest {
     }
 
     @Test
-    void toScope_shouldUseOnlyTheMostGeneralType_whenItemsHaveMixedTypes() {
-        ScopeRequest result = mapper.toScope(List.of(
+    void toScope_shouldThrowIllegalState_whenItemsHaveMixedTypes() {
+        List<AlertScopeItemEntity> mixed = List.of(
                 scopeItem(ScopeType.ZONE, "Z1"),
-                scopeItem(ScopeType.BUILDING, "B1")));
+                scopeItem(ScopeType.BUILDING, "B1"));
 
-        assertEquals(new ScopeRequest(ScopeType.BUILDING, List.of("B1")), result);
+        assertThrows(IllegalStateException.class, () -> mapper.toScope(mixed));
     }
 
-    // toRecipientRequests 
+    // toRecipientRequests
 
     @Test
     void toRecipientRequests_shouldSortByTypeThenId_whenRecipientsAreUnordered() {
@@ -256,7 +290,7 @@ class AlertMapperTest {
                 new RecipientRequest(RecipientType.ROLE, "b")), result);
     }
 
-    // toResponse 
+    // toResponse
 
     @Test
     void toResponse_shouldMapAllAlertFields_whenAlertHasScopeAndRecipients() {
@@ -270,9 +304,10 @@ class AlertMapperTest {
         AlertResponse expected = new AlertResponse(
                 ALERT_ID,
                 AlertType.EARTHQUAKE,
+                TITLE,
                 AlertStatus.ACTIVE,
-                AlertOrigin.SIMULATION,
-                "SIM-1",
+                AlertOrigin.EVENT,
+                EVENT_ID,
                 new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
                 "Evacuar",
                 List.of(new RecipientRequest(RecipientType.USER, "u1")),
@@ -286,7 +321,7 @@ class AlertMapperTest {
         assertEquals(expected, result);
     }
 
-    // toSummary 
+    // toSummary
 
     @Test
     void toSummary_shouldMapSummaryFields_whenAlertHasScope() {
@@ -297,9 +332,10 @@ class AlertMapperTest {
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
                 AlertType.EARTHQUAKE,
+                TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
                 AlertStatus.ACTIVE,
-                AlertOrigin.SIMULATION,
+                AlertOrigin.EVENT,
                 NOW.minusSeconds(300));
         assertEquals(expected, result);
     }
@@ -313,9 +349,10 @@ class AlertMapperTest {
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
                 AlertType.EARTHQUAKE,
+                TITLE,
                 null,
                 AlertStatus.ACTIVE,
-                AlertOrigin.SIMULATION,
+                AlertOrigin.EVENT,
                 NOW.minusSeconds(300));
         assertEquals(expected, result);
     }

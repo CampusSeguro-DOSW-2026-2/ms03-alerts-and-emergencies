@@ -12,6 +12,10 @@ public record ErrorResponse(
         String path,
         List<Detail> details) {
 
+    public ErrorResponse {
+        details = details == null ? List.of() : List.copyOf(details);
+    }
+
     public record Detail(String field, String message) {
     }
 

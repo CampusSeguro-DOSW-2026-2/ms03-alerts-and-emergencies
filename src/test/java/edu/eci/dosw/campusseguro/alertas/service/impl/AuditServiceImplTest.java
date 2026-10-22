@@ -1,3 +1,4 @@
+
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,8 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 @ExtendWith(MockitoExtension.class)
 class AuditServiceImplTest {
 
-    private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
-    private static final UUID ALERT_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+    private static final Instant NOW =
+            Instant.parse("2026-10-15T18:00:00Z");
+
+    private static final UUID ALERT_ID =
+            UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     @Mock
     private AuditEventRepository auditEventRepository;
@@ -35,20 +39,32 @@ class AuditServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuditServiceImpl(auditEventRepository, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new AuditServiceImpl(
+                auditEventRepository,
+                Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private AuditEventEntity captureSaved() {
-        ArgumentCaptor<AuditEventEntity> captor = ArgumentCaptor.forClass(AuditEventEntity.class);
+        ArgumentCaptor<AuditEventEntity> captor =
+                ArgumentCaptor.forClass(AuditEventEntity.class);
+
         verify(auditEventRepository).save(captor.capture());
+
         return captor.getValue();
     }
 
     @Test
     void record_shouldSaveEventWithAllFields() {
-        service.record(ALERT_ID, AuditAction.SCHEDULE, "admin", AlertStatus.DRAFT, AlertStatus.SCHEDULED, "detalle");
+        service.record(
+                ALERT_ID,
+                AuditAction.SCHEDULE,
+                "admin",
+                AlertStatus.DRAFT,
+                AlertStatus.SCHEDULED,
+                "detalle");
 
         AuditEventEntity event = captureSaved();
+
         assertEquals(ALERT_ID, event.getAlertId());
         assertEquals(AuditAction.SCHEDULE, event.getAction());
         assertEquals("admin", event.getActor());
@@ -61,9 +77,16 @@ class AuditServiceImplTest {
 
     @Test
     void record_shouldSaveEvent_whenFromStatusAndDetailsAreNull() {
-        service.record(ALERT_ID, AuditAction.CREATE, "admin", null, AlertStatus.DRAFT, null);
+        service.record(
+                ALERT_ID,
+                AuditAction.CREATE,
+                "admin",
+                null,
+                AlertStatus.DRAFT,
+                null);
 
         AuditEventEntity event = captureSaved();
+
         assertNull(event.getFromStatus());
         assertEquals(AlertStatus.DRAFT, event.getToStatus());
         assertNull(event.getDetails());
@@ -73,7 +96,13 @@ class AuditServiceImplTest {
     void record_shouldTruncateActor_whenLongerThan64Chars() {
         String actor = "a".repeat(100);
 
-        service.record(ALERT_ID, AuditAction.UPDATE, actor, AlertStatus.DRAFT, AlertStatus.DRAFT, "x");
+        service.record(
+                ALERT_ID,
+                AuditAction.UPDATE,
+                actor,
+                AlertStatus.DRAFT,
+                AlertStatus.DRAFT,
+                "x");
 
         assertEquals(64, captureSaved().getActor().length());
     }
@@ -82,7 +111,13 @@ class AuditServiceImplTest {
     void record_shouldNotTruncateActor_whenExactly64Chars() {
         String actor = "a".repeat(64);
 
-        service.record(ALERT_ID, AuditAction.UPDATE, actor, AlertStatus.DRAFT, AlertStatus.DRAFT, "x");
+        service.record(
+                ALERT_ID,
+                AuditAction.UPDATE,
+                actor,
+                AlertStatus.DRAFT,
+                AlertStatus.DRAFT,
+                "x");
 
         assertEquals(actor, captureSaved().getActor());
     }
@@ -91,7 +126,13 @@ class AuditServiceImplTest {
     void record_shouldTruncateDetails_whenLongerThan500Chars() {
         String details = "d".repeat(800);
 
-        service.record(ALERT_ID, AuditAction.UPDATE, "admin", AlertStatus.DRAFT, AlertStatus.DRAFT, details);
+        service.record(
+                ALERT_ID,
+                AuditAction.UPDATE,
+                "admin",
+                AlertStatus.DRAFT,
+                AlertStatus.DRAFT,
+                details);
 
         assertEquals(500, captureSaved().getDetails().length());
     }
@@ -100,13 +141,21 @@ class AuditServiceImplTest {
     void record_shouldNotTruncateDetails_whenExactly500Chars() {
         String details = "d".repeat(500);
 
-        service.record(ALERT_ID, AuditAction.UPDATE, "admin", AlertStatus.DRAFT, AlertStatus.DRAFT, details);
+        service.record(
+                ALERT_ID,
+                AuditAction.UPDATE,
+                "admin",
+                AlertStatus.DRAFT,
+                AlertStatus.DRAFT,
+                details);
 
         assertEquals(details, captureSaved().getDetails());
     }
 
     @Test
-    void record_shouldJoinOrCreateTransaction() throws NoSuchMethodException {
+    void record_shouldRequireAnExistingTransaction()
+            throws NoSuchMethodException {
+
         Method method = AuditServiceImpl.class.getMethod(
                 "record",
                 UUID.class,
@@ -116,8 +165,9 @@ class AuditServiceImplTest {
                 AlertStatus.class,
                 String.class);
 
-        Transactional transactional = method.getAnnotation(Transactional.class);
+        Transactional transactional =
+                method.getAnnotation(Transactional.class);
 
-        assertEquals(Propagation.REQUIRED, transactional.propagation());
+        assertEquals(Propagation.MANDATORY, transactional.propagation());
     }
 }

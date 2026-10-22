@@ -1,6 +1,7 @@
 
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
@@ -34,7 +35,6 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     private final AuditService auditService;
     private final AlertStateMachine alertStateMachine;
     private final Clock clock;
-
 
     public AlertLifecycleServiceImpl(
             AlertRepository alertRepository,
@@ -106,7 +106,6 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         }
 
         AlertStatus previousStatus = alert.getStatus();
-
         alertStateMachine.assertTransition(
                 previousStatus,
                 AlertStatus.ACTIVE);
@@ -165,7 +164,11 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
     @Override
     @Transactional
-    public AlertResponse end(UUID id, String actor) {
+    public AlertResponse end(
+            UUID id,
+            AlertEndRequest request,
+            String actor) {
+
         AlertEntity alert = findAlertForUpdate(id);
 
         if (alert.getStatus() == AlertStatus.ENDED

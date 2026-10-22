@@ -1,7 +1,7 @@
-
 package edu.eci.dosw.campusseguro.alertas.mapper;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
-import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 
 @Component
 public class AlertMapper {
@@ -77,9 +76,36 @@ public class AlertMapper {
 
         AlertEntity alert = new AlertEntity();
         alert.setType(request.type());
+        alert.setTitle(request.title().strip());
         alert.setStatus(AlertStatus.DRAFT);
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions(request.instructions().strip());
+        alert.setCreatedBy(actor);
+        alert.setCreatedAt(now);
+        alert.setUpdatedAt(now);
+
+        return alert;
+    }
+
+    public AlertEntity toEventEntity(
+            UUID eventId,
+            EventAlertSyncRequest request,
+            String actor,
+            Instant now) {
+
+        Objects.requireNonNull(eventId, "Event ID cannot be null");
+        Objects.requireNonNull(request, "Alert request cannot be null");
+        Objects.requireNonNull(actor, "Actor cannot be null");
+        Objects.requireNonNull(now, "Creation time cannot be null");
+
+        AlertEntity alert = new AlertEntity();
+        alert.setType(request.type());
+        alert.setTitle(request.title().strip());
+        alert.setStatus(AlertStatus.SCHEDULED);
+        alert.setOrigin(AlertOrigin.EVENT);
+        alert.setEventId(eventId);
+        alert.setInstructions(request.instructions().strip());
+        alert.setActivationAt(request.activationAt());
         alert.setCreatedBy(actor);
         alert.setCreatedAt(now);
         alert.setUpdatedAt(now);
@@ -202,6 +228,7 @@ public class AlertMapper {
         return new AlertResponse(
                 alert.getId(),
                 alert.getType(),
+                alert.getTitle(),
                 alert.getStatus(),
                 alert.getOrigin(),
                 alert.getEventId(),
@@ -227,6 +254,7 @@ public class AlertMapper {
         return new AlertSummaryResponse(
                 alert.getId(),
                 alert.getType(),
+                alert.getTitle(),
                 toScope(scopeItems),
                 alert.getStatus(),
                 alert.getOrigin(),
@@ -247,24 +275,5 @@ public class AlertMapper {
         item.setUpdatedAt(now);
 
         return item;
-    }
-
-    public AlertEntity toEventEntity(
-        UUID eventId,
-        EventAlertSyncRequest request,
-        String actor,
-        Instant now) {
-
-        AlertEntity alert = new AlertEntity();
-        alert.setType(request.type());
-        alert.setStatus(AlertStatus.SCHEDULED);
-        alert.setOrigin(AlertOrigin.EVENT);
-        alert.setEventId(eventId);
-        alert.setInstructions(request.instructions().strip());
-        alert.setActivationAt(request.activationAt());
-        alert.setCreatedBy(actor);
-        alert.setCreatedAt(now);
-        alert.setUpdatedAt(now);
-        return alert;
     }
 }

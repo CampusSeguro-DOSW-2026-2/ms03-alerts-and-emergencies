@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.entity;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
@@ -27,6 +26,9 @@ public class AlertEntity extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "type", nullable = false, length = 20)
     private AlertType type;
+
+    @Column(name = "title", nullable = false, length = 150)
+    private String title;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -147,5 +149,13 @@ public class AlertEntity extends BaseEntity {
 
     public Long getVersion() {
         return version;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 }

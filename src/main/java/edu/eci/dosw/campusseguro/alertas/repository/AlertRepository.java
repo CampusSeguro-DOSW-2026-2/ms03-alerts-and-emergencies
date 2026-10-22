@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.repository;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;

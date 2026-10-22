@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.controller;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
@@ -36,6 +37,9 @@ public class AlertController {
 
     private static final String COORDINATOR_ONLY =
             "hasRole('COORDINATOR')";
+
+    private static final String COORDINATOR_OR_SERVICE =
+            "hasAnyRole('COORDINATOR', 'SERVICE_MS06')";
 
     private static final String READ_ACCESS =
             "hasAnyRole('COORDINATOR', 'AUDITOR', 'SERVICE_MS06')";
@@ -139,10 +143,14 @@ public class AlertController {
     }
 
     @PutMapping("/{id}/finalizacion")
-    @PreAuthorize(COORDINATOR_ONLY)
-    public AlertResponse end(@PathVariable UUID id) {
+    @PreAuthorize(COORDINATOR_OR_SERVICE)
+    public AlertResponse end(
+            @PathVariable UUID id,
+            @Valid @RequestBody(required = false) AlertEndRequest request) {
+
         return alertLifecycleService.end(
                 id,
+                request,
                 actorResolver.resolve());
     }
 

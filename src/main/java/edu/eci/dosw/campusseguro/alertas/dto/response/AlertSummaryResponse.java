@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
@@ -11,6 +10,7 @@ import java.util.UUID;
 public record AlertSummaryResponse(
         UUID id,
         AlertType type,
+        String title,
         ScopeRequest scope,
         AlertStatus status,
         AlertOrigin origin,

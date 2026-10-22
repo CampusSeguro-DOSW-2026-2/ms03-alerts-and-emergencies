@@ -1,10 +1,10 @@
-
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogClient;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
@@ -13,9 +13,12 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
@@ -28,6 +31,7 @@ import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -43,11 +47,6 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
-import java.util.EnumSet;
 
 @Service
 public class AlertServiceImpl implements AlertService {
@@ -55,6 +54,9 @@ public class AlertServiceImpl implements AlertService {
     private static final int DEFAULT_PAGE = 0;
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
+
+    private static final Set<AlertStatus> LIVE_STATUSES =
+            EnumSet.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
 
     private final AlertRepository alertRepository;
     private final AlertScopeItemRepository scopeItemRepository;
@@ -64,8 +66,6 @@ public class AlertServiceImpl implements AlertService {
     private final AlertMapper alertMapper;
     private final AlertStateRules stateRules;
     private final Clock clock;
-    private static final Set<AlertStatus> LIVE_STATUSES =
-        EnumSet.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
 
     public AlertServiceImpl(
             AlertRepository alertRepository,
@@ -112,7 +112,8 @@ public class AlertServiceImpl implements AlertService {
                         alertMapper.toRecipients(
                                 alert.getId(), recipients, now));
 
-        String details = "Alert created: type=" + alert.getType()
+        String details = "Alert created: title=" + alert.getTitle()
+                + ", type=" + alert.getType()
                 + ", scope=" + scope.type()
                 + ", recipients=" + recipients.size();
 
@@ -190,6 +191,12 @@ public class AlertServiceImpl implements AlertService {
                 && request.type() != alert.getType()) {
             alert.setType(request.type());
             changedFields.add("type");
+        }
+
+        if (request.title() != null
+                && !request.title().strip().equals(alert.getTitle())) {
+            alert.setTitle(request.title().strip());
+            changedFields.add("title");
         }
 
         if (request.instructions() != null
@@ -311,6 +318,142 @@ public class AlertServiceImpl implements AlertService {
         return PageResponse.of(content, result);
     }
 
+    @Override
+    @Transactional
+    public AlertResponse synchronizeFromEvent(
+            UUID eventId,
+            EventAlertSyncRequest request,
+            String actor) {
+
+        Instant now = clock.instant();
+
+        if (!request.activationAt().isAfter(now)) {
+            throw new InvalidActivationDateException();
+        }
+
+        ScopeRequest scope = alertMapper.normalizeScope(request.scope());
+        List<RecipientRequest> recipients =
+                alertMapper.normalizeRecipients(request.recipients());
+
+        validateScope(scope);
+        validateRecipients(recipients);
+
+        return alertRepository.findByEventIdAndStatusIn(eventId, LIVE_STATUSES)
+                .map(existing -> updateFromEvent(
+                        existing, request, scope, recipients, actor, now))
+                .orElseGet(() -> createFromEvent(
+                        eventId, request, scope, recipients, actor, now));
+    }
+
+    private AlertResponse createFromEvent(
+            UUID eventId,
+            EventAlertSyncRequest request,
+            ScopeRequest scope,
+            List<RecipientRequest> recipients,
+            String actor,
+            Instant now) {
+
+        AlertEntity alert = alertRepository.saveAndFlush(
+                alertMapper.toEventEntity(eventId, request, actor, now));
+
+        List<AlertScopeItemEntity> scopeItems = scopeItemRepository.saveAll(
+                alertMapper.toScopeItems(alert.getId(), scope, now));
+
+        List<AlertRecipientEntity> recipientEntities = recipientRepository.saveAll(
+                alertMapper.toRecipients(alert.getId(), recipients, now));
+
+        auditService.record(
+                alert.getId(),
+                AuditAction.CREATE,
+                actor,
+                null,
+                alert.getStatus(),
+                "Alert created from event " + eventId
+                        + ", title=" + alert.getTitle()
+                        + ", activationAt=" + request.activationAt());
+
+        return alertMapper.toResponse(alert, scopeItems, recipientEntities);
+    }
+
+    private AlertResponse updateFromEvent(
+            AlertEntity alert,
+            EventAlertSyncRequest request,
+            ScopeRequest scope,
+            List<RecipientRequest> recipients,
+            String actor,
+            Instant now) {
+
+        // Once activated, the event service can no longer change the alert.
+        if (alert.getStatus() != AlertStatus.SCHEDULED) {
+            throw new InvalidAlertStateException(alert.getStatus());
+        }
+
+        UUID id = alert.getId();
+        List<AlertScopeItemEntity> currentScope = scopeItemRepository.findByAlertId(id);
+        List<AlertRecipientEntity> currentRecipients = recipientRepository.findByAlertId(id);
+
+        List<AlertScopeItemEntity> desiredScope = alertMapper.toScopeItems(id, scope, now);
+        List<AlertRecipientEntity> desiredRecipients = alertMapper.toRecipients(id, recipients, now);
+
+        boolean scopeChanged = !keys(desiredScope, this::scopeKey)
+                .equals(keys(currentScope, this::scopeKey));
+        boolean recipientsChanged = !keys(desiredRecipients, this::recipientKey)
+                .equals(keys(currentRecipients, this::recipientKey));
+
+        List<String> changedFields = new ArrayList<>();
+
+        if (request.type() != alert.getType()) {
+            alert.setType(request.type());
+            changedFields.add("type");
+        }
+        if (!request.title().strip().equals(alert.getTitle())) {
+            alert.setTitle(request.title().strip());
+            changedFields.add("title");
+        }
+        if (!request.instructions().strip().equals(alert.getInstructions())) {
+            alert.setInstructions(request.instructions().strip());
+            changedFields.add("instructions");
+        }
+        if (!request.activationAt().equals(alert.getActivationAt())) {
+            alert.setActivationAt(request.activationAt());
+            changedFields.add("activationAt");
+        }
+        if (scopeChanged) {
+            changedFields.add("scope");
+        }
+        if (recipientsChanged) {
+            changedFields.add("recipients");
+        }
+
+        if (changedFields.isEmpty()) {
+            return alertMapper.toResponse(alert, currentScope, currentRecipients);
+        }
+
+        alert.setUpdatedAt(now);
+        alertRepository.saveAndFlush(alert);
+
+        if (scopeChanged) {
+            replace(currentScope, desiredScope, this::scopeKey, scopeItemRepository);
+        }
+        if (recipientsChanged) {
+            replace(currentRecipients, desiredRecipients, this::recipientKey, recipientRepository);
+        }
+
+        auditService.record(
+                id,
+                AuditAction.UPDATE,
+                actor,
+                alert.getStatus(),
+                alert.getStatus(),
+                "Synchronized from event. Modified fields: "
+                        + String.join(", ", changedFields));
+
+        return alertMapper.toResponse(
+                alert,
+                scopeItemRepository.findByAlertId(id),
+                recipientRepository.findByAlertId(id));
+    }
+
     private void validatePagination(
             AlertFilter filter,
             int page,
@@ -390,125 +533,5 @@ public class AlertServiceImpl implements AlertService {
         return recipient.getRecipientType()
                 + "|"
                 + recipient.getRecipientRefId();
-    }
-
-    @Override
-    @Transactional
-    public AlertResponse synchronizeFromEvent(
-            UUID eventId,
-            EventAlertSyncRequest request,
-            String actor) {
-
-        Instant now = clock.instant();
-
-        if (!request.activationAt().isAfter(now)) {
-            throw new InvalidActivationDateException();
-        }
-
-        ScopeRequest scope = alertMapper.normalizeScope(request.scope());
-        List<RecipientRequest> recipients =
-                alertMapper.normalizeRecipients(request.recipients());
-
-        validateScope(scope);
-        validateRecipients(recipients);
-
-        return alertRepository.findByEventIdAndStatusIn(eventId, LIVE_STATUSES)
-                .map(existing -> updateFromEvent(existing, request, scope, recipients, actor, now))
-                .orElseGet(() -> createFromEvent(eventId, request, scope, recipients, actor, now));
-    }
-
-    private AlertResponse createFromEvent(
-            UUID eventId,
-            EventAlertSyncRequest request,
-            ScopeRequest scope,
-            List<RecipientRequest> recipients,
-            String actor,
-            Instant now) {
-
-        AlertEntity alert = alertRepository.saveAndFlush(
-                alertMapper.toEventEntity(eventId, request, actor, now));
-
-        List<AlertScopeItemEntity> scopeItems = scopeItemRepository.saveAll(
-                alertMapper.toScopeItems(alert.getId(), scope, now));
-
-        List<AlertRecipientEntity> recipientEntities = recipientRepository.saveAll(
-                alertMapper.toRecipients(alert.getId(), recipients, now));
-
-        auditService.record(
-                alert.getId(),
-                AuditAction.CREATE,
-                actor,
-                null,
-                alert.getStatus(),
-                "Alert created from event " + eventId
-                        + ", activationAt=" + request.activationAt());
-
-        return alertMapper.toResponse(alert, scopeItems, recipientEntities);
-    }
-
-    private AlertResponse updateFromEvent(
-            AlertEntity alert,
-            EventAlertSyncRequest request,
-            ScopeRequest scope,
-            List<RecipientRequest> recipients,
-            String actor,
-            Instant now) {
-
-        // Si ya se activó, MS06 ya no puede cambiarla.
-        if (alert.getStatus() != AlertStatus.SCHEDULED) {
-            throw new InvalidAlertStateException(alert.getStatus());
-        }
-
-        UUID id = alert.getId();
-        List<AlertScopeItemEntity> currentScope = scopeItemRepository.findByAlertId(id);
-        List<AlertRecipientEntity> currentRecipients = recipientRepository.findByAlertId(id);
-
-        List<AlertScopeItemEntity> desiredScope = alertMapper.toScopeItems(id, scope, now);
-        List<AlertRecipientEntity> desiredRecipients = alertMapper.toRecipients(id, recipients, now);
-
-        boolean scopeChanged = !keys(desiredScope, this::scopeKey)
-                .equals(keys(currentScope, this::scopeKey));
-        boolean recipientsChanged = !keys(desiredRecipients, this::recipientKey)
-                .equals(keys(currentRecipients, this::recipientKey));
-
-        List<String> changedFields = new ArrayList<>();
-
-        if (request.type() != alert.getType()) {
-            alert.setType(request.type());
-            changedFields.add("type");
-        }
-        if (!request.instructions().strip().equals(alert.getInstructions())) {
-            alert.setInstructions(request.instructions().strip());
-            changedFields.add("instructions");
-        }
-        if (!request.activationAt().equals(alert.getActivationAt())) {
-            alert.setActivationAt(request.activationAt());
-            changedFields.add("activationAt");
-        }
-        if (scopeChanged) changedFields.add("scope");
-        if (recipientsChanged) changedFields.add("recipients");
-
-        if (changedFields.isEmpty()) {
-            return alertMapper.toResponse(alert, currentScope, currentRecipients); // reintento idéntico
-        }
-
-        alert.setUpdatedAt(now);
-        alertRepository.saveAndFlush(alert);
-
-        if (scopeChanged) replace(currentScope, desiredScope, this::scopeKey, scopeItemRepository);
-        if (recipientsChanged) replace(currentRecipients, desiredRecipients, this::recipientKey, recipientRepository);
-
-        auditService.record(
-                id,
-                AuditAction.UPDATE,
-                actor,
-                alert.getStatus(),
-                alert.getStatus(),
-                "Synchronized from event. Modified fields: " + String.join(", ", changedFields));
-
-        return alertMapper.toResponse(
-                alert,
-                scopeItemRepository.findByAlertId(id),
-                recipientRepository.findByAlertId(id));
     }
 }

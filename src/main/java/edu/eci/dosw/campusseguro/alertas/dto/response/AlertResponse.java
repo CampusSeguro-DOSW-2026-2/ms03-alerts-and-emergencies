@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
@@ -13,6 +12,7 @@ import java.util.UUID;
 public record AlertResponse(
         UUID id,
         AlertType type,
+        String title,
         AlertStatus status,
         AlertOrigin origin,
         UUID eventId,

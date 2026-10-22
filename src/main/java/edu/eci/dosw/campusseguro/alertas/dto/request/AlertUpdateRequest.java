@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
@@ -12,6 +11,14 @@ import java.util.List;
 @AtLeastOneField
 public record AlertUpdateRequest(
         AlertType type,
+
+        @Size(max = 150, message = "Title cannot exceed 150 characters")
+        @Pattern(
+                regexp = ".*\\S.*",
+                flags = Pattern.Flag.DOTALL,
+                message = "Title cannot be empty"
+        )
+        String title,
 
         @Valid
         ScopeRequest scope,
@@ -32,6 +39,7 @@ public record AlertUpdateRequest(
 ) {
     public boolean hasAnyField() {
         return type != null
+                || title != null
                 || scope != null
                 || instructions != null
                 || recipients != null;
