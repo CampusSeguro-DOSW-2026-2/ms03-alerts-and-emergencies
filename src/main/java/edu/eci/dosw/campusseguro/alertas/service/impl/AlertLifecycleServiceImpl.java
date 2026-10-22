@@ -9,6 +9,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
@@ -22,6 +23,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +37,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     private final AuditService auditService;
     private final AlertStateMachine alertStateMachine;
     private final Clock clock;
+    private final ApplicationEventPublisher eventPublisher;
 
     public AlertLifecycleServiceImpl(
             AlertRepository alertRepository,
@@ -43,7 +46,8 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
             AlertMapper alertMapper,
             AuditService auditService,
             AlertStateMachine alertStateMachine,
-            Clock clock) {
+            Clock clock,
+            ApplicationEventPublisher eventPublisher) {
         this.alertRepository = alertRepository;
         this.scopeItemRepository = scopeItemRepository;
         this.recipientRepository = recipientRepository;
@@ -51,6 +55,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         this.auditService = auditService;
         this.alertStateMachine = alertStateMachine;
         this.clock = clock;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -126,6 +131,9 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 alert.getStatus(),
                 "Alert activated manually");
 
+        eventPublisher.publishEvent(
+                new AlertActivatedEvent(alert.getId(), previousStatus, now));
+
         return toResponse(alert);
     }
 
@@ -159,6 +167,9 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                     previousStatus,
                     alert.getStatus(),
                     "Alert activated automatically");
+
+            eventPublisher.publishEvent(
+                    new AlertActivatedEvent(alert.getId(), previousStatus, now));
         }
     }
 

@@ -19,6 +19,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
@@ -38,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,6 +67,9 @@ class AlertLifecycleServiceImplTest {
     @Mock
     private AlertStateMachine stateMachine;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private AlertLifecycleServiceImpl service;
 
     @BeforeEach
@@ -76,7 +81,8 @@ class AlertLifecycleServiceImplTest {
                 alertMapper,
                 auditService,
                 stateMachine,
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                eventPublisher);
     }
 
     private AlertEntity alert(AlertStatus status) {
@@ -181,6 +187,8 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alert activated manually");
+        verify(eventPublisher).publishEvent(
+                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW));
     }
 
     @Test
@@ -193,6 +201,8 @@ class AlertLifecycleServiceImplTest {
 
         assertEquals(AlertStatus.ACTIVE, alert.getStatus());
         verify(stateMachine).assertTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE);
+        verify(eventPublisher).publishEvent(
+                new AlertActivatedEvent(ID, AlertStatus.DRAFT, NOW));
     }
 
     @Test
@@ -204,7 +214,7 @@ class AlertLifecycleServiceImplTest {
         assertThrows(IllegalStateException.class, () -> service.activate(ID, ACTOR));
 
         verify(alertRepository, never()).saveAndFlush(any());
-        verifyNoInteractions(auditService);
+        verifyNoInteractions(auditService, eventPublisher);
     }
 
     @Test
@@ -245,6 +255,10 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alert activated automatically");
+        verify(eventPublisher).publishEvent(
+                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW));
+        verify(eventPublisher).publishEvent(
+                new AlertActivatedEvent(secondId, AlertStatus.SCHEDULED, NOW));
     }
 
     @Test

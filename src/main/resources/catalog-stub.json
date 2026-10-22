@@ -19,7 +19,7 @@
     { "id": "SECURITY", "name": "Seguridad" }
   ],
   "users": [
-    { "id": "usr-001", "name": "Laura Gómez", "email": "laura.gomez@example.edu.co", "roles": ["STUDENT"] },
+    { "id": "usr-001", "name": "Jous Daniel", "email": "kenji23jk@gmail.com", "roles": ["STUDENT"] },
     { "id": "usr-002", "name": "Andrés Rojas", "email": "andres.rojas@example.edu.co", "roles": ["STUDENT"] },
     { "id": "usr-003", "name": "Marta Pineda", "email": "marta.pineda@example.edu.co", "roles": ["TEACHER"] },
     { "id": "usr-004", "name": "Camilo Duarte", "email": "camilo.duarte@example.edu.co", "roles": ["TEACHER", "STAFF"] },
