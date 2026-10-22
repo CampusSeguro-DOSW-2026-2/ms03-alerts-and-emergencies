@@ -23,6 +23,18 @@ app:
   timezone: ${APP_TIMEZONE:America/Bogota}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  catalog:
+    ms01-url: ${MS01_URL:http://localhost:8081}
+    ms02-url: ${MS02_URL:http://localhost:8082}
+    service-token: ${MS_SERVICE_TOKEN:}
+    connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:5000}
+    ms02:
+      validate-scope-path: ${MS02_VALIDATE_SCOPE_PATH:/api/v1/catalogo/validar-alcance}
+    ms01:
+      validate-recipients-path: ${MS01_VALIDATE_RECIPIENTS_PATH:/api/v1/catalogo/validar-destinatarios}
+      user-path: ${MS01_USER_PATH:/api/v1/usuarios/{id}}
+      role-users-path: ${MS01_ROLE_USERS_PATH:/api/v1/usuarios?rol={role}}
   security:
     roles-claim: ${JWT_ROLES_CLAIM:roles}
   mail:
