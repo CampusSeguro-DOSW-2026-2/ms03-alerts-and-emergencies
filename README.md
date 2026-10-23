@@ -110,6 +110,14 @@ Review the configuration files in `src/main/resources/` and configure the requir
 
 Do not commit passwords, access tokens, or other sensitive credentials to the repository.
 
+### Update an Existing Database
+
+Docker applies scripts in `database/` only when it initializes a new data volume. To update an existing database, apply the migration explicitly:
+
+```powershell
+docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts -f /docker-entrypoint-initdb.d/004_upgrade_alerts_schema.sql
+```
+
 ### Build and Run
 
 Use the commands corresponding to the build tool configured in the project.
