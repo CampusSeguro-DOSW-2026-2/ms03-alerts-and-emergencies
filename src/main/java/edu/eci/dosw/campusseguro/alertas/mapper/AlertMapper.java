@@ -1,7 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.mapper;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
-import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertOriginRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
@@ -74,41 +74,23 @@ public class AlertMapper {
         Objects.requireNonNull(actor, "Actor cannot be null");
         Objects.requireNonNull(now, "Creation time cannot be null");
 
+        AlertOriginRequest origin = request.origin();
+
         AlertEntity alert = new AlertEntity();
         alert.setType(request.type());
         alert.setTitle(request.title().strip());
         alert.setStatus(AlertStatus.DRAFT);
-        alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions(request.instructions().strip());
         alert.setCreatedBy(actor);
         alert.setCreatedAt(now);
         alert.setUpdatedAt(now);
 
-        return alert;
-    }
-
-    public AlertEntity toEventEntity(
-            UUID eventId,
-            EventAlertSyncRequest request,
-            String actor,
-            Instant now) {
-
-        Objects.requireNonNull(eventId, "Event ID cannot be null");
-        Objects.requireNonNull(request, "Alert request cannot be null");
-        Objects.requireNonNull(actor, "Actor cannot be null");
-        Objects.requireNonNull(now, "Creation time cannot be null");
-
-        AlertEntity alert = new AlertEntity();
-        alert.setType(request.type());
-        alert.setTitle(request.title().strip());
-        alert.setStatus(AlertStatus.SCHEDULED);
-        alert.setOrigin(AlertOrigin.EVENT);
-        alert.setEventId(eventId);
-        alert.setInstructions(request.instructions().strip());
-        alert.setActivationAt(request.activationAt());
-        alert.setCreatedBy(actor);
-        alert.setCreatedAt(now);
-        alert.setUpdatedAt(now);
+        if (origin == null) {
+            alert.setOrigin(AlertOrigin.MANUAL);
+        } else {
+            alert.setOrigin(origin.type());
+            alert.setSimulationId(origin.simulationId());
+        }
 
         return alert;
     }
@@ -231,7 +213,7 @@ public class AlertMapper {
                 alert.getTitle(),
                 alert.getStatus(),
                 alert.getOrigin(),
-                alert.getEventId(),
+                alert.getSimulationId(),
                 toScope(scopeItems),
                 alert.getInstructions(),
                 toRecipientRequests(recipients),
@@ -258,6 +240,7 @@ public class AlertMapper {
                 toScope(scopeItems),
                 alert.getStatus(),
                 alert.getOrigin(),
+                alert.getSimulationId(),
                 alert.getCreatedAt());
     }
 

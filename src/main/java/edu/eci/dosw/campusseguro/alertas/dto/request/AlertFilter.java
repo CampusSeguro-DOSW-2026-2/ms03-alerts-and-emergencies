@@ -11,7 +11,7 @@ public record AlertFilter(
         AlertType type,
         LocalDate startDate,
         LocalDate endDate,
-        UUID eventId,
+        UUID simulationId,
         Integer page,
         Integer size
 ) {

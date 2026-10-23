@@ -1,0 +1,1268 @@
+openapi: 3.1.0
+info:
+  title: MS03 - Alertas y Emergencias
+  description: |
+    API de gestion de alertas, ciclo de vida, confirmaciones y auditoria de
+    CampusSeguro. Todos los endpoints, salvo los de salud y tokens locales,
+    requieren un JWT con esquema Bearer.
+
+    Roles con privilegio: COORDINATOR, AUDITOR y SERVICE_MS06. No existe el rol
+    RECIPIENT: el acceso de un usuario generico a GET /alertas/{id} y a
+    POST /alertas/{id}/confirmaciones lo decide AlertAccessPolicy.
+  version: 1.0.0
+  license:
+    name: Uso academico - CampusSeguro
+servers:
+  - url: http://localhost:8080
+    description: Entorno local
+security:
+  - bearerAuth: []
+tags:
+  - name: Alertas
+    description: Gestion y ciclo de vida de alertas
+  - name: Confirmaciones
+    description: Confirmacion de recepcion de alertas
+  - name: Auditoria
+    description: Consulta de eventos de auditoria
+paths:
+  /api/v1/alertas:
+    get:
+      tags:
+        - Alertas
+      operationId: listAlerts
+      summary: Listar alertas
+      description: |
+        Listado paginado, ordenado por fecha de creacion descendente. Solo
+        COORDINATOR y AUDITOR. El rango de fechas se aplica sobre createdAt.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Estado de la alerta.
+          schema:
+            $ref: '#/components/schemas/AlertStatus'
+        - name: type
+          in: query
+          required: false
+          description: Tipo de alerta.
+          schema:
+            $ref: '#/components/schemas/AlertType'
+        - name: startDate
+          in: query
+          required: false
+          description: Fecha inicial (inclusive) de creacion, en formato ISO date.
+          schema:
+            type: string
+            format: date
+            example: '2026-10-01'
+        - name: endDate
+          in: query
+          required: false
+          description: Fecha final (inclusive) de creacion, en formato ISO date.
+          schema:
+            type: string
+            format: date
+            example: '2026-10-31'
+        - name: simulationId
+          in: query
+          required: false
+          description: Filtra por el simulacro asociado.
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          required: false
+          description: Numero de pagina, base cero.
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Tamano de pagina.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Listado paginado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageResponseAlertSummaryResponse'
+              examples:
+                page:
+                  value:
+                    content:
+                      - id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                        type: EARTHQUAKE
+                        title: Sismo en bloque B
+                        scope:
+                          type: BUILDING
+                          ids:
+                            - bld-001
+                        status: ACTIVE
+                        origin: MANUAL
+                        simulationId: null
+                        createdAt: '2026-10-22T14:05:00Z'
+                    page: 0
+                    size: 20
+                    totalElements: 1
+                    totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+        - Alertas
+      operationId: createAlert
+      summary: Crear alerta
+      description: |
+        Crea una alerta manual o asociada a un simulacro. Solo COORDINATOR y
+        SERVICE_MS06.
+
+        Idempotencia MS06: si ya existe una alerta SCHEDULED o ACTIVE para el
+        mismo simulationId y los datos de creacion coinciden, responde 200 con
+        la alerta existente. Si los datos difieren, responde 409
+        DUPLICATE_SIMULATION_ALERT. La comparacion usa type, title,
+        instructions, scope, recipients y activationAt.
+
+        Si activateImmediately es true, la alerta se crea en DRAFT y se activa
+        en la misma operacion, respondiendo 201 con estado ACTIVE. Se acepta el
+        alias activarInmediatamente. En origin se acepta eventId como alias de
+        simulationId y tipo como alias de type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertCreateRequest'
+            examples:
+              manual:
+                summary: Alerta manual en borrador
+                value:
+                  type: EARTHQUAKE
+                  title: Sismo en bloque B
+                  scope:
+                    type: BUILDING
+                    ids:
+                      - bld-001
+                  instructions: Evacuar el bloque B y dirigirse al punto de encuentro.
+                  recipients:
+                    - type: ROLE
+                      id: STUDENTS
+                  origin:
+                    type: MANUAL
+              simulationScheduled:
+                summary: Simulacro programado por MS06
+                value:
+                  type: SIMULATION
+                  title: Simulacro nacional de evacuacion
+                  scope:
+                    type: CAMPUS
+                  instructions: Seguir las indicaciones de los brigadistas.
+                  recipients:
+                    - type: ROLE
+                      id: STUDENTS
+                  origin:
+                    type: SIMULATION
+                    simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                  activationAt: '2026-11-05T15:00:00Z'
+              simulationImmediate:
+                summary: Simulacro con activacion inmediata
+                value:
+                  type: SIMULATION
+                  title: Simulacro de evacuacion inmediata
+                  scope:
+                    type: CAMPUS
+                  instructions: Evacuar de inmediato.
+                  recipients:
+                    - type: ROLE
+                      id: STUDENTS
+                  origin:
+                    type: SIMULATION
+                    simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                  activateImmediately: true
+      responses:
+        '201':
+          description: Alerta creada.
+          headers:
+            Location:
+              description: URI de la alerta creada.
+              schema:
+                type: string
+                format: uri
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                created:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: SIMULATION
+                    title: Simulacro nacional de evacuacion
+                    status: SCHEDULED
+                    origin: SIMULATION
+                    simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                    scope:
+                      type: CAMPUS
+                      ids: []
+                    instructions: Seguir las indicaciones de los brigadistas.
+                    recipients:
+                      - type: ROLE
+                        id: STUDENTS
+                    createdBy: service-ms06
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:05:00Z'
+                    activationAt: '2026-11-05T15:00:00Z'
+                    activatedAt: null
+                    endedAt: null
+                    archivedAt: null
+        '200':
+          description: Alerta existente para el simulationId (reintento idempotente).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                existing:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: SIMULATION
+                    title: Simulacro nacional de evacuacion
+                    status: SCHEDULED
+                    origin: SIMULATION
+                    simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                    scope:
+                      type: CAMPUS
+                      ids: []
+                    instructions: Seguir las indicaciones de los brigadistas.
+                    recipients:
+                      - type: ROLE
+                        id: STUDENTS
+                    createdBy: service-ms06
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:05:00Z'
+                    activationAt: '2026-11-05T15:00:00Z'
+                    activatedAt: null
+                    endedAt: null
+                    archivedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/alertas/{id}:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    get:
+      tags:
+        - Alertas
+      operationId: getAlert
+      summary: Consultar alerta
+      description: |
+        Visible para COORDINATOR, AUDITOR y para usuarios autorizados por
+        AlertAccessPolicy (destinatario directo, rol destinatario o registro de
+        envio).
+      responses:
+        '200':
+          description: Alerta encontrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                detail:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: ACTIVE
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar el bloque B.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:10:00Z'
+                    activationAt: null
+                    activatedAt: '2026-10-22T14:10:00Z'
+                    endedAt: null
+                    archivedAt: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+        - Alertas
+      operationId: updateAlert
+      summary: Editar alerta
+      description: |
+        Solo COORDINATOR y solo alertas DRAFT o SCHEDULED. Se actualizan
+        unicamente los campos enviados. Si la alerta esta ACTIVE, ENDED o
+        ARCHIVED responde 409 INVALID_ALERT_STATE. Un conflicto de version
+        responde 409 CONCURRENT_MODIFICATION.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertUpdateRequest'
+            examples:
+              instructions:
+                summary: Cambiar solo las instrucciones
+                value:
+                  instructions: Evacuar por la salida norte y reunirse en la cancha.
+      responses:
+        '200':
+          description: Alerta actualizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                updated:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: DRAFT
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar por la salida norte.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:15:00Z'
+                    activationAt: null
+                    activatedAt: null
+                    endedAt: null
+                    archivedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/v1/alertas/{id}/programar:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    patch:
+      tags:
+        - Alertas
+      operationId: scheduleAlert
+      summary: Programar alerta
+      description: |
+        Transicion DRAFT -> SCHEDULED. Solo COORDINATOR. La fecha de activacion
+        debe ser futura; si es pasada o igual al instante actual responde 400
+        INVALID_ACTIVATION_DATE. Cualquier otro estado de origen responde 409
+        INVALID_TRANSITION.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertScheduleRequest'
+            examples:
+              schedule:
+                value:
+                  activationAt: '2026-11-05T15:00:00Z'
+      responses:
+        '200':
+          description: Alerta programada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                scheduled:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: SCHEDULED
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar el bloque B.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:15:00Z'
+                    activationAt: '2026-11-05T15:00:00Z'
+                    activatedAt: null
+                    endedAt: null
+                    archivedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/alertas/{id}/activar:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    patch:
+      tags:
+        - Alertas
+      operationId: activateAlert
+      summary: Activar alerta
+      description: |
+        Permite los dos caminos validos hacia ACTIVE:
+
+        - DRAFT -> ACTIVE (activacion manual inmediata o MS06).
+        - SCHEDULED -> ACTIVE (scheduler o coordinador adelantando la alerta,
+          incluso antes de la fecha programada).
+
+        Si la alerta ya esta ACTIVE la operacion es idempotente y responde 200
+        sin una nueva notificacion. ENDED o ARCHIVED responde 409
+        INVALID_TRANSITION. Solo COORDINATOR y SERVICE_MS06.
+      responses:
+        '200':
+          description: Alerta activa.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                active:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: ACTIVE
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar el bloque B.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:15:00Z'
+                    activationAt: null
+                    activatedAt: '2026-10-22T14:15:00Z'
+                    endedAt: null
+                    archivedAt: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/alertas/{id}/finalizar:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    patch:
+      tags:
+        - Alertas
+      operationId: endAlert
+      summary: Finalizar alerta
+      description: |
+        Transicion ACTIVE -> ENDED. Si ya esta ENDED responde 200 sin cambios.
+        DRAFT, SCHEDULED o ARCHIVED responde 409 INVALID_TRANSITION. Solo
+        COORDINATOR y SERVICE_MS06.
+
+        Cuando el actor es SERVICE_MS06 el cuerpo es obligatorio y debe incluir
+        simulationId; si falta responde 400 VALIDATION_ERROR y si no coincide
+        con el de la alerta responde 409 SIMULATION_MISMATCH. Se acepta eventId
+        como alias de simulationId.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AlertEndRequest'
+            examples:
+              service:
+                summary: Finalizacion por MS06
+                value:
+                  simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+              coordinator:
+                summary: Finalizacion manual sin cuerpo
+                value: {}
+      responses:
+        '200':
+          description: Alerta finalizada o ya finalizada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                ended:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: ENDED
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar el bloque B.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:30:00Z'
+                    activationAt: null
+                    activatedAt: '2026-10-22T14:15:00Z'
+                    endedAt: '2026-10-22T14:30:00Z'
+                    archivedAt: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/alertas/{id}/archivar:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    patch:
+      tags:
+        - Alertas
+      operationId: archiveAlert
+      summary: Archivar alerta
+      description: |
+        Transicion ENDED -> ARCHIVED. Solo COORDINATOR. Cualquier otro estado
+        responde 409 INVALID_TRANSITION. Una alerta archivada no admite cambios.
+      responses:
+        '200':
+          description: Alerta archivada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertResponse'
+              examples:
+                archived:
+                  value:
+                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    type: EARTHQUAKE
+                    title: Sismo en bloque B
+                    status: ARCHIVED
+                    origin: MANUAL
+                    simulationId: null
+                    scope:
+                      type: BUILDING
+                      ids:
+                        - bld-001
+                    instructions: Evacuar el bloque B.
+                    recipients:
+                      - type: USER
+                        id: usr-001
+                    createdBy: coordinator-01
+                    createdAt: '2026-10-22T14:05:00Z'
+                    updatedAt: '2026-10-22T14:35:00Z'
+                    activationAt: null
+                    activatedAt: '2026-10-22T14:15:00Z'
+                    endedAt: '2026-10-22T14:30:00Z'
+                    archivedAt: '2026-10-22T14:35:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/alertas/{id}/confirmaciones:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    post:
+      tags:
+        - Confirmaciones
+      operationId: confirmAlert
+      summary: Confirmar recepcion
+      description: |
+        Registra la confirmacion del usuario autenticado. La primera confirmacion
+        responde 201; un reintento del mismo usuario responde 200 con la
+        confirmacion existente. Solo para destinatarios autorizados por
+        AlertAccessPolicy. La alerta debe estar ACTIVE.
+      responses:
+        '201':
+          description: Confirmacion creada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationResponse'
+              examples:
+                created:
+                  value:
+                    id: 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                    idAlerta: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    usuarioId: usr-001
+                    fechaConfirmacion: '2026-10-22T14:12:00Z'
+        '200':
+          description: Confirmacion ya existente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmationResponse'
+              examples:
+                existing:
+                  value:
+                    id: 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                    idAlerta: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                    usuarioId: usr-001
+                    fechaConfirmacion: '2026-10-22T14:12:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/v1/alertas/{id}/auditoria:
+    parameters:
+      - $ref: '#/components/parameters/AlertId'
+    get:
+      tags:
+        - Auditoria
+      operationId: getAlertAudit
+      summary: Consultar auditoria
+      description: |
+        Devuelve los eventos de auditoria de la alerta ordenados por fecha
+        ascendente. Solo COORDINATOR y AUDITOR.
+      responses:
+        '200':
+          description: Eventos de auditoria.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditEventResponse'
+              examples:
+                timeline:
+                  value:
+                    - id: 9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e
+                      alertId: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                      actor: coordinator-01
+                      actorType: COORDINATOR
+                      action: CREATE
+                      fromStatus: null
+                      toStatus: DRAFT
+                      detail: 'Alert created: title=Sismo en bloque B, type=EARTHQUAKE'
+                      occurredAt: '2026-10-22T14:05:00Z'
+                    - id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
+                      alertId: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                      actor: coordinator-01
+                      actorType: COORDINATOR
+                      action: ACTIVATE
+                      fromStatus: DRAFT
+                      toStatus: ACTIVE
+                      detail: 'Alert activated from DRAFT'
+                      occurredAt: '2026-10-22T14:10:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    AlertId:
+      name: id
+      in: path
+      required: true
+      description: Identificador UUID de la alerta.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: |
+        Datos invalidos. Puede ser VALIDATION_ERROR, INVALID_REFERENCE,
+        INVALID_PAGINATION o INVALID_ACTIVATION_DATE.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            validation:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 400
+                code: VALIDATION_ERROR
+                message: The submitted data is invalid
+                path: /api/v1/alertas
+                details:
+                  - field: title
+                    message: Title is required
+            reference:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 400
+                code: INVALID_REFERENCE
+                message: One or more references do not exist
+                path: /api/v1/alertas
+                details:
+                  - field: scope.ids
+                    message: 'The referenced ID does not exist: bld-999'
+            pagination:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 400
+                code: INVALID_PAGINATION
+                message: The query parameters are invalid
+                path: /api/v1/alertas
+                details:
+                  - field: size
+                    message: Page size must be between 1 and 100
+            activationDate:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 400
+                code: INVALID_ACTIVATION_DATE
+                message: The activation date and time must be in the future
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/programar
+                details: []
+    Unauthorized:
+      description: Falta el token o es invalido/expirado.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unauthorized:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 401
+                code: UNAUTHORIZED
+                message: Authentication is required or the token is invalid
+                path: /api/v1/alertas
+                details: []
+    Forbidden:
+      description: |
+        El rol no permite la operacion (FORBIDDEN) o el usuario no es
+        destinatario de la alerta (NOT_A_RECIPIENT).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            forbidden:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 403
+                code: FORBIDDEN
+                message: You do not have permission to perform this operation
+                path: /api/v1/alertas
+                details: []
+            notARecipient:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 403
+                code: NOT_A_RECIPIENT
+                message: No es destinatario de la alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                details: []
+    NotFound:
+      description: La alerta no existe.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            alertNotFound:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 404
+                code: ALERT_NOT_FOUND
+                message: 'Alert not found with ID: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                details: []
+    Conflict:
+      description: |
+        Conflicto de estado o de datos: INVALID_ALERT_STATE, INVALID_TRANSITION,
+        ALERT_NOT_ACTIVE, SIMULATION_MISMATCH, DUPLICATE_SIMULATION_ALERT o
+        CONCURRENT_MODIFICATION.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidAlertState:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: INVALID_ALERT_STATE
+                message: The alert is in status ACTIVE and does not allow this operation
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                details: []
+            invalidTransition:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: INVALID_TRANSITION
+                message: Cannot transition the alert from ENDED to ACTIVE
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/activar
+                details: []
+            alertNotActive:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: ALERT_NOT_ACTIVE
+                message: La alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10 no esta activa
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/confirmaciones
+                details: []
+            simulationMismatch:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: SIMULATION_MISMATCH
+                message: La alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10 no corresponde al simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/finalizar
+                details: []
+            duplicateSimulationAlert:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: DUPLICATE_SIMULATION_ALERT
+                message: 'Ya existe una alerta viva para el simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
+                path: /api/v1/alertas
+                details: []
+            concurrentModification:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 409
+                code: CONCURRENT_MODIFICATION
+                message: The alert was modified by another user
+                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
+                details: []
+    ServiceUnavailable:
+      description: Un servicio externo (MS01, MS02 o MS06) no esta disponible.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            unavailable:
+              value:
+                timestamp: '2026-10-22T14:05:00Z'
+                status: 503
+                code: EXTERNAL_SERVICE_UNAVAILABLE
+                message: Service MS02 is unavailable. Please try again later.
+                path: /api/v1/alertas
+                details: []
+  schemas:
+    AlertStatus:
+      type: string
+      enum:
+        - DRAFT
+        - SCHEDULED
+        - ACTIVE
+        - ENDED
+        - ARCHIVED
+    AlertType:
+      type: string
+      enum:
+        - EARTHQUAKE
+        - SIMULATION
+        - FIRE
+        - OTHER
+    AlertOrigin:
+      type: string
+      enum:
+        - MANUAL
+        - SIMULATION
+    ScopeType:
+      type: string
+      enum:
+        - CAMPUS
+        - BUILDING
+        - ZONE
+    RecipientType:
+      type: string
+      enum:
+        - USER
+        - ROLE
+    AuditAction:
+      type: string
+      enum:
+        - CREATE
+        - UPDATE
+        - SCHEDULE
+        - ACTIVATE
+        - END
+        - ARCHIVE
+        - CONFIRM
+        - NOTIFICATION_SENT
+        - NOTIFICATION_FAILED
+        - RECIPIENT_RESOLUTION_FAILED
+    ScopeRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/ScopeType'
+        ids:
+          type: array
+          description: Obligatorio y no vacio cuando type es BUILDING o ZONE.
+          items:
+            type: string
+          example:
+            - bld-001
+    RecipientRequest:
+      type: object
+      required:
+        - type
+        - id
+      properties:
+        type:
+          $ref: '#/components/schemas/RecipientType'
+        id:
+          type: string
+          maxLength: 64
+          example: usr-001
+    AlertOriginRequest:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          $ref: '#/components/schemas/AlertOrigin'
+        simulationId:
+          type: string
+          format: uuid
+          description: Obligatorio si type es SIMULATION; prohibido si es MANUAL.
+    AlertCreateRequest:
+      type: object
+      required:
+        - type
+        - title
+        - scope
+        - instructions
+        - recipients
+      properties:
+        type:
+          $ref: '#/components/schemas/AlertType'
+        title:
+          type: string
+          maxLength: 150
+          minLength: 1
+          example: Simulacro nacional de evacuacion
+        scope:
+          $ref: '#/components/schemas/ScopeRequest'
+        instructions:
+          type: string
+          maxLength: 1000
+          minLength: 1
+          example: Seguir las indicaciones de los brigadistas.
+        recipients:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RecipientRequest'
+        origin:
+          $ref: '#/components/schemas/AlertOriginRequest'
+        activationAt:
+          type: string
+          format: date-time
+          description: |
+            Si es futura, la alerta nace SCHEDULED. Si es pasada o igual al
+            instante actual, responde 400 INVALID_ACTIVATION_DATE.
+        activateImmediately:
+          type: boolean
+          description: |
+            Si es true, crea la alerta y la activa en la misma operacion. Se
+            acepta el alias activarInmediatamente.
+    AlertUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        type:
+          $ref: '#/components/schemas/AlertType'
+        title:
+          type: string
+          maxLength: 150
+          minLength: 1
+        scope:
+          $ref: '#/components/schemas/ScopeRequest'
+        instructions:
+          type: string
+          maxLength: 1000
+          minLength: 1
+        recipients:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RecipientRequest'
+    AlertScheduleRequest:
+      type: object
+      required:
+        - activationAt
+      properties:
+        activationAt:
+          type: string
+          format: date-time
+    AlertEndRequest:
+      type: object
+      properties:
+        simulationId:
+          type: string
+          format: uuid
+          description: |
+            Obligatorio cuando el actor es SERVICE_MS06. Se acepta el alias
+            eventId.
+    AlertResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/AlertType'
+        title:
+          type: string
+        status:
+          $ref: '#/components/schemas/AlertStatus'
+        origin:
+          $ref: '#/components/schemas/AlertOrigin'
+        simulationId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        scope:
+          $ref: '#/components/schemas/ScopeRequest'
+        instructions:
+          type: string
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipientRequest'
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        activationAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        activatedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        endedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        archivedAt:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    AlertSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/AlertType'
+        title:
+          type: string
+        scope:
+          $ref: '#/components/schemas/ScopeRequest'
+        status:
+          $ref: '#/components/schemas/AlertStatus'
+        origin:
+          $ref: '#/components/schemas/AlertOrigin'
+        simulationId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+    PageResponseAlertSummaryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertSummaryResponse'
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    ConfirmationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        idAlerta:
+          type: string
+          format: uuid
+        usuarioId:
+          type: string
+        fechaConfirmacion:
+          type: string
+          format: date-time
+    AuditEventResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        alertId:
+          type: string
+          format: uuid
+        actor:
+          type: string
+        actorType:
+          type: string
+          description: COORDINATOR, AUDITOR, SERVICE_MS06 o USER.
+        action:
+          $ref: '#/components/schemas/AuditAction'
+        fromStatus:
+          oneOf:
+            - $ref: '#/components/schemas/AlertStatus'
+            - type: 'null'
+        toStatus:
+          oneOf:
+            - $ref: '#/components/schemas/AlertStatus'
+            - type: 'null'
+        detail:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+    ErrorResponse:
+      type: object
+      required:
+        - timestamp
+        - status
+        - code
+        - message
+        - path
+        - details
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_REFERENCE
+            - INVALID_PAGINATION
+            - INVALID_ACTIVATION_DATE
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - NOT_A_RECIPIENT
+            - ALERT_NOT_FOUND
+            - RESOURCE_NOT_FOUND
+            - METHOD_NOT_ALLOWED
+            - UNSUPPORTED_MEDIA_TYPE
+            - INVALID_ALERT_STATE
+            - INVALID_TRANSITION
+            - ALERT_NOT_ACTIVE
+            - SIMULATION_MISMATCH
+            - DUPLICATE_SIMULATION_ALERT
+            - CONCURRENT_MODIFICATION
+            - EXTERNAL_SERVICE_UNAVAILABLE
+            - INTERNAL_ERROR
+        message:
+          type: string
+        path:
+          type: string
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ErrorDetail'
+    ErrorDetail:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+        message:
+          type: string

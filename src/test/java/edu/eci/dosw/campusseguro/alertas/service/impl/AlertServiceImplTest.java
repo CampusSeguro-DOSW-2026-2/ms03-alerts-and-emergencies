@@ -1,12 +1,15 @@
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -16,6 +19,7 @@ import static org.mockito.Mockito.when;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogClient;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
+import edu.eci.dosw.campusseguro.alertas.dto.request.AlertOriginRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
@@ -25,16 +29,22 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
+import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
+import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -43,6 +53,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -87,6 +98,12 @@ class AlertServiceImplTest {
     @Mock
     private AlertStateRules stateRules;
 
+    @Mock
+    private AlertAccessPolicy accessPolicy;
+
+    @Mock
+    private AlertLifecycleService lifecycleService;
+
     private AlertServiceImpl service;
 
     @BeforeEach
@@ -99,6 +116,8 @@ class AlertServiceImplTest {
                 auditService,
                 alertMapper,
                 stateRules,
+                accessPolicy,
+                lifecycleService,
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -153,9 +172,10 @@ class AlertServiceImplTest {
         when(recipientRepository.saveAll(recipientEntities)).thenReturn(recipientEntities);
         when(alertMapper.toResponse(saved, scopeItems, recipientEntities)).thenReturn(expected);
 
-        AlertResponse result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, ACTOR);
 
-        assertSame(expected, result);
+        assertSame(expected, result.alert());
+        assertTrue(result.created());
         verify(catalogClient, never()).validateBuildingsZones(any(), any());
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
@@ -164,7 +184,83 @@ class AlertServiceImplTest {
                 ACTOR,
                 null,
                 AlertStatus.DRAFT,
-                "Alert created: title=Simulacro, type=EARTHQUAKE, scope=CAMPUS, recipients=1");
+                "Alert created: title=Simulacro, type=EARTHQUAKE, origin=null, "
+                        + "simulationId=null, scope=CAMPUS, recipients=1");
+    }
+
+    @Test
+    void create_withSameSimulationIdAndSameData_shouldReturnExistingAlert() {
+        UUID simulationId = UUID.randomUUID();
+        ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
+        AlertEntity existing = alert(AlertStatus.SCHEDULED, "Evacuar");
+        existing.setSimulationId(simulationId);
+        existing.setActivationAt(NOW.plusSeconds(3600));
+
+        AlertCreateRequest request = simulationRequest(
+                simulationId,
+                " Simulacro ",
+                " Evacuar ",
+                NOW.plusSeconds(3600));
+
+        AlertResponse expected = mock(AlertResponse.class);
+        when(expected.scope()).thenReturn(scope);
+        when(expected.recipients()).thenReturn(List.of());
+        when(alertMapper.normalizeScope(any())).thenReturn(scope);
+        when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
+        when(alertRepository.findBySimulationIdAndStatusIn(
+                eq(simulationId), any())).thenReturn(Optional.of(existing));
+        when(alertMapper.toResponse(eq(existing), any(), any()))
+                .thenReturn(expected);
+
+        AlertCreationResult result = service.create(request, ACTOR);
+
+        assertSame(expected, result.alert());
+        assertFalse(result.created());
+        verify(alertRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_withSameSimulationIdAndDifferentData_shouldThrowDuplicate() {
+        UUID simulationId = UUID.randomUUID();
+        ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
+        AlertEntity existing = alert(AlertStatus.ACTIVE, "Evacuar");
+        existing.setSimulationId(simulationId);
+
+        AlertCreateRequest request = simulationRequest(
+                simulationId,
+                "Simulacro",
+                "Otra instruccion",
+                null);
+
+        AlertResponse current = mock(AlertResponse.class);
+        when(alertMapper.normalizeScope(any())).thenReturn(scope);
+        when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
+        when(alertRepository.findBySimulationIdAndStatusIn(
+                eq(simulationId), any())).thenReturn(Optional.of(existing));
+        when(alertMapper.toResponse(eq(existing), any(), any()))
+                .thenReturn(current);
+
+        assertThrows(
+                DuplicateSimulationAlertException.class,
+                () -> service.create(request, ACTOR));
+
+        verify(alertRepository, never()).saveAndFlush(any());
+    }
+
+    private AlertCreateRequest simulationRequest(
+            UUID simulationId,
+            String title,
+            String instructions,
+            Instant activationAt) {
+
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.origin()).thenReturn(
+                new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
+        when(request.type()).thenReturn(AlertType.EARTHQUAKE);
+        when(request.title()).thenReturn(title);
+        when(request.instructions()).thenReturn(instructions);
+        lenient().when(request.activationAt()).thenReturn(activationAt);
+        return request;
     }
 
     @Test
@@ -351,14 +447,16 @@ class AlertServiceImplTest {
         when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
-        assertSame(expected, service.findById(ID));
+        assertSame(expected,
+                service.findById(ID, new AccessActor("viewer", Set.of())));
     }
 
     @Test
     void findById_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findById(ID)).thenReturn(Optional.empty());
 
-        assertThrows(AlertNotFoundException.class, () -> service.findById(ID));
+        assertThrows(AlertNotFoundException.class,
+                () -> service.findById(ID, new AccessActor("viewer", Set.of())));
     }
 
     @Test

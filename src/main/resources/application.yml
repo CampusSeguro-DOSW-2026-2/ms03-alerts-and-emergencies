@@ -35,6 +35,11 @@ spring:
 server:
   port: 8080
 
+springdoc:
+  paths-to-match: /api/**
+  swagger-ui:
+    path: /swagger-ui.html
+
 app:
   timezone: ${APP_TIMEZONE:America/Bogota}
   cors:

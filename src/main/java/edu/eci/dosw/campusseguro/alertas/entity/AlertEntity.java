@@ -41,8 +41,8 @@ public class AlertEntity extends BaseEntity {
     @Column(name = "origin", nullable = false, length = 20)
     private AlertOrigin origin;
 
-    @Column(name = "event_id")
-    private UUID eventId;
+    @Column(name = "simulation_id")
+    private UUID simulationId;
 
     @Column(name = "created_by", nullable = false, length = 64)
     private String createdBy;
@@ -99,12 +99,12 @@ public class AlertEntity extends BaseEntity {
         this.origin = origin;
     }
 
-    public UUID getEventId() {
-        return eventId;
+    public UUID getSimulationId() {
+        return simulationId;
     }
 
-    public void setEventId(UUID eventId) {
-        this.eventId = eventId;
+    public void setSimulationId(UUID simulationId) {
+        this.simulationId = simulationId;
     }
 
     public String getCreatedBy() {

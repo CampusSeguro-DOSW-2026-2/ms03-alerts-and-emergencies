@@ -24,7 +24,7 @@ public final class AlertSpecifications {
                 hasType(filter.type()),
                 createdFrom(startOfDay(filter.startDate(), zone)),
                 createdBefore(startOfDay(nextDay(filter.endDate()), zone)),
-                hasEventId(filter.eventId()));
+                hasSimulationId(filter.simulationId()));
     }
 
     private static Specification<AlertEntity> hasStatus(
@@ -61,12 +61,12 @@ public final class AlertSpecifications {
                         root.<Instant>get("createdAt"), before);
     }
 
-    private static Specification<AlertEntity> hasEventId(
-            UUID eventId) {
+    private static Specification<AlertEntity> hasSimulationId(
+            UUID simulationId) {
 
-        return (root, query, cb) -> eventId == null
+        return (root, query, cb) -> simulationId == null
                 ? cb.conjunction()
-                : cb.equal(root.get("eventId"), eventId);
+                : cb.equal(root.get("simulationId"), simulationId);
     }
 
     private static Instant startOfDay(LocalDate date, ZoneId zone) {

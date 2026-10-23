@@ -2,6 +2,7 @@
 package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -58,11 +59,9 @@ public class AlertStateMachine {
             AlertStatus nextStatus) {
 
         if (!canTransition(currentStatus, nextStatus)) {
-            throw new IllegalStateException(
-                    "Invalid alert status transition from "
-                            + currentStatus
-                            + " to "
-                            + nextStatus);
+            throw new InvalidTransitionException(
+                    currentStatus,
+                    nextStatus);
         }
     }
 }

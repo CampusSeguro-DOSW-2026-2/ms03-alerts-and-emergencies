@@ -24,8 +24,10 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
+import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
 import edu.eci.dosw.campusseguro.alertas.security.local.LocalTokenService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
+import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -45,12 +47,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(properties = {
         "spring.sql.init.mode=always",
-        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql"
+        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql,file:database/004_align_simulation_contract.sql",
+        "app.alerts.activation-check-ms=3600000"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "local"})
@@ -86,6 +90,12 @@ class AlertApiIntegrationIT {
 
     @Autowired
     private AlertLifecycleService alertLifecycleService;
+
+    @MockitoBean
+    private AlertActivationScheduler alertActivationScheduler;
+
+    @MockitoBean
+    private NotificationService notificationService;
 
     @Autowired
     private LocalTokenService localTokenService;
@@ -128,17 +138,17 @@ class AlertApiIntegrationIT {
     }
 
     @Test
-    void search_shouldFilterByEventId() {
-        UUID eventId = UUID.randomUUID();
-        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), eventId));
+    void search_shouldFilterBySimulationId() {
+        UUID simulationId = UUID.randomUUID();
+        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), simulationId));
         alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
 
         var result = alertRepository.findAll(
                 AlertSpecifications.fromFilter(
-                        new AlertFilter(null, null, null, null, eventId, null, null), ZoneOffset.UTC));
+                        new AlertFilter(null, null, null, null, simulationId, null, null), ZoneOffset.UTC));
 
         assertEquals(1, result.size());
-        assertEquals(eventId, result.getFirst().getEventId());
+        assertEquals(simulationId, result.getFirst().getSimulationId());
     }
 
     @Test
@@ -173,13 +183,16 @@ class AlertApiIntegrationIT {
     }
 
     @Test
-    void scheduledAlert_shouldRejectManualActivationBeforeItsDate() {
+    void scheduledAlert_shouldAllowManualActivationBeforeItsDate() {
         AlertEntity alert = newAlert(AlertStatus.SCHEDULED, Instant.now(), null);
         alert.setActivationAt(Instant.now().plusSeconds(3600));
         AlertEntity saved = alertRepository.save(alert);
 
-        assertThrows(IllegalStateException.class,
-                () -> alertLifecycleService.activate(saved.getId(), "it-coordinator"));
+        AlertResponse response = alertLifecycleService.activate(saved.getId(), "it-coordinator");
+
+        assertEquals(AlertStatus.ACTIVE, response.status());
+        assertEquals(AlertStatus.ACTIVE,
+                alertRepository.findById(saved.getId()).orElseThrow().getStatus());
     }
 
     @Test
@@ -215,6 +228,42 @@ class AlertApiIntegrationIT {
     }
 
     @Test
+    void create_withSameSimulationId_shouldBeIdempotentAndRejectDifferentData()
+            throws Exception {
+
+        String token = localTokenService.generate(
+                "service-ms06", List.of("SERVICE_MS06"));
+        UUID simulationId = UUID.randomUUID();
+        String payload = simulationCreateRequestJson(
+                simulationId, "Evacuar el campus");
+
+        mockMvc.perform(post("/api/v1/alertas")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.origin").value("SIMULATION"))
+                .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
+                .andExpect(jsonPath("$.status").value("SCHEDULED"));
+
+        mockMvc.perform(post("/api/v1/alertas")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("SCHEDULED"));
+
+        mockMvc.perform(post("/api/v1/alertas")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(simulationCreateRequestJson(
+                                simulationId, "Otra instruccion")))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code")
+                        .value("DUPLICATE_SIMULATION_ALERT"));
+    }
+
+    @Test
     void coordinator_shouldCreateAlertAndAuditorShouldViewIt() throws Exception {
         String coordinatorToken = localTokenService.generate("coordinator-1", List.of("COORDINATOR"));
         String auditorToken = localTokenService.generate("auditor-1", List.of("AUDITOR"));
@@ -238,14 +287,14 @@ class AlertApiIntegrationIT {
                 .andExpect(jsonPath("$.recipients[0].id").value("usr-001"));
     }
 
-    private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID eventId) {
+    private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {
         AlertEntity alert = new AlertEntity();
         alert.setType(AlertType.EARTHQUAKE);
         alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
-        alert.setOrigin(eventId == null ? AlertOrigin.MANUAL : AlertOrigin.EVENT);
-        alert.setEventId(eventId);
+        alert.setOrigin(simulationId == null ? AlertOrigin.MANUAL : AlertOrigin.SIMULATION);
+        alert.setSimulationId(simulationId);
         alert.setCreatedBy("it-user");
         alert.setCreatedAt(createdAt);
         alert.setUpdatedAt(createdAt);
@@ -282,5 +331,24 @@ class AlertApiIntegrationIT {
                   "recipients": [{"type": "USER", "id": "usr-001"}]
                 }
                 """;
+    }
+
+    private String simulationCreateRequestJson(
+            UUID simulationId,
+            String instructions) {
+        return """
+                {
+                  "type": "EARTHQUAKE",
+                  "title": "Simulacro sismico",
+                  "scope": {"type": "CAMPUS"},
+                  "instructions": "%s",
+                  "recipients": [{"type": "USER", "id": "usr-001"}],
+                  "origin": {
+                    "type": "SIMULATION",
+                    "simulationId": "%s"
+                  },
+                  "activationAt": "2030-10-16T18:00:00Z"
+                }
+                """.formatted(instructions, simulationId);
     }
 }

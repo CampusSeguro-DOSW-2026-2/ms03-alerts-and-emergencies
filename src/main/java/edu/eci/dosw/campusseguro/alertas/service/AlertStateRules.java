@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
 import java.util.Objects;
 import org.springframework.stereotype.Component;
 
@@ -22,8 +23,7 @@ public class AlertStateRules {
         Objects.requireNonNull(alert, "Alert must not be null.");
 
         if (!isEditable(alert)) {
-            throw new IllegalStateException(
-                    "An alert can only be edited in DRAFT or SCHEDULED status.");
+            throw new InvalidAlertStateException(alert.getStatus());
         }
     }
 
@@ -31,8 +31,7 @@ public class AlertStateRules {
         Objects.requireNonNull(alert, "Alert must not be null.");
 
         if (alert.getStatus() == AlertStatus.ARCHIVED) {
-            throw new IllegalStateException(
-                    "An archived alert cannot be modified.");
+            throw new InvalidAlertStateException(alert.getStatus());
         }
     }
 }

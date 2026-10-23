@@ -199,34 +199,33 @@ class GlobalExceptionHandlerTest {
                         .value(ErrorCode.CONCURRENT_MODIFICATION.defaultMessage()));
     }
 
-    // ---------- Event exceptions ----------
+    // ---------- Simulation exceptions ----------
 
     @Test
-    void handleEventMismatch_shouldReturn409WithEventMismatchCode_whenEventDoesNotMatchAlert()
+    void handleSimulationMismatch_shouldReturn409WithSimulationMismatchCode_whenSimulationDoesNotMatchAlert()
             throws Exception {
 
-        performFailingWith(new EventMismatchException(ID, EVENT_ID))
+        performFailingWith(new SimulationMismatchException(ID, EVENT_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.code").value("EVENT_MISMATCH"))
+                .andExpect(jsonPath("$.code").value("SIMULATION_MISMATCH"))
                 .andExpect(jsonPath("$.message")
-                        .value("Alert " + ID
-                                + " does not correspond to event " + EVENT_ID));
+                        .value("La alerta " + ID
+                                + " no corresponde al simulacro " + EVENT_ID));
     }
 
     @Test
-    void handleDuplicateEventAlert_shouldReturn409WithDuplicateCode_whenLiveAlertAlreadyExists()
+    void handleDuplicateSimulationAlert_shouldReturn409WithDuplicateCode_whenLiveAlertAlreadyExists()
             throws Exception {
 
         performFailingWith(
-                new DuplicateEventAlertException(EVENT_ID, OTHER_ID))
+                new DuplicateSimulationAlertException(EVENT_ID, OTHER_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.code").value("DUPLICATE_EVENT_ALERT"))
+                .andExpect(jsonPath("$.code").value("DUPLICATE_SIMULATION_ALERT"))
                 .andExpect(jsonPath("$.message")
-                        .value("A live alert already exists for event "
-                                + EVENT_ID
-                                + " with different data: " + OTHER_ID));
+                        .value("Ya existe una alerta viva para el simulacro "
+                                + EVENT_ID + ": " + OTHER_ID));
     }
 
     // ---------- Validation / security / unexpected exceptions ----------

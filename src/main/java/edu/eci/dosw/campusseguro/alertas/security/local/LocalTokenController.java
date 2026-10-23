@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.security.local;
 
 import edu.eci.dosw.campusseguro.alertas.security.Role;
+import io.swagger.v3.oas.annotations.Hidden;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+@Hidden
 @RestController
 @Profile("local")
 @RequestMapping("/local/tokens")

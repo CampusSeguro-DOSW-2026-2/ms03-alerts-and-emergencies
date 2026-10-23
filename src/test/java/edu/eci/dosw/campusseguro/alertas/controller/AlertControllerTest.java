@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -22,14 +23,16 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
-import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
+
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import java.time.Clock;
@@ -60,7 +63,7 @@ class AlertControllerTest {
     private static final UUID ID =
             UUID.fromString("55555555-5555-5555-5555-555555555555");
 
-    private static final UUID EVENT_ID =
+    private static final UUID SIMULATION_ID =
             UUID.fromString("88888888-8888-8888-8888-888888888888");
 
     private static final String ACTOR = "coordinator";
@@ -81,17 +84,6 @@ class AlertControllerTest {
 
     private static final String VALID_SCHEDULE_JSON = """
             { "activationAt": "2030-10-16T18:00:00Z" }
-            """;
-
-    private static final String VALID_SYNC_JSON = """
-            {
-              "type": "EARTHQUAKE",
-              "title": "Simulacro Sismico Nacional",
-              "scope": { "type": "CAMPUS" },
-              "instructions": "Evacuar hacia los puntos de encuentro",
-              "recipients": [ { "type": "ROLE", "id": "STUDENT" } ],
-              "activationAt": "2030-10-16T18:00:00Z"
-            }
             """;
 
     @Mock
@@ -140,7 +132,7 @@ class AlertControllerTest {
 
         when(alertService.create(
                 any(AlertCreateRequest.class), eq(ACTOR)))
-                .thenReturn(response);
+                .thenReturn(new AlertCreationResult(response, true));
 
         mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -228,7 +220,7 @@ class AlertControllerTest {
         assertNull(filter.type());
         assertNull(filter.startDate());
         assertNull(filter.endDate());
-        assertNull(filter.eventId());
+        assertNull(filter.simulationId());
         assertNull(filter.page());
         assertNull(filter.size());
     }
@@ -245,7 +237,7 @@ class AlertControllerTest {
                         .param("type", "EARTHQUAKE")
                         .param("startDate", "2026-10-01")
                         .param("endDate", "2026-10-10")
-                        .param("eventId", EVENT_ID.toString())
+                        .param("simulationId", SIMULATION_ID.toString())
                         .param("page", "1")
                         .param("size", "10"))
                 .andExpect(status().isOk());
@@ -265,7 +257,7 @@ class AlertControllerTest {
         assertEquals(
                 LocalDate.of(2026, 10, 10),
                 filter.endDate());
-        assertEquals(EVENT_ID, filter.eventId());
+        assertEquals(SIMULATION_ID, filter.simulationId());
         assertEquals(1, filter.page());
         assertEquals(10, filter.size());
     }
@@ -293,11 +285,11 @@ class AlertControllerTest {
     }
 
     @Test
-    void search_shouldReturn400AndNotCallService_whenEventIdIsNotAUuid()
+    void search_shouldReturn400AndNotCallService_whenSimulationIdIsNotAUuid()
             throws Exception {
 
         mockMvc.perform(get(BASE_URL)
-                        .param("eventId", "SIM-1"))
+                        .param("simulationId", "SIM-1"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(alertService);
@@ -320,7 +312,8 @@ class AlertControllerTest {
     void findById_shouldReturn200WithAlert_whenAlertExists()
             throws Exception {
 
-        when(alertService.findById(ID)).thenReturn(response);
+        when(alertService.findById(eq(ID), any(AccessActor.class)))
+                .thenReturn(response);
 
         mockMvc.perform(get(BASE_URL + "/{id}", ID))
                 .andExpect(status().isOk())
@@ -378,7 +371,7 @@ class AlertControllerTest {
                 eq(ID), any(AlertScheduleRequest.class), eq(ACTOR)))
                 .thenReturn(response);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/programacion", ID)
+        mockMvc.perform(patch(BASE_URL + "/{id}/programar", ID)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(VALID_SCHEDULE_JSON))
                 .andExpect(status().isOk())
@@ -392,7 +385,7 @@ class AlertControllerTest {
     void schedule_shouldReturn400AndNotCallService_whenBodyIsMissing()
             throws Exception {
 
-        mockMvc.perform(put(BASE_URL + "/{id}/programacion", ID)
+        mockMvc.perform(patch(BASE_URL + "/{id}/programar", ID)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
@@ -408,7 +401,7 @@ class AlertControllerTest {
         when(alertLifecycleService.activate(ID, ACTOR))
                 .thenReturn(response);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/activacion", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/activar", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
@@ -420,7 +413,7 @@ class AlertControllerTest {
             throws Exception {
 
         mockMvc.perform(
-                        put(BASE_URL + "/{id}/activacion", "not-a-uuid"))
+                        patch(BASE_URL + "/{id}/activar", "not-a-uuid"))
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(alertLifecycleService);
@@ -436,7 +429,7 @@ class AlertControllerTest {
                 eq(ID), isNull(), eq(ACTOR)))
                 .thenReturn(response);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/finalizacion", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
@@ -445,15 +438,15 @@ class AlertControllerTest {
     }
 
     @Test
-    void end_shouldPassEventId_whenBodyIsSent() throws Exception {
+    void end_shouldPassSimulationId_whenBodyIsSent() throws Exception {
 
         when(alertLifecycleService.end(
                 eq(ID), any(AlertEndRequest.class), eq(ACTOR)))
                 .thenReturn(response);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/finalizacion", ID)
+        mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{ \"eventId\": \"" + EVENT_ID + "\" }"))
+                        .content("{ \"simulationId\": \"" + SIMULATION_ID + "\" }"))
                 .andExpect(status().isOk());
 
         ArgumentCaptor<AlertEndRequest> captor =
@@ -462,7 +455,7 @@ class AlertControllerTest {
         verify(alertLifecycleService).end(
                 eq(ID), captor.capture(), eq(ACTOR));
 
-        assertEquals(EVENT_ID, captor.getValue().eventId());
+        assertEquals(SIMULATION_ID, captor.getValue().simulationId());
     }
 
     // Archive
@@ -474,46 +467,11 @@ class AlertControllerTest {
         when(alertLifecycleService.archive(ID, ACTOR))
                 .thenReturn(response);
 
-        mockMvc.perform(put(BASE_URL + "/{id}/archivado", ID))
+        mockMvc.perform(patch(BASE_URL + "/{id}/archivar", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
         verify(alertLifecycleService).archive(ID, ACTOR);
     }
 
-    // Synchronize from event
-
-    @Test
-    void synchronizeFromEvent_shouldReturn200AndPassEventId_whenRequestIsValid()
-            throws Exception {
-
-        when(alertService.synchronizeFromEvent(
-                eq(EVENT_ID), any(EventAlertSyncRequest.class), eq(ACTOR)))
-                .thenReturn(response);
-
-        mockMvc.perform(
-                        put(BASE_URL + "/eventos/{eventId}/sincronizacion",
-                                EVENT_ID)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(VALID_SYNC_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(ID.toString()));
-
-        verify(alertService).synchronizeFromEvent(
-                eq(EVENT_ID), any(EventAlertSyncRequest.class), eq(ACTOR));
-    }
-
-    @Test
-    void synchronizeFromEvent_shouldReturn400AndNotCallService_whenBodyIsInvalid()
-            throws Exception {
-
-        mockMvc.perform(
-                        put(BASE_URL + "/eventos/{eventId}/sincronizacion",
-                                EVENT_ID)
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content("{}"))
-                .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(alertService);
-    }
 }

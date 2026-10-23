@@ -14,6 +14,7 @@ public record AlertSummaryResponse(
         ScopeRequest scope,
         AlertStatus status,
         AlertOrigin origin,
+        UUID simulationId,
         Instant createdAt
 ) {
 }

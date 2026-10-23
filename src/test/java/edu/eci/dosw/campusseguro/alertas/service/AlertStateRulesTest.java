@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertStateException;
 import org.junit.jupiter.api.Test;
 
 class AlertStateRulesTest {
@@ -32,14 +33,14 @@ class AlertStateRulesTest {
         assertFalse(rules.isEditable(alert(AlertStatus.ACTIVE)));
         assertFalse(rules.isEditable(alert(AlertStatus.ENDED)));
         assertFalse(rules.isEditable(alert(AlertStatus.ARCHIVED)));
-        assertThrows(IllegalStateException.class,
+        assertThrows(InvalidAlertStateException.class,
                 () -> rules.assertEditable(alert(AlertStatus.ACTIVE)));
     }
 
     @Test
     void shouldRejectChangesOnlyForArchivedAlerts() {
         assertDoesNotThrow(() -> rules.assertNotArchived(alert(AlertStatus.ENDED)));
-        assertThrows(IllegalStateException.class,
+        assertThrows(InvalidAlertStateException.class,
                 () -> rules.assertNotArchived(alert(AlertStatus.ARCHIVED)));
     }
 }

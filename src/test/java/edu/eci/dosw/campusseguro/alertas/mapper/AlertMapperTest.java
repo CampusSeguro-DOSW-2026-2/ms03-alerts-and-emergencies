@@ -8,7 +8,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
-import edu.eci.dosw.campusseguro.alertas.dto.request.EventAlertSyncRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
@@ -32,7 +31,7 @@ class AlertMapperTest {
 
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ALERT_ID = UUID.fromString("77777777-7777-7777-7777-777777777777");
-    private static final UUID EVENT_ID = UUID.fromString("88888888-8888-8888-8888-888888888888");
+    private static final UUID SIMULATION_ID = UUID.fromString("88888888-8888-8888-8888-888888888888");
     private static final String ACTOR = "admin";
     private static final String TITLE = "Simulacro Sismico";
 
@@ -67,8 +66,8 @@ class AlertMapperTest {
         alert.setType(AlertType.EARTHQUAKE);
         alert.setTitle(TITLE);
         alert.setStatus(AlertStatus.ACTIVE);
-        alert.setOrigin(AlertOrigin.EVENT);
-        alert.setEventId(EVENT_ID);
+        alert.setOrigin(AlertOrigin.SIMULATION);
+        alert.setSimulationId(SIMULATION_ID);
         alert.setInstructions("Evacuar");
         alert.setCreatedBy(ACTOR);
         alert.setCreatedAt(NOW.minusSeconds(300));
@@ -157,35 +156,8 @@ class AlertMapperTest {
         assertEquals(NOW, result.getCreatedAt());
         assertEquals(NOW, result.getUpdatedAt());
         assertNull(result.getId());
-        assertNull(result.getEventId());
+        assertNull(result.getSimulationId());
         assertNull(result.getActivationAt());
-    }
-
-    // toEventEntity
-
-    @Test
-    void toEventEntity_shouldBuildScheduledEventAlert_whenRequestIsValid() {
-        Instant activationAt = NOW.plusSeconds(3600);
-        EventAlertSyncRequest request = new EventAlertSyncRequest(
-                AlertType.EARTHQUAKE,
-                "  " + TITLE + "  ",
-                new ScopeRequest(ScopeType.CAMPUS, List.of()),
-                "  Evacuar  ",
-                List.of(new RecipientRequest(RecipientType.ROLE, "STUDENT")),
-                activationAt);
-
-        AlertEntity result = mapper.toEventEntity(EVENT_ID, request, ACTOR, NOW);
-
-        assertEquals(AlertType.EARTHQUAKE, result.getType());
-        assertEquals(TITLE, result.getTitle());
-        assertEquals(AlertStatus.SCHEDULED, result.getStatus());
-        assertEquals(AlertOrigin.EVENT, result.getOrigin());
-        assertEquals(EVENT_ID, result.getEventId());
-        assertEquals("Evacuar", result.getInstructions());
-        assertEquals(activationAt, result.getActivationAt());
-        assertEquals(ACTOR, result.getCreatedBy());
-        assertEquals(NOW, result.getCreatedAt());
-        assertEquals(NOW, result.getUpdatedAt());
     }
 
     // toScopeItems
@@ -306,8 +278,8 @@ class AlertMapperTest {
                 AlertType.EARTHQUAKE,
                 TITLE,
                 AlertStatus.ACTIVE,
-                AlertOrigin.EVENT,
-                EVENT_ID,
+                AlertOrigin.SIMULATION,
+                SIMULATION_ID,
                 new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
                 "Evacuar",
                 List.of(new RecipientRequest(RecipientType.USER, "u1")),
@@ -335,7 +307,8 @@ class AlertMapperTest {
                 TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
                 AlertStatus.ACTIVE,
-                AlertOrigin.EVENT,
+                AlertOrigin.SIMULATION,
+                SIMULATION_ID,
                 NOW.minusSeconds(300));
         assertEquals(expected, result);
     }
@@ -352,7 +325,8 @@ class AlertMapperTest {
                 TITLE,
                 null,
                 AlertStatus.ACTIVE,
-                AlertOrigin.EVENT,
+                AlertOrigin.SIMULATION,
+                SIMULATION_ID,
                 NOW.minusSeconds(300));
         assertEquals(expected, result);
     }

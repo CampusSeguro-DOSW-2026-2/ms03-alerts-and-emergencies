@@ -51,12 +51,12 @@ public enum ErrorCode {
     ALERT_NOT_ACTIVE(
             HttpStatus.CONFLICT,
             "The alert is not active"),
-    EVENT_MISMATCH(
+    SIMULATION_MISMATCH(
             HttpStatus.CONFLICT,
-            "The event does not match the alert"),
-    DUPLICATE_EVENT_ALERT(
+            "The simulation does not match the alert"),
+    DUPLICATE_SIMULATION_ALERT(
             HttpStatus.CONFLICT,
-            "An active or scheduled alert already exists for this event"),
+            "An active or scheduled alert already exists for this simulation"),
     CONCURRENT_MODIFICATION(
             HttpStatus.CONFLICT,
             "The alert was modified by another user"),

@@ -150,36 +150,66 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 List.of());
     }
 
-    /*
-     * Handles a mismatch between the alert and the event.
-     * Returns HTTP 409 Conflict.
-     */
-    @ExceptionHandler(EventMismatchException.class)
-    public ResponseEntity<Object> handleEventMismatch(
-            EventMismatchException ex,
+    @ExceptionHandler(SimulationMismatchException.class)
+    public ResponseEntity<Object> handleSimulationMismatch(
+            SimulationMismatchException ex,
             HttpServletRequest request) {
 
         return respond(
-                ErrorCode.EVENT_MISMATCH,
+                ErrorCode.SIMULATION_MISMATCH,
                 ex.getMessage(),
                 request.getRequestURI(),
                 List.of());
     }
 
-    /*
-     * Handles a duplicate live alert for the same event.
-     * Returns HTTP 409 Conflict.
-     */
-    @ExceptionHandler(DuplicateEventAlertException.class)
-    public ResponseEntity<Object> handleDuplicateEventAlert(
-            DuplicateEventAlertException ex,
+    @ExceptionHandler(DuplicateSimulationAlertException.class)
+    public ResponseEntity<Object> handleDuplicateSimulationAlert(
+            DuplicateSimulationAlertException ex,
             HttpServletRequest request) {
 
         return respond(
-                ErrorCode.DUPLICATE_EVENT_ALERT,
+                ErrorCode.DUPLICATE_SIMULATION_ALERT,
                 ex.getMessage(),
                 request.getRequestURI(),
                 List.of());
+    }
+
+    @ExceptionHandler(NotARecipientException.class)
+    public ResponseEntity<Object> handleNotARecipient(
+            NotARecipientException ex,
+            HttpServletRequest request) {
+
+        return respond(
+                ErrorCode.NOT_A_RECIPIENT,
+                ex.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
+    @ExceptionHandler(AlertNotActiveException.class)
+    public ResponseEntity<Object> handleAlertNotActive(
+            AlertNotActiveException ex,
+            HttpServletRequest request) {
+
+        return respond(
+                ErrorCode.ALERT_NOT_ACTIVE,
+                ex.getMessage(),
+                request.getRequestURI(),
+                List.of());
+    }
+
+    @ExceptionHandler(InvalidAlertRequestException.class)
+    public ResponseEntity<Object> handleInvalidAlertRequest(
+            InvalidAlertRequestException ex,
+            HttpServletRequest request) {
+
+        return respond(
+                ErrorCode.VALIDATION_ERROR,
+                ErrorCode.VALIDATION_ERROR.defaultMessage(),
+                request.getRequestURI(),
+                List.of(new ErrorResponse.Detail(
+                        ex.getField(),
+                        ex.getMessage())));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
@@ -381,8 +411,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ex);
 
         return respond(
-                ErrorCode.DUPLICATE_EVENT_ALERT,
-                ErrorCode.DUPLICATE_EVENT_ALERT.defaultMessage(),
+                ErrorCode.DUPLICATE_SIMULATION_ALERT,
+                ErrorCode.DUPLICATE_SIMULATION_ALERT.defaultMessage(),
                 request.getRequestURI(),
                 List.of());
     }

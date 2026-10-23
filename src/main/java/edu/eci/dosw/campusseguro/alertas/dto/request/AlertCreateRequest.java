@@ -1,11 +1,13 @@
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
 import java.util.List;
 
 public record AlertCreateRequest(
@@ -28,6 +30,14 @@ public record AlertCreateRequest(
         List<
                 @NotNull(message = "Recipient cannot be null")
                 @Valid RecipientRequest
-        > recipients
+        > recipients,
+
+        @Valid
+        AlertOriginRequest origin,
+
+        Instant activationAt,
+
+        @JsonAlias("activarInmediatamente")
+        Boolean activateImmediately
 ) {
 }

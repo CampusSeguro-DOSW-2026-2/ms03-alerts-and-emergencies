@@ -15,7 +15,7 @@ public record AlertResponse(
         String title,
         AlertStatus status,
         AlertOrigin origin,
-        UUID eventId,
+        UUID simulationId,
         ScopeRequest scope,
         String instructions,
         List<RecipientRequest> recipients,
