@@ -1,16 +1,19 @@
 {
   "buildings": [
-    { "id": "BLD-001", "name": "Edificio Central" },
-    { "id": "BLD-002", "name": "Biblioteca" },
-    { "id": "BLD-003", "name": "Laboratorios" },
-    { "id": "BLD-004", "name": "Bienestar Universitario" },
-    { "id": "BLD-005", "name": "Cafetería" }
+    { "id": "BLD-001", "name": "Edificio A" },
+    { "id": "BLD-002", "name": "Edificio B" },
+    { "id": "BLD-003", "name": "Edificio C" },
+    { "id": "BLD-004", "name": "Edificio D" },
+    { "id": "BLD-005", "name": "Edificio E" },
+    { "id": "BLD-006", "name": "Edificio F" },
+    { "id": "BLD-007", "name": "Edificio G" },
+    { "id": "BLD-008", "name": "Edificio H" },
+    { "id": "BLD-009", "name": "Edificio I" },
+    { "id": "BLD-010", "name": "Biblioteca Jorge Álvarez Lleras" },
+    { "id": "BLD-011", "name": "Coliseo El Otoño" }
   ],
   "zones": [
-    { "id": "ZON-001", "name": "Parqueadero Norte" },
-    { "id": "ZON-002", "name": "Plazoleta Principal" },
-    { "id": "ZON-003", "name": "Zona Deportiva" },
-    { "id": "ZON-004", "name": "Punto de Encuentro 1" }
+    { "id": "ZON-001", "name": "Plazoleta frente al Edificio F" }
   ],
   "roles": [
     { "id": "STUDENT", "name": "Estudiante" },
