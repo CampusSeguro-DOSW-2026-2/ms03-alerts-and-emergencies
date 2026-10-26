@@ -170,9 +170,12 @@ Actually we have 78% of coverage with the implemented tests
 
 ![context Diagram](/docs/images/diagramaContexto.png)
 
-### Components Diagram
+### containers Diagram
 
 ![Components Diagram](/docs/images/diagramaComponentes.png)
+
+### components Diagram
+![Diagrama de componentes UML de MS03](docs/images/diagrama-componentes-ms03.svg)
 
 
 ---

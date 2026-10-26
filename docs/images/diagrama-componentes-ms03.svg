@@ -1,0 +1,435 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2930" height="1950" viewBox="0 0 2930 1950">
+<defs>
+<marker id="open" viewBox="0 0 12 12" refX="10.5" refY="6" markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse" orient="auto">
+  <path d="M1.5,1.8 L10.5,6 L1.5,10.2" fill="none" stroke="#374151" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"/></marker>
+<marker id="tri" viewBox="0 0 14 14" refX="12.5" refY="7" markerWidth="15" markerHeight="15" markerUnits="userSpaceOnUse" orient="auto">
+  <path d="M1.5,1.5 L12.5,7 L1.5,12.5 Z" fill="#fff" stroke="#374151" stroke-width="1.6" stroke-linejoin="round"/></marker>
+<filter id="sh" x="-5%" y="-10%" width="110%" height="130%"><feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#0f172a" flood-opacity=".16"/></filter>
+</defs>
+<rect x="0" y="0" width="2930" height="1950" rx="0" fill="#FFFFFF" stroke="none" stroke-width="1.5" />
+<text x="60" y="96" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="54" font-weight="800" fill="#111827" text-anchor="start" letter-spacing="-1">CampusSeguro</text>
+<text x="60" y="142" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="28" font-weight="500" fill="#374151" text-anchor="start">MS03 · Alertas y Emergencias</text>
+<text x="60" y="180" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="700" fill="#9CA3AF" text-anchor="start" letter-spacing="2">DIAGRAMA DE COMPONENTES  ·  NIVEL 3 (C4)</text>
+<rect x="60" y="196" width="64" height="4" fill="#C2571A"/>
+<rect x="2150" y="52" width="740" height="178" rx="0" fill="#fff" stroke="#9CA3AF" stroke-width="1.4" />
+<rect x="2150" y="56" width="170" height="34" rx="0" fill="#F3F4F6" stroke="none" stroke-width="1.5" />
+<text x="2164" y="78" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B5563" text-anchor="start">Proyecto</text>
+<text x="2336" y="78" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="500" fill="#1F2937" text-anchor="start">CampusSeguro</text>
+<line x1="2150" y1="90" x2="2890" y2="90" stroke="#D1D5DB" stroke-width="1"/>
+<rect x="2150" y="90" width="170" height="34" rx="0" fill="#F3F4F6" stroke="none" stroke-width="1.5" />
+<text x="2164" y="112" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B5563" text-anchor="start">Microservicio</text>
+<text x="2336" y="112" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="500" fill="#1F2937" text-anchor="start">MS03 — alerts-service (puerto 8080)</text>
+<line x1="2150" y1="124" x2="2890" y2="124" stroke="#D1D5DB" stroke-width="1"/>
+<rect x="2150" y="124" width="170" height="34" rx="0" fill="#F3F4F6" stroke="none" stroke-width="1.5" />
+<text x="2164" y="146" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B5563" text-anchor="start">Diagrama</text>
+<text x="2336" y="146" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="500" fill="#1F2937" text-anchor="start">Componentes · Nivel 3 (C4 / UML)</text>
+<line x1="2150" y1="158" x2="2890" y2="158" stroke="#D1D5DB" stroke-width="1"/>
+<rect x="2150" y="158" width="170" height="34" rx="0" fill="#F3F4F6" stroke="none" stroke-width="1.5" />
+<text x="2164" y="180" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B5563" text-anchor="start">Base de datos</text>
+<text x="2336" y="180" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="500" fill="#1F2937" text-anchor="start">PostgreSQL 17 · campusseguro_alerts</text>
+<line x1="2150" y1="192" x2="2890" y2="192" stroke="#D1D5DB" stroke-width="1"/>
+<rect x="2150" y="192" width="170" height="34" rx="0" fill="#F3F4F6" stroke="none" stroke-width="1.5" />
+<text x="2164" y="214" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#4B5563" text-anchor="start">Fecha</text>
+<text x="2336" y="214" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="500" fill="#1F2937" text-anchor="start">25 / 10 / 2026</text>
+<line x1="2320" y1="52" x2="2320" y2="230" stroke="#D1D5DB" stroke-width="1"/>
+<rect x="30" y="300" width="2488" height="1432" rx="0" fill="#FBFBFC" stroke="#111827" stroke-width="2.6" />
+<rect x="30" y="274" width="372" height="26" rx="0" fill="#111827" stroke="none" stroke-width="1.5" />
+<text x="46" y="292" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="700" fill="#fff" text-anchor="start">MS03 — alerts-service  :8080</text>
+<circle cx="640" cy="196" r="13" fill="#fff" stroke="#1F2937" stroke-width="2"/>
+<line x1="640" y1="209" x2="640" y2="238" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+<line x1="620" y1="219" x2="660" y2="219" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+<line x1="640" y1="238" x2="624" y2="260" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+<line x1="640" y1="238" x2="656" y2="260" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+<text x="674" y="232" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#1F2937" text-anchor="start">Frontend / Cliente REST</text>
+<text x="674" y="252" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#6B7280" text-anchor="start">usuarios y operadores del campus</text>
+<rect x="60" y="356" width="1268" height="312" rx="0" fill="#FFFFFF" stroke="#1F5F99" stroke-width="2" />
+<rect x="61" y="357" width="1266" height="42" rx="0" fill="#E7F0F9" stroke="none" stroke-width="1.5" />
+<line x1="60" y1="399" x2="1328" y2="399" stroke="#1F5F99" stroke-width="1" opacity=".35"/>
+<rect x="60" y="334" width="100" height="22" rx="0" fill="#E7F0F9" stroke="#1F5F99" stroke-width="2" />
+<rect x="96" y="412" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="342" y="421" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="338" y="423" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="338" y="427.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="116" cy="412" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="116" y="416.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+<text x="232.0" y="446.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">LocalTokenController</text>
+<text x="232.0" y="466.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#6B7280" text-anchor="middle">(perfil local)</text>
+<rect x="504" y="412" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="750" y="421" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="746" y="423" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="746" y="427.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="524" cy="412" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="524" y="416.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">T</text>
+<text x="640.0" y="446.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">SecurityConfig /</text>
+<text x="640.0" y="466.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">JWT Resource Server</text>
+<rect x="1020" y="412" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="421" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="1262" y="423" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="1262" y="427.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="1040" cy="412" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="1040" y="416.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">T</text>
+<text x="1156.0" y="457.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">GlobalExceptionHandler</text>
+<rect x="96" y="548" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="342" y="557" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="338" y="559" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="338" y="563.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="116" cy="548" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="116" y="552.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+<text x="232.0" y="593.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">ConfirmationController</text>
+<rect x="404" y="548" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="650" y="557" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="646" y="559" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="646" y="563.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="424" cy="548" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="424" y="552.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+<text x="540.0" y="593.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AuditController</text>
+<rect x="712" y="548" width="580" height="80" rx="3" fill="#FFFFFF" stroke="#1F5F99" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="557" width="16" height="11" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.2" />
+<rect x="1262" y="559" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<rect x="1262" y="563.5" width="7" height="3" rx="0" fill="#fff" stroke="#1F5F99" stroke-width="1.1" />
+<circle cx="732" cy="548" r="11.5" fill="#1F5F99" stroke="#fff" stroke-width="2"/>
+<text x="732" y="552.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+<text x="1002.0" y="593.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertController</text>
+<rect x="60" y="752" width="1268" height="464" rx="0" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="2" />
+<rect x="61" y="753" width="1266" height="42" rx="0" fill="#EEEAF8" stroke="none" stroke-width="1.5" />
+<line x1="60" y1="795" x2="1328" y2="795" stroke="#5B4B9A" stroke-width="1" opacity=".35"/>
+<rect x="60" y="730" width="100" height="22" rx="0" fill="#EEEAF8" stroke="#5B4B9A" stroke-width="2" />
+<rect x="76" y="802" width="1236" height="138" rx="2" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.2" stroke-dasharray="6 5" opacity=".9"/>
+<text x="90" y="821" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#5B4B9A" text-anchor="start" letter-spacing="1.2">CASOS DE USO</text>
+<rect x="76" y="1036" width="1236" height="140" rx="2" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.2" stroke-dasharray="6 5" opacity=".9"/>
+<text x="90" y="1055" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="700" fill="#5B4B9A" text-anchor="start" letter-spacing="1.2">REGLAS · ACCESO · AUDITORÍA</text>
+<rect x="96" y="836" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="342" y="845" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="338" y="847" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="338" y="851.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="116" cy="836" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="116" y="840.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="232.0" y="881.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">ConfirmationServiceImpl</text>
+<rect x="404" y="836" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="650" y="845" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="646" y="847" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="646" y="851.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="424" cy="836" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="424" y="840.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="540.0" y="881.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AuditQueryServiceImpl</text>
+<rect x="712" y="836" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="958" y="845" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="954" y="847" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="954" y="851.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="732" cy="836" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="732" y="840.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="848.0" y="881.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertServiceImpl</text>
+<rect x="1020" y="836" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="845" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="1262" y="847" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="1262" y="851.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="1040" cy="836" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="1040" y="840.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="1156.0" y="881.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertLifecycleServiceImpl</text>
+<rect x="404" y="1072" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="650" y="1081" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="646" y="1083" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="646" y="1087.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="424" cy="1072" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="424" y="1076.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="540.0" y="1106.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertStateMachine /</text>
+<text x="540.0" y="1126.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertStateRules</text>
+<rect x="712" y="1072" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="958" y="1081" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="954" y="1083" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="954" y="1087.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="732" cy="1072" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="732" y="1076.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="848.0" y="1106.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertAccessPolicy /</text>
+<text x="848.0" y="1126.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">ActorResolver</text>
+<rect x="1020" y="1072" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#5B4B9A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="1081" width="16" height="11" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.2" />
+<rect x="1262" y="1083" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<rect x="1262" y="1087.5" width="7" height="3" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.1" />
+<circle cx="1040" cy="1072" r="11.5" fill="#5B4B9A" stroke="#fff" stroke-width="2"/>
+<text x="1040" y="1076.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="1156.0" y="1117.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AuditServiceImpl</text>
+<rect x="1528" y="760" width="960" height="560" rx="0" fill="#FFFFFF" stroke="#C2571A" stroke-width="2" />
+<rect x="1529" y="761" width="958" height="42" rx="0" fill="#FBEBDF" stroke="none" stroke-width="1.5" />
+<line x1="1528" y1="803" x2="2488" y2="803" stroke="#C2571A" stroke-width="1" opacity=".35"/>
+<rect x="1528" y="738" width="100" height="22" rx="0" fill="#FBEBDF" stroke="#C2571A" stroke-width="2" />
+<rect x="1564" y="816" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1810" y="825" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="1806" y="827" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="1806" y="831.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="1584" cy="816" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="1584" y="820.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">P</text>
+<text x="1700.0" y="861.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertActivationScheduler</text>
+<rect x="1564" y="944" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1810" y="953" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="1806" y="955" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="1806" y="959.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="1584" cy="944" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="1584" y="948.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">P</text>
+<text x="1700.0" y="978.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertActivatedEvent /</text>
+<text x="1700.0" y="998.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">ApplicationEventPublisher</text>
+<rect x="1872" y="944" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2118" y="953" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2114" y="955" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2114" y="959.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="1892" cy="944" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="1892" y="948.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">P</text>
+<text x="2008.0" y="989.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertActivatedListener</text>
+<rect x="2180" y="944" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2426" y="953" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2422" y="955" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2422" y="959.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="2200" cy="944" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="2200" y="948.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="2316.0" y="989.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">EmailTemplateBuilder</text>
+<rect x="1872" y="1072" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2118" y="1081" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2114" y="1083" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2114" y="1087.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="1892" cy="1072" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="1892" y="1076.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="2008.0" y="1117.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">NotificationService</text>
+<rect x="2180" y="1072" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2426" y="1081" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2422" y="1083" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2422" y="1087.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="2200" cy="1072" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="2200" y="1076.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">I</text>
+<text x="2316.0" y="1106.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#6B7280" text-anchor="middle" font-style="italic">«interface»</text>
+<text x="2316.0" y="1126.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">EmailSender</text>
+<rect x="1872" y="1200" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2118" y="1209" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2114" y="1211" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2114" y="1215.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="1892" cy="1200" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="1892" y="1204.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="2008.0" y="1245.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">RecipientResolverService</text>
+<rect x="2180" y="1200" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#C2571A" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2426" y="1209" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2422" y="1211" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2422" y="1215.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<circle cx="2200" cy="1200" r="11.5" fill="#C2571A" stroke="#fff" stroke-width="2"/>
+<text x="2200" y="1204.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+<text x="2316.0" y="1245.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">BrevoEmailSender</text>
+<rect x="1528" y="1384" width="960" height="312" rx="0" fill="#FFFFFF" stroke="#A23B72" stroke-width="2" />
+<rect x="1529" y="1385" width="958" height="42" rx="0" fill="#F7E6EF" stroke="none" stroke-width="1.5" />
+<line x1="1528" y1="1427" x2="2488" y2="1427" stroke="#A23B72" stroke-width="1" opacity=".35"/>
+<rect x="1528" y="1362" width="100" height="22" rx="0" fill="#F7E6EF" stroke="#A23B72" stroke-width="2" />
+<rect x="1872" y="1440" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#A23B72" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2118" y="1449" width="16" height="11" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.2" />
+<rect x="2114" y="1451" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<rect x="2114" y="1455.5" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<circle cx="1892" cy="1440" r="11.5" fill="#A23B72" stroke="#fff" stroke-width="2"/>
+<text x="1892" y="1444.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">I</text>
+<text x="2008.0" y="1474.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11" font-weight="500" fill="#6B7280" text-anchor="middle" font-style="italic">«interface»</text>
+<text x="2008.0" y="1494.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">CatalogClient</text>
+<rect x="1564" y="1576" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#A23B72" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1810" y="1585" width="16" height="11" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.2" />
+<rect x="1806" y="1587" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<rect x="1806" y="1591.5" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<circle cx="1584" cy="1576" r="11.5" fill="#A23B72" stroke="#fff" stroke-width="2"/>
+<text x="1584" y="1580.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+<text x="1700.0" y="1610.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">StubCatalogClient</text>
+<text x="1700.0" y="1630.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#6B7280" text-anchor="middle">(implementación alternativa)</text>
+<rect x="2180" y="1576" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#A23B72" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="2426" y="1585" width="16" height="11" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.2" />
+<rect x="2422" y="1587" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<rect x="2422" y="1591.5" width="7" height="3" rx="0" fill="#fff" stroke="#A23B72" stroke-width="1.1" />
+<circle cx="2200" cy="1576" r="11.5" fill="#A23B72" stroke="#fff" stroke-width="2"/>
+<text x="2200" y="1580.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+<text x="2316.0" y="1621.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">RestCatalogClient</text>
+<rect x="60" y="1300" width="1268" height="304" rx="0" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="2" />
+<rect x="61" y="1301" width="1266" height="42" rx="0" fill="#E4F2E9" stroke="none" stroke-width="1.5" />
+<line x1="60" y1="1343" x2="1328" y2="1343" stroke="#2E7D4F" stroke-width="1" opacity=".35"/>
+<rect x="60" y="1278" width="100" height="22" rx="0" fill="#E4F2E9" stroke="#2E7D4F" stroke-width="2" />
+<rect x="96" y="1356" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="342" y="1365" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="338" y="1367" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="338" y="1371.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="116" cy="1356" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="116" y="1360.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="232.0" y="1401.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertRepository</text>
+<rect x="404" y="1356" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="650" y="1365" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="646" y="1367" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="646" y="1371.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="424" cy="1356" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="424" y="1360.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="540.0" y="1401.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertRecipientRepository</text>
+<rect x="712" y="1356" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="958" y="1365" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="954" y="1367" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="954" y="1371.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="732" cy="1356" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="732" y="1360.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="848.0" y="1401.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertScopeItemRepository</text>
+<rect x="1020" y="1356" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="1365" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="1262" y="1367" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="1262" y="1371.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="1040" cy="1356" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="1040" y="1360.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="1156.0" y="1401.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AlertConfirmationRepository</text>
+<rect x="96" y="1484" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="342" y="1493" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="338" y="1495" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="338" y="1499.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="116" cy="1484" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="116" y="1488.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="232.0" y="1529.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">AuditEventRepository</text>
+<rect x="404" y="1484" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="650" y="1493" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="646" y="1495" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="646" y="1499.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="424" cy="1484" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="424" y="1488.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="540.0" y="1529.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">NotificationDeliveryRepository</text>
+<rect x="712" y="1484" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="958" y="1493" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="954" y="1495" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="954" y="1499.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="732" cy="1484" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="732" y="1488.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="848.0" y="1529.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">Repositorios JPA</text>
+<rect x="1020" y="1484" width="272" height="80" rx="3" fill="#FFFFFF" stroke="#2E7D4F" stroke-width="1.7" filter="url(#sh)"/>
+<rect x="1266" y="1493" width="16" height="11" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.2" />
+<rect x="1262" y="1495" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<rect x="1262" y="1499.5" width="7" height="3" rx="0" fill="#fff" stroke="#2E7D4F" stroke-width="1.1" />
+<circle cx="1040" cy="1484" r="11.5" fill="#2E7D4F" stroke="#fff" stroke-width="2"/>
+<text x="1040" y="1488.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">M</text>
+<text x="1156.0" y="1529.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.2" font-weight="650" fill="#1F2937" text-anchor="middle">Entidades JPA</text>
+<rect x="1528" y="356" width="960" height="312" rx="0" fill="#FFFFFF" stroke="#9CA3AF" stroke-width="1.3" stroke-dasharray="3 4" />
+<text x="1552" y="390" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="800" fill="#4B5563" text-anchor="start" letter-spacing="2">LEYENDA</text>
+<text x="1552" y="418" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#6B7280" text-anchor="start">Tipo de componente</text>
+<circle cx="1564" cy="443" r="11" fill="#1F5F99"/>
+<text x="1564" y="447.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+<text x="1586" y="448" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Controller</text>
+<text x="1718" y="448" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">expone endpoints REST</text>
+<circle cx="1564" cy="470" r="11" fill="#5B4B9A"/>
+<text x="1564" y="474.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">S</text>
+<text x="1586" y="475" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Service</text>
+<text x="1718" y="475" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">orquesta casos de uso y reglas</text>
+<circle cx="1564" cy="497" r="11" fill="#2E7D4F"/>
+<text x="1564" y="501.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">R</text>
+<text x="1586" y="502" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Repository</text>
+<text x="1718" y="502" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">acceso a persistencia</text>
+<circle cx="1564" cy="524" r="11" fill="#2E7D4F"/>
+<text x="1564" y="528.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">M</text>
+<text x="1586" y="529" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Modelo</text>
+<text x="1718" y="529" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">entidades JPA</text>
+<circle cx="1564" cy="551" r="11" fill="#C2571A"/>
+<text x="1564" y="555.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">P</text>
+<text x="1586" y="556" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Proceso asíncrono</text>
+<text x="1718" y="556" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">scheduler, evento, listener</text>
+<circle cx="1564" cy="578" r="11" fill="#A23B72"/>
+<text x="1564" y="582.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+<text x="1586" y="583" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Adaptador</text>
+<text x="1718" y="583" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">cliente hacia un sistema externo</text>
+<circle cx="1564" cy="605" r="11" fill="#C2571A"/>
+<text x="1564" y="609.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">I</text>
+<text x="1586" y="610" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Interfaz</text>
+<text x="1718" y="610" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">contrato (puerto)</text>
+<circle cx="1564" cy="632" r="11" fill="#1F5F99"/>
+<text x="1564" y="636.5" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="800" fill="#fff" text-anchor="middle">T</text>
+<text x="1586" y="637" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13.5" font-weight="700" fill="#1F2937" text-anchor="start">Transversal</text>
+<text x="1718" y="637" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">seguridad y manejo de errores</text>
+<text x="2088" y="418" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="700" fill="#6B7280" text-anchor="start">Notación</text>
+<path d="M2088,454 L2158,454" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2176" y="459" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="600" fill="#1F2937" text-anchor="start">Dependencia (usa)</text>
+<path d="M2088,492 L2158,492" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#tri)"/>
+<text x="2176" y="497" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="600" fill="#1F2937" text-anchor="start">Implementa interfaz</text>
+<rect x="2088" y="518" width="70" height="28" rx="3" fill="#fff" stroke="#C2571A" stroke-width="1.7" />
+<rect x="2134" y="524" width="16" height="11" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.2" />
+<rect x="2130" y="526" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<rect x="2130" y="530.5" width="7" height="3" rx="0" fill="#fff" stroke="#C2571A" stroke-width="1.1" />
+<text x="2176" y="537" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="600" fill="#1F2937" text-anchor="start">Componente</text>
+<rect x="2088" y="568" width="40" height="10" rx="0" fill="#EEEAF8" stroke="#5B4B9A" stroke-width="1.6" />
+<rect x="2088" y="578" width="70" height="28" rx="0" fill="#fff" stroke="#5B4B9A" stroke-width="1.6" />
+<text x="2176" y="596" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="600" fill="#1F2937" text-anchor="start">Paquete (capa)</text>
+<rect x="2088" y="614" width="70" height="28" rx="3" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.5" stroke-dasharray="5 4" />
+<text x="2176" y="633" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="13" font-weight="600" fill="#1F2937" text-anchor="start">Sistema externo</text>
+<path d="M640.0,262.0 L640.0,412.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="652" y="288" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">HTTP / JWT</text>
+<path d="M640.0,492.0 L640.0,513.0 Q640.0,520.0 633.0,520.0 L239.0,520.0 Q232.0,520.0 232.0,527.0 L232.0,548.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M640.0,492.0 L640.0,513.0 Q640.0,520.0 633.0,520.0 L547.0,520.0 Q540.0,520.0 540.0,527.0 L540.0,548.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M640.0,492.0 L640.0,513.0 Q640.0,520.0 647.0,520.0 L995.0,520.0 Q1002.0,520.0 1002.0,527.0 L1002.0,548.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M504.0,452.0 L368.0,452.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="436.0" y="442.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">solo perfil local</text>
+<path d="M232.0,628.0 L232.0,836.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M540.0,628.0 L540.0,836.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M848.0,628.0 L848.0,836.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M1156.0,628.0 L1156.0,836.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M712.0,588.0 L701.0,588.0 Q694.0,588.0 694.0,595.0 L694.0,1105.0 Q694.0,1112.0 701.0,1112.0 L712.0,1112.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M984.0,876.0 L1020.0,876.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M540.0,940.0 L540.0,1072.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="550.0" y="1006" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">valida transiciones</text>
+<path d="M848.0,940.0 L848.0,1072.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="858.0" y="1006" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">autoriza acceso</text>
+<path d="M1156.0,940.0 L1156.0,1072.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1166.0" y="1006" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">registra auditoría</text>
+<path d="M210.0,1216.0 L210.0,1300.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="222" y="1264" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">persiste y consulta</text>
+<path d="M1564.0,856.0 L1292.0,856.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1428.0" y="846.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">revisar activaciones</text>
+<path d="M1292.0,906.0 L1398.0,906.0 Q1405.0,906.0 1405.0,913.0 L1405.0,977.0 Q1405.0,984.0 1412.0,984.0 L1564.0,984.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1415" y="952" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">publica evento</text>
+<path d="M1836.0,984.0 L1872.0,984.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1854.0" y="930" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">evento de aplicación</text>
+<path d="M2008.0,1024.0 L2008.0,1072.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2018.0" y="1056" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">alerta activada</text>
+<path d="M2008.0,1152.0 L2008.0,1200.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M2144.0,1092.0 L2155.0,1092.0 Q2162.0,1092.0 2162.0,1085.0 L2162.0,991.0 Q2162.0,984.0 2169.0,984.0 L2180.0,984.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M2144.0,1122.0 L2180.0,1122.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<path d="M2316.0,1200.0 L2316.0,1152.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#tri)"/>
+<path d="M1872.0,1112.0 L1292.0,1112.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1428" y="1102.0" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">registra entregas</text>
+<path d="M1528.0,1306.0 L1435.0,1306.0 Q1428.0,1306.0 1428.0,1313.0 L1428.0,1445.0 Q1428.0,1452.0 1421.0,1452.0 L1328.0,1452.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1438" y="1366" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">entregas y</text>
+<text x="1438" y="1380" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">destinatarios</text>
+<path d="M2008.0,1280.0 L2008.0,1440.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2020.0" y="1352" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">consulta catálogos</text>
+<path d="M1700.0,1576.0 L1700.0,1555.0 Q1700.0,1548.0 1707.0,1548.0 L1946.6,1548.0 Q1953.6,1548.0 1953.6,1541.0 L1953.6,1520.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#tri)"/>
+<path d="M2316.0,1576.0 L2316.0,1555.0 Q2316.0,1548.0 2309.0,1548.0 L2069.4,1548.0 Q2062.4,1548.0 2062.4,1541.0 L2062.4,1520.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#tri)"/>
+<path d="M984.0,1524.0 L1020.0,1524.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2672" y="1085" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="800" fill="#9CA3AF" text-anchor="start" letter-spacing="2">SISTEMAS EXTERNOS</text>
+<rect x="2672" y="1129.0" width="230" height="62" rx="30" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="6 4" />
+<text x="2787.0" y="1158" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="700" fill="#1F2937" text-anchor="middle">Brevo API</text>
+<text x="2787.0" y="1176" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="500" fill="#6B7280" text-anchor="middle">si existe API key</text>
+<rect x="2672" y="1309.0" width="230" height="62" rx="30" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="6 4" />
+<text x="2787.0" y="1338" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="700" fill="#1F2937" text-anchor="middle">Servidor SMTP</text>
+<text x="2787.0" y="1356" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="500" fill="#6B7280" text-anchor="middle">si no hay API key</text>
+<rect x="2672" y="1529.0" width="230" height="62" rx="3" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="6 4" />
+<rect x="2874" y="1538.0" width="16" height="11" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.2" />
+<rect x="2870" y="1540.0" width="7" height="3" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.1" />
+<rect x="2870" y="1544.5" width="7" height="3" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.1" />
+<text x="2787.0" y="1558" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="700" fill="#1F2937" text-anchor="middle">MS01</text>
+<text x="2787.0" y="1576" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="500" fill="#6B7280" text-anchor="middle">Catálogo de usuarios</text>
+<rect x="2672" y="1649.0" width="230" height="62" rx="3" fill="#F3F4F6" stroke="#6B7280" stroke-width="1.6" stroke-dasharray="6 4" />
+<rect x="2874" y="1658.0" width="16" height="11" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.2" />
+<rect x="2870" y="1660.0" width="7" height="3" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.1" />
+<rect x="2870" y="1664.5" width="7" height="3" rx="0" fill="#fff" stroke="#6B7280" stroke-width="1.1" />
+<text x="2787.0" y="1678" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="14.5" font-weight="700" fill="#1F2937" text-anchor="middle">MS02</text>
+<text x="2787.0" y="1696" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="11.5" font-weight="500" fill="#6B7280" text-anchor="middle">Catálogo de espacios</text>
+<path d="M2452.0,1224.0 L2545.0,1224.0 Q2552.0,1224.0 2552.0,1217.0 L2552.0,1167.0 Q2552.0,1160.0 2559.0,1160.0 L2672.0,1160.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2612.0" y="1150" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">HTTPS API</text>
+<path d="M2452.0,1256.0 L2545.0,1256.0 Q2552.0,1256.0 2552.0,1263.0 L2552.0,1333.0 Q2552.0,1340.0 2559.0,1340.0 L2672.0,1340.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2612.0" y="1330" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">SMTP / STARTTLS</text>
+<path d="M2452.0,1602.0 L2545.0,1602.0 Q2552.0,1602.0 2552.0,1595.0 L2552.0,1567.0 Q2552.0,1560.0 2559.0,1560.0 L2672.0,1560.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2612.0" y="1550" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">REST</text>
+<path d="M2452.0,1630.0 L2545.0,1630.0 Q2552.0,1630.0 2552.0,1637.0 L2552.0,1673.0 Q2552.0,1680.0 2559.0,1680.0 L2672.0,1680.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="2612.0" y="1670" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="middle" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">REST</text>
+<path d="M1031.0,1826 L1031.0,1882 A125.0,14 0 0 0 1281.0,1882 L1281.0,1826" fill="#E4F2E9" stroke="#2E7D4F" stroke-width="1.8"/>
+<ellipse cx="1156" cy="1826" rx="125.0" ry="14" fill="#fff" stroke="#2E7D4F" stroke-width="1.8"/>
+<text x="1156" y="1862" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="15.5" font-weight="700" fill="#1F2937" text-anchor="middle">PostgreSQL 17</text>
+<text x="1156" y="1882" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="middle">campusseguro_alerts</text>
+<path d="M1156.0,1564.0 L1156.0,1812.0" fill="none" stroke="#374151" stroke-width="1.6" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<text x="1168" y="1770" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="500" fill="#374151" text-anchor="start" stroke="#fff" stroke-width="5" stroke-linejoin="round" paint-order="stroke">JPA / Hibernate</text>
+<text x="60" y="1780" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12" font-weight="800" fill="#4B5563" text-anchor="start" letter-spacing="1.5">Nota</text>
+<text x="60" y="1802" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">Las dependencias de los servicios y de las notificaciones hacia los repositorios, y la de los casos de uso hacia las reglas de soporte,</text>
+<text x="60" y="1820" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="12.5" font-weight="500" fill="#6B7280" text-anchor="start">se muestran agrupadas por paquete para mantener la legibilidad del diagrama.</text>
+<text x="80" y="385" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="700" fill="#1F5F99" text-anchor="start" stroke="#E7F0F9" stroke-width="5" stroke-linejoin="round" paint-order="stroke">Acceso y API</text>
+<text x="80" y="781" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="700" fill="#5B4B9A" text-anchor="start" stroke="#EEEAF8" stroke-width="5" stroke-linejoin="round" paint-order="stroke">Servicios de aplicación</text>
+<text x="1548" y="789" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="700" fill="#C2571A" text-anchor="start" stroke="#FBEBDF" stroke-width="5" stroke-linejoin="round" paint-order="stroke">Notificaciones y procesos asíncronos</text>
+<text x="1548" y="1413" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="700" fill="#A23B72" text-anchor="start" stroke="#F7E6EF" stroke-width="5" stroke-linejoin="round" paint-order="stroke">Integración con catálogos</text>
+<text x="80" y="1329" font-family="Inter, 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="700" fill="#2E7D4F" text-anchor="start" stroke="#E4F2E9" stroke-width="5" stroke-linejoin="round" paint-order="stroke">Persistencia</text>
+</svg>
