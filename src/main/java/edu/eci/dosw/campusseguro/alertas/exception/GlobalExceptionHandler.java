@@ -1,9 +1,8 @@
-
 package edu.eci.dosw.campusseguro.alertas.exception;
 
+import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
-import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -20,7 +19,6 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.ServletWebRequest;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -31,93 +29,71 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     private static final Logger log =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    private final Clock clock;
-
-    public GlobalExceptionHandler(Clock clock) {
-        this.clock = clock;
-    }
-
     @ExceptionHandler(AlertNotFoundException.class)
     public ResponseEntity<Object> handleAlertNotFound(
-            AlertNotFoundException ex,
-            HttpServletRequest request) {
-
+            AlertNotFoundException ex) {
         return respond(
                 ErrorCode.ALERT_NOT_FOUND,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(InvalidAlertStateException.class)
     public ResponseEntity<Object> handleInvalidAlertState(
-            InvalidAlertStateException ex,
-            HttpServletRequest request) {
-
+            InvalidAlertStateException ex) {
         return respond(
                 ErrorCode.INVALID_ALERT_STATE,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(InvalidTransitionException.class)
     public ResponseEntity<Object> handleInvalidTransition(
-            InvalidTransitionException ex,
-            HttpServletRequest request) {
-
+            InvalidTransitionException ex) {
         return respond(
                 ErrorCode.INVALID_TRANSITION,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(InvalidActivationDateException.class)
     public ResponseEntity<Object> handleInvalidActivationDate(
-            InvalidActivationDateException ex,
-            HttpServletRequest request) {
-
+            InvalidActivationDateException ex) {
         return respond(
                 ErrorCode.INVALID_ACTIVATION_DATE,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(InvalidReferenceException.class)
     public ResponseEntity<Object> handleInvalidReference(
-            InvalidReferenceException ex,
-            HttpServletRequest request) {
+            InvalidReferenceException ex) {
 
-        List<ErrorResponse.Detail> details = ex.getInvalidIds().stream()
-                .map(id -> new ErrorResponse.Detail(
+        List<ErrorResponse.ErrorDetail> errors = ex.getInvalidIds().stream()
+                .map(id -> new ErrorResponse.ErrorDetail(
                         ex.getField(),
-                        "The referenced ID does not exist: " + id))
+                        "La referencia no existe: " + id))
                 .toList();
 
         return respond(
                 ErrorCode.INVALID_REFERENCE,
                 ErrorCode.INVALID_REFERENCE.defaultMessage(),
-                request.getRequestURI(),
-                details);
+                errors);
     }
 
     @ExceptionHandler(InvalidPaginationException.class)
     public ResponseEntity<Object> handleInvalidPagination(
-            InvalidPaginationException ex,
-            HttpServletRequest request) {
+            InvalidPaginationException ex) {
 
-        List<ErrorResponse.Detail> details = List.of(
-                new ErrorResponse.Detail(
+        List<ErrorResponse.ErrorDetail> errors = List.of(
+                new ErrorResponse.ErrorDetail(
                         ex.getField(),
                         ex.getMessage()));
 
         return respond(
                 ErrorCode.INVALID_PAGINATION,
                 ErrorCode.INVALID_PAGINATION.defaultMessage(),
-                request.getRequestURI(),
-                details);
+                errors);
     }
 
     @ExceptionHandler(ExternalServiceUnavailableException.class)
@@ -125,12 +101,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             ExternalServiceUnavailableException ex,
             HttpServletRequest request) {
 
-        log.warn("External service unavailable: {}", ex.getMessage(), ex);
+        log.warn(
+                "Servicio externo no disponible en {}: {}",
+                request.getRequestURI(),
+                ex.getMessage(),
+                ex);
 
         return respond(
                 ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE,
-                ex.getMessage(),
-                request.getRequestURI(),
+                ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE.defaultMessage(),
                 List.of());
     }
 
@@ -140,86 +119,78 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
 
         log.warn(
-                "Concurrent modification detected at {}",
+                "Modificación concurrente detectada en {}",
                 request.getRequestURI());
 
         return respond(
                 ErrorCode.CONCURRENT_MODIFICATION,
                 ErrorCode.CONCURRENT_MODIFICATION.defaultMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(SimulationMismatchException.class)
     public ResponseEntity<Object> handleSimulationMismatch(
-            SimulationMismatchException ex,
-            HttpServletRequest request) {
-
+            SimulationMismatchException ex) {
         return respond(
                 ErrorCode.SIMULATION_MISMATCH,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(DuplicateSimulationAlertException.class)
     public ResponseEntity<Object> handleDuplicateSimulationAlert(
-            DuplicateSimulationAlertException ex,
-            HttpServletRequest request) {
-
+            DuplicateSimulationAlertException ex) {
         return respond(
                 ErrorCode.DUPLICATE_SIMULATION_ALERT,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(NotARecipientException.class)
     public ResponseEntity<Object> handleNotARecipient(
-            NotARecipientException ex,
-            HttpServletRequest request) {
-
+            NotARecipientException ex) {
         return respond(
                 ErrorCode.NOT_A_RECIPIENT,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(AlertNotActiveException.class)
     public ResponseEntity<Object> handleAlertNotActive(
-            AlertNotActiveException ex,
-            HttpServletRequest request) {
-
+            AlertNotActiveException ex) {
         return respond(
                 ErrorCode.ALERT_NOT_ACTIVE,
                 ex.getMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(InvalidAlertRequestException.class)
     public ResponseEntity<Object> handleInvalidAlertRequest(
-            InvalidAlertRequestException ex,
-            HttpServletRequest request) {
-
+            InvalidAlertRequestException ex) {
         return respond(
                 ErrorCode.VALIDATION_ERROR,
                 ErrorCode.VALIDATION_ERROR.defaultMessage(),
-                request.getRequestURI(),
-                List.of(new ErrorResponse.Detail(
+                List.of(new ErrorResponse.ErrorDetail(
                         ex.getField(),
                         ex.getMessage())));
     }
 
+    @ExceptionHandler(ForbiddenOperationException.class)
+    public ResponseEntity<Object> handleForbiddenOperation(
+            ForbiddenOperationException ex) {
+        return respond(
+                ErrorCode.FORBIDDEN,
+                ex.getMessage(),
+                List.of());
+    }
+
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<Object> handleConstraintViolation(
-            ConstraintViolationException ex,
-            HttpServletRequest request) {
+            ConstraintViolationException ex) {
 
-        List<ErrorResponse.Detail> details =
+        List<ErrorResponse.ErrorDetail> errors =
                 ex.getConstraintViolations().stream()
-                        .map(violation -> new ErrorResponse.Detail(
+                        .map(violation -> new ErrorResponse.ErrorDetail(
                                 violation.getPropertyPath().toString(),
                                 violation.getMessage()))
                         .toList();
@@ -227,31 +198,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return respond(
                 ErrorCode.VALIDATION_ERROR,
                 ErrorCode.VALIDATION_ERROR.defaultMessage(),
-                request.getRequestURI(),
-                details);
+                errors);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Object> handleAccessDenied(
-            AccessDeniedException ex,
-            HttpServletRequest request) {
-
+            AccessDeniedException ex) {
         return respond(
                 ErrorCode.FORBIDDEN,
                 ErrorCode.FORBIDDEN.defaultMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<Object> handleAuthentication(
-            AuthenticationException ex,
-            HttpServletRequest request) {
-
+            AuthenticationException ex) {
         return respond(
                 ErrorCode.UNAUTHORIZED,
                 ErrorCode.UNAUTHORIZED.defaultMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
@@ -261,14 +225,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
 
         log.error(
-                "Unexpected error at {}",
+                "Error inesperado en {}",
                 request.getRequestURI(),
                 ex);
 
         return respond(
                 ErrorCode.INTERNAL_ERROR,
                 ErrorCode.INTERNAL_ERROR.defaultMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 
@@ -279,25 +242,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpStatusCode status,
             WebRequest request) {
 
-        List<ErrorResponse.Detail> details = new ArrayList<>();
+        List<ErrorResponse.ErrorDetail> errors = new ArrayList<>();
 
         ex.getBindingResult().getFieldErrors()
-                .forEach(error -> details.add(
-                        new ErrorResponse.Detail(
+                .forEach(error -> errors.add(
+                        new ErrorResponse.ErrorDetail(
                                 error.getField(),
                                 error.getDefaultMessage())));
 
         ex.getBindingResult().getGlobalErrors()
-                .forEach(error -> details.add(
-                        new ErrorResponse.Detail(
+                .forEach(error -> errors.add(
+                        new ErrorResponse.ErrorDetail(
                                 error.getObjectName(),
                                 error.getDefaultMessage())));
 
         return respond(
                 ErrorCode.VALIDATION_ERROR,
                 ErrorCode.VALIDATION_ERROR.defaultMessage(),
-                pathOf(request),
-                details);
+                errors);
     }
 
     @Override
@@ -309,8 +271,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return respond(
                 ErrorCode.VALIDATION_ERROR,
-                "The request body is missing, malformed, or contains invalid values",
-                pathOf(request),
+                "El cuerpo de la solicitud falta, está mal formado o contiene valores inválidos",
                 List.of());
     }
 
@@ -326,16 +287,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                         ? mismatch.getName()
                         : ex.getPropertyName();
 
-        List<ErrorResponse.Detail> details = List.of(
-                new ErrorResponse.Detail(
+        List<ErrorResponse.ErrorDetail> errors = List.of(
+                new ErrorResponse.ErrorDetail(
                         field,
-                        "The supplied value is invalid"));
+                        "El valor enviado no es válido"));
 
         return respond(
                 ErrorCode.VALIDATION_ERROR,
                 ErrorCode.VALIDATION_ERROR.defaultMessage(),
-                pathOf(request),
-                details);
+                errors);
     }
 
     @Override
@@ -348,13 +308,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         ErrorCode code = codeFor(statusCode);
 
-        ErrorResponse response = new ErrorResponse(
-                clock.instant(),
-                statusCode.value(),
-                code.name(),
+        ErrorResponse response = ErrorResponse.of(
+                code,
                 code.defaultMessage(),
-                pathOf(request),
-                List.of());
+                List.of(),
+                CorrelationIds.current());
 
         return ResponseEntity.status(statusCode)
                 .headers(headers)
@@ -377,24 +335,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         };
     }
 
-    private String pathOf(WebRequest request) {
-        return request instanceof ServletWebRequest servletRequest
-                ? servletRequest.getRequest().getRequestURI()
-                : "";
-    }
-
     private ResponseEntity<Object> respond(
             ErrorCode code,
             String message,
-            String path,
-            List<ErrorResponse.Detail> details) {
+            List<ErrorResponse.ErrorDetail> errors) {
 
         ErrorResponse response = ErrorResponse.of(
-                clock.instant(),
                 code,
                 message,
-                path,
-                details);
+                errors,
+                CorrelationIds.current());
 
         return ResponseEntity.status(code.status())
                 .body(response);
@@ -406,14 +356,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             HttpServletRequest request) {
 
         log.warn(
-                "Data integrity violation at {}",
+                "Violación de integridad de datos en {}",
                 request.getRequestURI(),
                 ex);
 
         return respond(
                 ErrorCode.DUPLICATE_SIMULATION_ALERT,
                 ErrorCode.DUPLICATE_SIMULATION_ALERT.defaultMessage(),
-                request.getRequestURI(),
                 List.of());
     }
 }

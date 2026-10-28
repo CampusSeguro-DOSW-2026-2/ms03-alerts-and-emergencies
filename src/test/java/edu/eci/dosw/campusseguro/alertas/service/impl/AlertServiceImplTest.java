@@ -43,6 +43,8 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
@@ -76,6 +78,11 @@ class AlertServiceImplTest {
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final String ACTOR = "admin";
+
+    private static final RequesterContext REQUESTER = new RequesterContext(
+            ACTOR,
+            Set.of(UserRole.COORDINADOR),
+            null);
 
     @Mock
     private AlertRepository alertRepository;
@@ -172,7 +179,7 @@ class AlertServiceImplTest {
         when(recipientRepository.saveAll(recipientEntities)).thenReturn(recipientEntities);
         when(alertMapper.toResponse(saved, scopeItems, recipientEntities)).thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertTrue(result.created());
@@ -212,7 +219,7 @@ class AlertServiceImplTest {
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertFalse(result.created());
@@ -242,7 +249,7 @@ class AlertServiceImplTest {
 
         assertThrows(
                 DuplicateSimulationAlertException.class,
-                () -> service.create(request, ACTOR));
+                () -> service.create(request, REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
     }
@@ -275,7 +282,7 @@ class AlertServiceImplTest {
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
         when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
 
-        service.create(request, ACTOR);
+        service.create(request, REQUESTER);
 
         verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any());
         verify(catalogClient).validateRecipients(recipients);
@@ -291,7 +298,7 @@ class AlertServiceImplTest {
                 .when(catalogClient)
                 .validateBuildingsZones(eq(ScopeType.ZONE), any());
 
-        assertThrows(RuntimeException.class, () -> service.create(request, ACTOR));
+        assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
@@ -308,7 +315,7 @@ class AlertServiceImplTest {
                 .when(catalogClient)
                 .validateRecipients(recipients);
 
-        assertThrows(RuntimeException.class, () -> service.create(request, ACTOR));
+        assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
@@ -509,7 +516,7 @@ class AlertServiceImplTest {
 
         PageResponse<AlertSummaryResponse> result = service.search(filter);
 
-        assertEquals(0, result.content().size());
+        assertEquals(0, result.contenido().size());
         verify(scopeItemRepository, never()).findByAlertIdIn(any());
     }
 
@@ -561,7 +568,7 @@ class AlertServiceImplTest {
 
         PageResponse<AlertSummaryResponse> result = service.search(filter);
 
-        assertEquals(1, result.content().size());
-        assertSame(summary, result.content().get(0));
+        assertEquals(1, result.contenido().size());
+        assertSame(summary, result.contenido().get(0));
     }
 }

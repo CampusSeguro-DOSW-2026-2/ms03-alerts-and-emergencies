@@ -15,7 +15,6 @@ import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
-import edu.eci.dosw.campusseguro.alertas.security.Role;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -64,7 +63,7 @@ class AuditQueryServiceImplTest {
         when(auditEventRepository.findByAlertIdOrderByCreatedAtAsc(ALERT_ID)).thenReturn(List.of(
                 event("usr-001"),
                 event(ActorResolver.SYSTEM_SCHEDULER),
-                event(Role.SERVICE_MS06.name())));
+                event("ms06:" + UUID.randomUUID())));
 
         List<AuditEventResponse> events = service.findByAlert(ALERT_ID);
 

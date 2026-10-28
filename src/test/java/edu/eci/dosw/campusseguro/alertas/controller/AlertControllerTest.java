@@ -32,12 +32,14 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
-import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,13 +70,18 @@ class AlertControllerTest {
 
     private static final String ACTOR = "coordinator";
 
+    private static final RequesterContext REQUESTER = new RequesterContext(
+            ACTOR,
+            Set.of(UserRole.COORDINADOR),
+            null);
+
     private static final String VALID_CREATE_JSON = """
             {
               "type": "EARTHQUAKE",
               "title": "Simulacro Sismico Nacional",
               "scope": { "type": "CAMPUS" },
               "instructions": "Evacuar hacia los puntos de encuentro",
-              "recipients": [ { "type": "ROLE", "id": "STUDENT" } ]
+              "recipients": [ { "type": "ROLE", "id": "ESTUDIANTE" } ]
             }
             """;
 
@@ -102,6 +109,7 @@ class AlertControllerTest {
     @BeforeEach
     void setUp() {
         lenient().when(actorResolver.resolve()).thenReturn(ACTOR);
+        lenient().when(actorResolver.requester()).thenReturn(REQUESTER);
 
         response = mock(AlertResponse.class);
         lenient().when(response.id()).thenReturn(ID);
@@ -112,7 +120,7 @@ class AlertControllerTest {
                         alertLifecycleService,
                         actorResolver))
                 .setControllerAdvice(
-                        new GlobalExceptionHandler(Clock.systemUTC()))
+                        new GlobalExceptionHandler())
                 .build();
     }
 
@@ -131,7 +139,7 @@ class AlertControllerTest {
             throws Exception {
 
         when(alertService.create(
-                any(AlertCreateRequest.class), eq(ACTOR)))
+                any(AlertCreateRequest.class), eq(REQUESTER)))
                 .thenReturn(new AlertCreationResult(response, true));
 
         mockMvc.perform(post(BASE_URL)
@@ -145,7 +153,7 @@ class AlertControllerTest {
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
         verify(alertService).create(
-                any(AlertCreateRequest.class), eq(ACTOR));
+                any(AlertCreateRequest.class), eq(REQUESTER));
     }
 
     @Test
@@ -170,7 +178,7 @@ class AlertControllerTest {
                   "scope": { "type": "CAMPUS" },
                   "instructions": "Evacuar",
                   "recipients": [
-                    { "type": "ROLE", "id": "STUDENT" }
+                    { "type": "ROLE", "id": "ESTUDIANTE" }
                   ]
                 }
                 """;
@@ -179,7 +187,7 @@ class AlertControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(withoutTitle))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details[0].field")
+                .andExpect(jsonPath("$.errores[0].campo")
                         .value("title"));
 
         verifyNoInteractions(alertService);
@@ -207,7 +215,7 @@ class AlertControllerTest {
 
         mockMvc.perform(get(BASE_URL))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content").isEmpty());
+                .andExpect(jsonPath("$.contenido").isEmpty());
 
         ArgumentCaptor<AlertFilter> captor =
                 ArgumentCaptor.forClass(AlertFilter.class);
@@ -426,7 +434,7 @@ class AlertControllerTest {
             throws Exception {
 
         when(alertLifecycleService.end(
-                eq(ID), isNull(), eq(ACTOR)))
+                eq(ID), isNull(), eq(REQUESTER)))
                 .thenReturn(response);
 
         mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID))
@@ -434,14 +442,14 @@ class AlertControllerTest {
                 .andExpect(jsonPath("$.id").value(ID.toString()));
 
         verify(alertLifecycleService).end(
-                eq(ID), isNull(), eq(ACTOR));
+                eq(ID), isNull(), eq(REQUESTER));
     }
 
     @Test
     void end_shouldPassSimulationId_whenBodyIsSent() throws Exception {
 
         when(alertLifecycleService.end(
-                eq(ID), any(AlertEndRequest.class), eq(ACTOR)))
+                eq(ID), any(AlertEndRequest.class), eq(REQUESTER)))
                 .thenReturn(response);
 
         mockMvc.perform(patch(BASE_URL + "/{id}/finalizar", ID)
@@ -453,7 +461,7 @@ class AlertControllerTest {
                 ArgumentCaptor.forClass(AlertEndRequest.class);
 
         verify(alertLifecycleService).end(
-                eq(ID), captor.capture(), eq(ACTOR));
+                eq(ID), captor.capture(), eq(REQUESTER));
 
         assertEquals(SIMULATION_ID, captor.getValue().simulationId());
     }

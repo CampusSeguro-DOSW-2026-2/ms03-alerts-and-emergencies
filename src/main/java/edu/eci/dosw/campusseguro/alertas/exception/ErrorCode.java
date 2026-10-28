@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import org.springframework.http.HttpStatus;
@@ -7,77 +6,102 @@ public enum ErrorCode {
 
     VALIDATION_ERROR(
             HttpStatus.BAD_REQUEST,
-            "The submitted data is invalid"),
+            "VALIDACION",
+            "Los datos enviados no son válidos"),
     INVALID_REFERENCE(
             HttpStatus.BAD_REQUEST,
-            "One or more references do not exist"),
+            "REFERENCIA_INVALIDA",
+            "Una o más referencias no existen"),
     INVALID_PAGINATION(
             HttpStatus.BAD_REQUEST,
-            "The query parameters are invalid"),
+            "PAGINACION_INVALIDA",
+            "Los parámetros de consulta no son válidos"),
     INVALID_ACTIVATION_DATE(
             HttpStatus.BAD_REQUEST,
-            "The activation date is invalid"),
+            "FECHA_ACTIVACION_INVALIDA",
+            "La fecha de activación debe ser futura"),
 
     UNAUTHORIZED(
             HttpStatus.UNAUTHORIZED,
-            "Authentication is required or the token is invalid"),
+            "NO_AUTENTICADO",
+            "Se requiere autenticación o la identidad no es válida"),
     FORBIDDEN(
             HttpStatus.FORBIDDEN,
-            "You do not have permission to perform this operation"),
+            "PROHIBIDO",
+            "No tienes permiso para realizar esta operación"),
     NOT_A_RECIPIENT(
             HttpStatus.FORBIDDEN,
-            "You are not a recipient of this alert"),
+            "NO_ES_DESTINATARIO",
+            "No eres destinatario de esta alerta"),
 
     ALERT_NOT_FOUND(
             HttpStatus.NOT_FOUND,
-            "The alert does not exist"),
+            "ALERTA_NO_ENCONTRADA",
+            "La alerta no existe"),
     RESOURCE_NOT_FOUND(
             HttpStatus.NOT_FOUND,
-            "The requested resource was not found"),
+            "NO_ENCONTRADO",
+            "El recurso solicitado no existe"),
 
     METHOD_NOT_ALLOWED(
             HttpStatus.METHOD_NOT_ALLOWED,
-            "The HTTP method is not allowed"),
+            "METODO_NO_PERMITIDO",
+            "El método HTTP no está permitido"),
     UNSUPPORTED_MEDIA_TYPE(
             HttpStatus.UNSUPPORTED_MEDIA_TYPE,
-            "The content type is not supported"),
+            "TIPO_NO_SOPORTADO",
+            "El tipo de contenido no está soportado"),
 
     INVALID_ALERT_STATE(
             HttpStatus.CONFLICT,
-            "The alert state does not allow this operation"),
+            "ESTADO_ALERTA_INVALIDO",
+            "El estado de la alerta no permite esta operación"),
     INVALID_TRANSITION(
             HttpStatus.CONFLICT,
-            "The requested state transition is invalid"),
+            "TRANSICION_INVALIDA",
+            "La transición de estado solicitada no es válida"),
     ALERT_NOT_ACTIVE(
             HttpStatus.CONFLICT,
-            "The alert is not active"),
+            "ALERTA_NO_ACTIVA",
+            "La alerta no está activa"),
     SIMULATION_MISMATCH(
             HttpStatus.CONFLICT,
-            "The simulation does not match the alert"),
+            "CONFLICTO_SIMULACION",
+            "El simulacro no corresponde a la alerta"),
     DUPLICATE_SIMULATION_ALERT(
             HttpStatus.CONFLICT,
-            "An active or scheduled alert already exists for this simulation"),
+            "SIMULACION_DUPLICADA",
+            "Ya existe una alerta activa o programada para este simulacro"),
     CONCURRENT_MODIFICATION(
             HttpStatus.CONFLICT,
-            "The alert was modified by another user"),
+            "MODIFICACION_CONCURRENTE",
+            "La alerta fue modificada por otro usuario"),
 
     EXTERNAL_SERVICE_UNAVAILABLE(
             HttpStatus.SERVICE_UNAVAILABLE,
-            "An external service is temporarily unavailable. Please try again later"),
+            "SERVICIO_EXTERNO_NO_DISPONIBLE",
+            "Un servicio externo no está disponible. Intenta de nuevo más tarde"),
     INTERNAL_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
-            "An unexpected error occurred");
+            "ERROR_INTERNO",
+            "Ocurrió un error inesperado");
 
     private final HttpStatus status;
+    private final String codigo;
     private final String defaultMessage;
 
-    ErrorCode(HttpStatus status, String defaultMessage) {
+    ErrorCode(HttpStatus status, String codigo, String defaultMessage) {
         this.status = status;
+        this.codigo = codigo;
         this.defaultMessage = defaultMessage;
     }
 
     public HttpStatus status() {
         return status;
+    }
+
+    public String codigo() {
+        return codigo;
     }
 
     public String defaultMessage() {

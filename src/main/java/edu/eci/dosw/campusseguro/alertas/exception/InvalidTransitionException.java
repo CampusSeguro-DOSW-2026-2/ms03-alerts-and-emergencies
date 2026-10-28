@@ -12,8 +12,8 @@ public class InvalidTransitionException extends RuntimeException {
             AlertStatus currentStatus,
             AlertStatus requestedStatus) {
 
-        super("Cannot transition the alert from "
-                + currentStatus + " to " + requestedStatus);
+        super("No se puede cambiar la alerta de "
+                + currentStatus + " a " + requestedStatus);
 
         this.currentStatus = currentStatus;
         this.requestedStatus = requestedStatus;

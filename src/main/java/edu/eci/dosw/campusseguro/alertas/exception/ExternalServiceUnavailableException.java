@@ -4,10 +4,12 @@ package edu.eci.dosw.campusseguro.alertas.exception;
 public class ExternalServiceUnavailableException extends RuntimeException {
 
     public ExternalServiceUnavailableException(String service) {
-        super("Service " + service + " is unavailable. Please try again later.");
+        super("El servicio " + service
+                + " no está disponible. Intenta de nuevo más tarde");
     }
 
     public ExternalServiceUnavailableException(String service, Throwable cause) {
-        super("Service " + service + " is unavailable. Please try again later.", cause);
+        super("El servicio " + service
+                + " no está disponible. Intenta de nuevo más tarde", cause);
     }
 }

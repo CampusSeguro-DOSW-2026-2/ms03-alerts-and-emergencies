@@ -14,7 +14,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class AlertAccessPolicy {
 
-    private static final Set<String> PRIVILEGED_ROLES = Set.of("COORDINATOR", "AUDITOR", "SERVICE_MS06");
+    private static final Set<String> PRIVILEGED_ROLES = Set.of(
+            UserRole.COORDINADOR.name(),
+            UserRole.ORGANIZADOR.name(),
+            UserRole.AUDITOR.name());
 
     private final AlertRecipientRepository recipientRepository;
     private final NotificationDeliveryRepository deliveryRepository;
@@ -27,10 +30,17 @@ public class AlertAccessPolicy {
     }
 
     public void assertCanView(AlertEntity alert, AccessActor actor) {
-        assertCanView(alert, actor, recipientRepository.findByAlertId(alert.getId()));
+        assertCanView(
+                alert,
+                actor,
+                recipientRepository.findByAlertId(alert.getId()));
     }
 
-    public void assertCanView(AlertEntity alert, AccessActor actor, List<AlertRecipientEntity> recipients) {
+    public void assertCanView(
+            AlertEntity alert,
+            AccessActor actor,
+            List<AlertRecipientEntity> recipients) {
+
         if (actor.roles().stream().anyMatch(PRIVILEGED_ROLES::contains)) {
             return;
         }
@@ -40,7 +50,11 @@ public class AlertAccessPolicy {
         throw new NotARecipientException(alert.getId());
     }
 
-    public void assertCanConfirm(UUID alertId, AccessActor actor, List<AlertRecipientEntity> recipients) {
+    public void assertCanConfirm(
+            UUID alertId,
+            AccessActor actor,
+            List<AlertRecipientEntity> recipients) {
+
         if (isRecipient(recipients, actor) || isDelivered(alertId, actor)) {
             return;
         }
@@ -48,14 +62,22 @@ public class AlertAccessPolicy {
     }
 
     private boolean isDelivered(UUID alertId, AccessActor actor) {
-        return deliveryRepository.existsByAlertIdAndUserId(alertId, actor.userId());
+        return deliveryRepository.existsByAlertIdAndUserId(
+                alertId,
+                actor.userId());
     }
 
-    private boolean isRecipient(List<AlertRecipientEntity> recipients, AccessActor actor) {
+    private boolean isRecipient(
+            List<AlertRecipientEntity> recipients,
+            AccessActor actor) {
+
         return recipients.stream().anyMatch(recipient -> matches(recipient, actor));
     }
 
-    private boolean matches(AlertRecipientEntity recipient, AccessActor actor) {
+    private boolean matches(
+            AlertRecipientEntity recipient,
+            AccessActor actor) {
+
         if (recipient.getRecipientType() == RecipientType.USER) {
             return recipient.getRecipientRefId().equals(actor.userId());
         }

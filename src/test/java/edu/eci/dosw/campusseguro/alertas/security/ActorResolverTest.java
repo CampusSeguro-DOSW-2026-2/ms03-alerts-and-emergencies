@@ -1,9 +1,13 @@
 package edu.eci.dosw.campusseguro.alertas.security;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,6 +18,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 class ActorResolverTest {
+
+    private static final UUID USER_ID =
+            UUID.fromString("11111111-1111-4111-8111-111111111111");
 
     private ActorResolver resolver;
 
@@ -28,44 +35,84 @@ class ActorResolverTest {
         SecurityContextHolder.clearContext();
     }
 
-    // helpers 
+    // helpers
 
     private void authenticateAs(String name, GrantedAuthority... authorities) {
         SecurityContextHolder.getContext().setAuthentication(
                 UsernamePasswordAuthenticationToken.authenticated(name, "n/a", List.of(authorities)));
     }
 
-    // resolve 
+    private void authenticate(RequesterIdentity identity) {
+        SecurityContextHolder.getContext().setAuthentication(
+                UsernamePasswordAuthenticationToken.authenticated(
+                        identity,
+                        "n/a",
+                        identity.authorities()));
+    }
+
+    // resolve
 
     @Test
     void resolve_shouldReturnAuthenticationName_whenUserIsAuthenticated() {
-        authenticateAs("coordinator-1", new SimpleGrantedAuthority("ROLE_COORDINATOR"));
+        authenticateAs("coordinator-1", new SimpleGrantedAuthority("ROLE_COORDINADOR"));
 
         assertEquals("coordinator-1", resolver.resolve());
     }
 
     @Test
-    void resolve_shouldReturnServiceRoleName_whenUserHasServiceRole() {
-        authenticateAs("some-token-subject", new SimpleGrantedAuthority(Role.SERVICE_MS06.authority()));
+    void requester_shouldReturnIdentityActorAndRoles_whenPrincipalIsRequesterIdentity() {
+        authenticate(new RequesterIdentity(
+                USER_ID,
+                Set.of(UserRole.COORDINADOR),
+                "ms03"));
 
-        assertEquals(Role.SERVICE_MS06.name(), resolver.resolve());
+        RequesterContext context = resolver.requester();
+
+        assertEquals(USER_ID.toString(), context.actor());
+        assertEquals(Set.of(UserRole.COORDINADOR), context.roles());
+        assertEquals("ms03", context.serviceName());
+        assertTrue(context.has(Permission.ALERT_MANAGE));
+        assertTrue(context.has(Permission.ALERT_RECEIVE));
+        assertFalse(context.isSimulationOnly());
+        assertFalse(context.isServiceMs06());
     }
 
     @Test
-    void resolve_shouldReturnServiceRoleName_whenServiceRoleIsAmongSeveralAuthorities() {
+    void requester_shouldReturnAuditActorWithServicePrefix_whenServiceIsMs06() {
+        authenticate(new RequesterIdentity(
+                USER_ID,
+                Set.of(UserRole.ORGANIZADOR),
+                "MS06"));
+
+        RequesterContext context = resolver.requester();
+
+        assertEquals("ms06", context.serviceName());
+        assertTrue(context.isServiceMs06());
+        assertEquals("ms06:" + USER_ID, context.auditActor());
+        assertTrue(context.isSimulationOnly());
+    }
+
+    @Test
+    void requester_shouldMapAuthoritiesToOfficialRoles_whenPrincipalIsNotRequesterIdentity() {
         authenticateAs(
-                "some-token-subject",
-                new SimpleGrantedAuthority("ROLE_COORDINATOR"),
-                new SimpleGrantedAuthority(Role.SERVICE_MS06.authority()));
+                "coordinator-1",
+                new SimpleGrantedAuthority("ms03:alert:manage"),
+                new SimpleGrantedAuthority("ROLE_COORDINADOR"));
 
-        assertEquals(Role.SERVICE_MS06.name(), resolver.resolve());
+        RequesterContext context = resolver.requester();
+
+        assertEquals(Set.of(UserRole.COORDINADOR), context.roles());
+        assertTrue(context.has(Permission.ALERT_MANAGE));
     }
 
     @Test
-    void resolve_shouldReturnAuthenticationName_whenAuthorityIsNotTheServiceRole() {
-        authenticateAs("auditor-1", new SimpleGrantedAuthority("ROLE_AUDITOR"));
+    void requester_shouldIgnoreUnknownAuthorities_whenPrincipalIsNotRequesterIdentity() {
+        authenticateAs("auditor-1", new SimpleGrantedAuthority("ROLE_UNKNOWN"));
 
-        assertEquals("auditor-1", resolver.resolve());
+        RequesterContext context = resolver.requester();
+
+        assertTrue(context.roles().isEmpty());
+        assertEquals("auditor-1", context.actor());
     }
 
     @Test
@@ -83,7 +130,7 @@ class ActorResolverTest {
 
     @Test
     void resolve_shouldTruncateActor_whenNameIsLongerThan64Chars() {
-        authenticateAs("a".repeat(100), new SimpleGrantedAuthority("ROLE_COORDINATOR"));
+        authenticateAs("a".repeat(100), new SimpleGrantedAuthority("ROLE_COORDINADOR"));
 
         String actor = resolver.resolve();
 
@@ -94,7 +141,7 @@ class ActorResolverTest {
     @Test
     void resolve_shouldNotTruncateActor_whenNameIsExactly64Chars() {
         String name = "b".repeat(64);
-        authenticateAs(name, new SimpleGrantedAuthority("ROLE_COORDINATOR"));
+        authenticateAs(name, new SimpleGrantedAuthority("ROLE_COORDINADOR"));
 
         assertEquals(name, resolver.resolve());
     }

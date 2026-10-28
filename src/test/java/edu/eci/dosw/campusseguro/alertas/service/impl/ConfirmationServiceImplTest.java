@@ -49,7 +49,7 @@ class ConfirmationServiceImplTest {
 
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ALERT_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
-    private static final AccessActor ACTOR = new AccessActor("usr-001", java.util.Set.of("STUDENT"));
+    private static final AccessActor ACTOR = new AccessActor("usr-001", java.util.Set.of("ESTUDIANTE"));
     private static final List<AlertRecipientEntity> RECIPIENTS = List.of(recipient());
 
     @Mock
@@ -219,7 +219,7 @@ class ConfirmationServiceImplTest {
         AlertRecipientEntity role = new AlertRecipientEntity();
         role.setAlertId(ALERT_ID);
         role.setRecipientType(RecipientType.ROLE);
-        role.setRecipientRefId("STUDENT");
+        role.setRecipientRefId("ESTUDIANTE");
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(role));
         when(confirmationRepository.insertIfAbsent(ALERT_ID, ACTOR.userId(), NOW)).thenReturn(1);

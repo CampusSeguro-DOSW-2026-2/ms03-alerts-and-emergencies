@@ -196,14 +196,14 @@ class AlertMapperTest {
     void toRecipients_shouldMapEachRecipientToEntity_whenListIsNotEmpty() {
         List<AlertRecipientEntity> result = mapper.toRecipients(ALERT_ID, List.of(
                 new RecipientRequest(RecipientType.USER, "u1"),
-                new RecipientRequest(RecipientType.ROLE, "STUDENT")), NOW);
+                new RecipientRequest(RecipientType.ROLE, "ESTUDIANTE")), NOW);
 
         assertEquals(2, result.size());
         assertEquals(ALERT_ID, result.get(0).getAlertId());
         assertEquals(RecipientType.USER, result.get(0).getRecipientType());
         assertEquals("u1", result.get(0).getRecipientRefId());
         assertEquals(RecipientType.ROLE, result.get(1).getRecipientType());
-        assertEquals("STUDENT", result.get(1).getRecipientRefId());
+        assertEquals("ESTUDIANTE", result.get(1).getRecipientRefId());
         assertEquals(NOW, result.get(0).getCreatedAt());
         assertEquals(NOW, result.get(1).getUpdatedAt());
     }

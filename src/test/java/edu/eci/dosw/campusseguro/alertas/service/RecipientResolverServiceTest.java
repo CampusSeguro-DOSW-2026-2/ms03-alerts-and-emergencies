@@ -70,8 +70,8 @@ class RecipientResolverServiceTest {
     @Test
     void resolve_shouldExpandRoles() {
         when(recipientRepository.findByAlertId(ALERT_ID))
-                .thenReturn(List.of(recipient(RecipientType.ROLE, "STUDENT")));
-        when(catalogClient.getUsersByRole("STUDENT")).thenReturn(List.of(ANA, LUIS));
+                .thenReturn(List.of(recipient(RecipientType.ROLE, "ESTUDIANTE")));
+        when(catalogClient.getUsersByRole("ESTUDIANTE")).thenReturn(List.of(ANA, LUIS));
 
         assertEquals(List.of(ANA, LUIS), service.resolve(ALERT_ID));
     }
@@ -80,9 +80,9 @@ class RecipientResolverServiceTest {
     void resolve_shouldDeduplicateUsersAcrossDirectAndRoleRecipients() {
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(
                 recipient(RecipientType.USER, "usr-001"),
-                recipient(RecipientType.ROLE, "STUDENT")));
+                recipient(RecipientType.ROLE, "ESTUDIANTE")));
         when(catalogClient.findUserById("usr-001")).thenReturn(Optional.of(ANA));
-        when(catalogClient.getUsersByRole("STUDENT")).thenReturn(List.of(ANA, LUIS));
+        when(catalogClient.getUsersByRole("ESTUDIANTE")).thenReturn(List.of(ANA, LUIS));
 
         assertEquals(List.of(ANA, LUIS), service.resolve(ALERT_ID));
     }
@@ -100,8 +100,8 @@ class RecipientResolverServiceTest {
     @Test
     void resolve_shouldPropagateCatalogFailure_whenRoleLookupFails() {
         when(recipientRepository.findByAlertId(ALERT_ID))
-                .thenReturn(List.of(recipient(RecipientType.ROLE, "STUDENT")));
-        when(catalogClient.getUsersByRole("STUDENT"))
+                .thenReturn(List.of(recipient(RecipientType.ROLE, "ESTUDIANTE")));
+        when(catalogClient.getUsersByRole("ESTUDIANTE"))
                 .thenThrow(new ExternalServiceUnavailableException("MS01"));
 
         assertThrows(ExternalServiceUnavailableException.class, () -> service.resolve(ALERT_ID));

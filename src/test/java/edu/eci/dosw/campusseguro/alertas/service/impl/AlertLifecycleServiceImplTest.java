@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -27,6 +28,8 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -34,6 +37,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,6 +53,14 @@ class AlertLifecycleServiceImplTest {
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
     private static final String ACTOR = "admin";
+
+    private static final String CORRELATION_ID =
+            "11111111-1111-4111-8111-111111111111";
+
+    private static final RequesterContext REQUESTER = new RequesterContext(
+            ACTOR,
+            Set.of(UserRole.COORDINADOR),
+            null);
 
     @Mock
     private AlertRepository alertRepository;
@@ -182,7 +194,7 @@ class AlertLifecycleServiceImplTest {
                     return 1;
                 });
 
-        AlertResponse result = service.activate(ID, ACTOR);
+        AlertResponse result = service.activate(ID, ACTOR, CORRELATION_ID);
 
         assertSame(expected, result);
         assertEquals(AlertStatus.ACTIVE, alert.getStatus());
@@ -199,7 +211,7 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.ACTIVE,
                 "Alert activated from SCHEDULED");
         verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW));
+                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW, CORRELATION_ID));
     }
 
     @Test
@@ -215,14 +227,14 @@ class AlertLifecycleServiceImplTest {
                     return 1;
                 });
 
-        service.activate(ID, ACTOR);
+        service.activate(ID, ACTOR, CORRELATION_ID);
 
         assertEquals(AlertStatus.ACTIVE, alert.getStatus());
         verify(stateMachine).assertTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE);
         verify(alertRepository).activateIfPending(
                 eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any());
         verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.DRAFT, NOW));
+                new AlertActivatedEvent(ID, AlertStatus.DRAFT, NOW, CORRELATION_ID));
     }
 
     @Test
@@ -239,7 +251,7 @@ class AlertLifecycleServiceImplTest {
                     return 1;
                 });
 
-        AlertResponse result = service.activate(ID, ACTOR);
+        AlertResponse result = service.activate(ID, ACTOR, CORRELATION_ID);
 
         assertSame(expected, result);
         assertEquals(AlertStatus.ACTIVE, alert.getStatus());
@@ -251,7 +263,7 @@ class AlertLifecycleServiceImplTest {
     void activate_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.empty());
 
-        assertThrows(AlertNotFoundException.class, () -> service.activate(ID, ACTOR));
+        assertThrows(AlertNotFoundException.class, () -> service.activate(ID, ACTOR, CORRELATION_ID));
 
         verifyNoInteractions(stateMachine, auditService);
     }
@@ -296,10 +308,25 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.SCHEDULED,
                 AlertStatus.ACTIVE,
                 "Alert activated from SCHEDULED");
-        verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW));
-        verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(secondId, AlertStatus.SCHEDULED, NOW));
+        org.mockito.ArgumentCaptor<Object> events =
+                org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, org.mockito.Mockito.times(2))
+                .publishEvent(events.capture());
+
+        assertTrue(events.getAllValues().stream()
+                .filter(AlertActivatedEvent.class::isInstance)
+                .map(AlertActivatedEvent.class::cast)
+                .anyMatch(event -> ID.equals(event.alertId())
+                        && event.previousStatus() == AlertStatus.SCHEDULED
+                        && NOW.equals(event.activatedAt())
+                        && event.correlationId() != null));
+        assertTrue(events.getAllValues().stream()
+                .filter(AlertActivatedEvent.class::isInstance)
+                .map(AlertActivatedEvent.class::cast)
+                .anyMatch(event -> secondId.equals(event.alertId())
+                        && event.previousStatus() == AlertStatus.SCHEDULED
+                        && NOW.equals(event.activatedAt())
+                        && event.correlationId() != null));
     }
 
     @Test
@@ -318,7 +345,7 @@ class AlertLifecycleServiceImplTest {
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
-        AlertResponse result = service.end(ID, new AlertEndRequest(null), ACTOR);
+        AlertResponse result = service.end(ID, new AlertEndRequest(null), REQUESTER);
 
         assertSame(expected, result);
         assertEquals(AlertStatus.ENDED, alert.getStatus());
@@ -341,7 +368,7 @@ class AlertLifecycleServiceImplTest {
         AlertResponse expected = responseFor(ended);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(ended));
 
-        AlertResponse result = service.end(ID, null, ACTOR);
+        AlertResponse result = service.end(ID, null, REQUESTER);
 
         assertSame(expected, result);
         verifyNoInteractions(stateMachine, auditService);
@@ -352,7 +379,7 @@ class AlertLifecycleServiceImplTest {
     void end_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.empty());
 
-        assertThrows(AlertNotFoundException.class, () -> service.end(ID, null, ACTOR));
+        assertThrows(AlertNotFoundException.class, () -> service.end(ID, null, REQUESTER));
 
         verifyNoInteractions(stateMachine, auditService);
     }

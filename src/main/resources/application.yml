@@ -33,31 +33,35 @@ spring:
           writetimeout: ${MAIL_WRITE_TIMEOUT_MS:10000}
 
 server:
-  port: 8080
+  port: 8083
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
 springdoc:
   paths-to-match: /api/**
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
   swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
     path: /swagger-ui.html
+
+logging:
+  pattern:
+    level: "%5p [%X{correlation_id:-}]"
 
 app:
   timezone: ${APP_TIMEZONE:America/Bogota}
-  cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   catalog:
-    ms01-url: ${MS01_URL:http://localhost:8081}
-    ms02-url: ${MS02_URL:http://localhost:8082}
-    service-token: ${MS_SERVICE_TOKEN:}
+    base-url: ${MS01_URL:http://localhost:8081}
+    service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+    technical-user-id: ${MS01_TECHNICAL_USER_ID:}
+    technical-user-role: ${MS01_TECHNICAL_USER_ROLE:AUDITOR}
     connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
-    read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:5000}
-    ms02:
-      validate-scope-path: ${MS02_VALIDATE_SCOPE_PATH:/api/v1/catalogo/validar-alcance}
-    ms01:
-      validate-recipients-path: ${MS01_VALIDATE_RECIPIENTS_PATH:/api/v1/catalogo/validar-destinatarios}
-      user-path: ${MS01_USER_PATH:/api/v1/usuarios/{id}}
-      role-users-path: ${MS01_ROLE_USERS_PATH:/api/v1/usuarios?rol={role}}
-  security:
-    roles-claim: ${JWT_ROLES_CLAIM:roles}
+    read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
   mail:
     from: ${MAIL_FROM:no-reply@campusseguro.local}
     from-name: ${MAIL_FROM_NAME:CampusSeguro}

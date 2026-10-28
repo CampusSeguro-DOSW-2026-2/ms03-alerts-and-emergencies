@@ -33,7 +33,7 @@ public class ConfirmationController {
     }
 
     @PostMapping("/{id}/confirmaciones")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasAuthority('ms03:alert:receive')")
     @Operation(
             summary = "Confirmar recepcion",
             description = "Solo para destinatarios autorizados. La primera "

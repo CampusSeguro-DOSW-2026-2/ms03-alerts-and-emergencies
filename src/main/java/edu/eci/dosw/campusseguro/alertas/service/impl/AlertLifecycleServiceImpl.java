@@ -20,7 +20,8 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
-import edu.eci.dosw.campusseguro.alertas.security.Role;
+import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
@@ -32,6 +33,7 @@ import java.util.Objects;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,6 +117,16 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     @Override
     @Transactional
     public AlertResponse activate(UUID id, String actor) {
+        return activate(id, actor, CorrelationIds.current());
+    }
+
+    @Override
+    @Transactional
+    public AlertResponse activate(
+            UUID id,
+            String actor,
+            String correlationId) {
+
         AlertEntity alert = findAlertForUpdate(id);
 
         if (alert.getStatus() == AlertStatus.ACTIVE) {
@@ -160,7 +172,8 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 new AlertActivatedEvent(
                         activated.getId(),
                         previousStatus,
-                        now));
+                        now,
+                        correlationId));
 
         return toResponse(activated);
     }
@@ -176,15 +189,20 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                         now);
 
         for (AlertEntity alert : alerts) {
+            String correlationId = CorrelationIds.resolve(null);
+            MDC.put(CorrelationIds.MDC_KEY, correlationId);
             try {
                 activate(
                         alert.getId(),
-                        ActorResolver.SYSTEM_SCHEDULER);
+                        ActorResolver.SYSTEM_SCHEDULER,
+                        correlationId);
             } catch (RuntimeException ex) {
                 log.warn(
-                        "Could not activate scheduled alert {}: {}",
+                        "No se pudo activar la alerta programada {}: {}",
                         alert.getId(),
                         ex.getMessage());
+            } finally {
+                MDC.remove(CorrelationIds.MDC_KEY);
             }
         }
     }
@@ -194,15 +212,17 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     public AlertResponse end(
             UUID id,
             AlertEndRequest request,
-            String actor) {
+            RequesterContext requester) {
 
+        String actor = requester.auditActor();
         AlertEntity alert = findAlertForUpdate(id);
 
-        if (Role.SERVICE_MS06.name().equals(actor)) {
+        if (requester.isServiceMs06() || requester.isSimulationOnly()) {
             if (request == null || request.simulationId() == null) {
                 throw new InvalidAlertRequestException(
                         "simulationId",
-                        "simulationId is required for SERVICE_MS06");
+                        "simulationId es obligatorio para MS06 "
+                                + "y para los organizadores de simulacros");
             }
 
             if (!Objects.equals(

@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.security;
 
+import java.util.Set;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -14,13 +15,39 @@ public class ActorResolver {
     private static final int MAX_ACTOR_LENGTH = 64;
 
     public String resolve() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return requester().actor();
+    }
+
+    public RequesterContext requester() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
         if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AuthenticationCredentialsNotFoundException("No hay un usuario autenticado");
+            throw new AuthenticationCredentialsNotFoundException(
+                    "No hay un usuario autenticado");
         }
-        boolean isService = authentication.getAuthorities().stream()
-                .anyMatch(authority -> Role.SERVICE_MS06.authority().equals(authority.getAuthority()));
-        String actor = isService ? Role.SERVICE_MS06.name() : authentication.getName();
-        return actor.length() <= MAX_ACTOR_LENGTH ? actor : actor.substring(0, MAX_ACTOR_LENGTH);
+
+        if (authentication.getPrincipal() instanceof RequesterIdentity identity) {
+            return new RequesterContext(
+                    truncate(identity.userId().toString()),
+                    identity.roles(),
+                    identity.serviceName());
+        }
+
+        Set<UserRole> roles = authentication.getAuthorities().stream()
+                .map(authority -> UserRole.from(authority.getAuthority()))
+                .flatMap(java.util.Optional::stream)
+                .collect(java.util.stream.Collectors.toUnmodifiableSet());
+
+        return new RequesterContext(
+                truncate(authentication.getName()),
+                roles,
+                null);
+    }
+
+    private String truncate(String actor) {
+        return actor.length() <= MAX_ACTOR_LENGTH
+                ? actor
+                : actor.substring(0, MAX_ACTOR_LENGTH);
     }
 }

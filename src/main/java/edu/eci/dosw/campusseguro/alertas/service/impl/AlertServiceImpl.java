@@ -19,6 +19,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
+import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
@@ -29,6 +30,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
@@ -103,7 +105,9 @@ public class AlertServiceImpl implements AlertService {
     @Transactional
     public AlertCreationResult create(
             AlertCreateRequest request,
-            String actor) {
+            RequesterContext requester) {
+
+        String actor = requester.actor();
 
         AlertOriginRequest origin = request.origin();
         AlertOrigin originType = origin == null || origin.type() == null
@@ -114,6 +118,13 @@ public class AlertServiceImpl implements AlertService {
                 : origin.simulationId();
 
         validateOrigin(originType, simulationId);
+
+        if (requester.isSimulationOnly()
+                && originType != AlertOrigin.SIMULATION) {
+            throw new ForbiddenOperationException(
+                    "El rol ORGANIZADOR solo puede crear alertas "
+                            + "asociadas a un simulacro");
+        }
 
         ScopeRequest scope =
                 alertMapper.normalizeScope(request.scope());

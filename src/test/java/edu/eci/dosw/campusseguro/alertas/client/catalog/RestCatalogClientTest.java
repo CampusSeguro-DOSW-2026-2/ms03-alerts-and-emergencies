@@ -2,12 +2,9 @@ package edu.eci.dosw.campusseguro.alertas.client.catalog;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,14 +16,27 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 class RestCatalogClientTest {
+
+    private static final String TECHNICAL_USER_ID =
+            "88888888-8888-4888-8888-888888888888";
+
+    private static final String USER_ID =
+            "11111111-1111-4111-8111-111111111111";
+
+    private static final String CORRELATION_ID =
+            "22222222-2222-4222-8222-222222222222";
 
     private WireMockServer server;
     private RestCatalogClient client;
@@ -37,15 +47,13 @@ class RestCatalogClientTest {
         server.start();
         client = new RestCatalogClient(
                 RestClient.builder(),
+                new CatalogStubData(new ObjectMapper()),
                 server.baseUrl(),
-                server.baseUrl(),
-                1000,
-                300,
-                "service-token",
-                "/catalog/validate-scope",
-                "/catalog/validate-recipients",
-                "/users/{id}",
-                "/users?role={role}");
+                TECHNICAL_USER_ID,
+                "AUDITOR",
+                "service-key",
+                2000,
+                2000);
     }
 
     @AfterEach
@@ -53,137 +61,229 @@ class RestCatalogClientTest {
         server.stop();
     }
 
+    private String userJson(String id, String estado) {
+        return """
+                {
+                  "id": "%s",
+                  "primer_nombre": "Laura",
+                  "segundo_nombre": "",
+                  "primer_apellido": "Cárdenas",
+                  "segundo_apellido": "Rojas",
+                  "correo": "laura@example.edu.co",
+                  "roles": ["COORDINADOR"],
+                  "estado": "%s"
+                }
+                """.formatted(id, estado);
+    }
+
+    private String pageJson(int page, int totalPages) {
+        return """
+                {
+                  "contenido": [
+                    %s
+                  ],
+                  "page": %d,
+                  "size": 100,
+                  "total_elementos": %d,
+                  "total_paginas": %d
+                }
+                """.formatted(
+                userJson(USER_ID, "ACTIVO"),
+                page,
+                totalPages,
+                totalPages);
+    }
+
     @Test
     void validateBuildingsZones_shouldDoNothing_whenScopeIsCampus() {
-        client.validateBuildingsZones(ScopeType.CAMPUS, List.of("B1"));
+        client.validateBuildingsZones(ScopeType.CAMPUS, List.of("NO-EXISTE"));
 
-        server.verify(0, postRequestedFor(urlEqualTo("/catalog/validate-scope")));
+        server.verify(0, getRequestedFor(urlPathEqualTo("/api/v1/users")));
     }
 
     @Test
-    void validateBuildingsZones_shouldSendIdsAndServiceToken_whenScopeIsBuilding() {
-        server.stubFor(post("/catalog/validate-scope")
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("{\"invalidIds\":[]}")));
+    void validateBuildingsZones_shouldValidateLocally_whenScopeIsBuilding() {
+        client.validateBuildingsZones(ScopeType.BUILDING, List.of("BLD-001"));
 
-        client.validateBuildingsZones(ScopeType.BUILDING, List.of("B1", "B2"));
-
-        server.verify(postRequestedFor(urlEqualTo("/catalog/validate-scope"))
-                .withHeader("Authorization", equalTo("Bearer service-token"))
-                .withRequestBody(equalToJson("{\"tipo\":\"BUILDING\",\"ids\":[\"B1\",\"B2\"]}")));
+        server.verify(0, getRequestedFor(urlPathEqualTo("/api/v1/users")));
     }
 
     @Test
-    void validateBuildingsZones_shouldThrowInvalidReference_whenResponseContainsInvalidIds() {
-        server.stubFor(post("/catalog/validate-scope")
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("{\"invalidIds\":[\"B9\",\"B8\"]}")));
-
+    void validateBuildingsZones_shouldThrowInvalidReference_whenBuildingDoesNotExist() {
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of("B9", "B8")));
+                () -> client.validateBuildingsZones(
+                        ScopeType.BUILDING,
+                        List.of("BLD-001", "NO-EXISTE")));
 
         assertEquals("alcance.ids", ex.getField());
-        assertEquals(List.of("B9", "B8"), ex.getInvalidIds());
+        assertEquals(List.of("NO-EXISTE"), ex.getInvalidIds());
     }
 
     @Test
-    void validateBuildingsZones_shouldThrowInvalidReference_whenUpstreamReturns400WithDetails() {
-        server.stubFor(post("/catalog/validate-scope")
-                .willReturn(aResponse().withStatus(400).withHeader("Content-Type", "application/json")
-                        .withBody("{\"invalidIds\":[\"Z9\"]}")));
+    void validateRecipients_shouldAcceptExistingUserAndKnownRole() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(userJson(USER_ID, "ACTIVO"))));
+
+        MDC.put(CorrelationIds.MDC_KEY, CORRELATION_ID);
+        try {
+            client.validateRecipients(List.of(
+                    new RecipientRequest(RecipientType.USER, USER_ID),
+                    new RecipientRequest(RecipientType.ROLE, "ESTUDIANTE")));
+        } finally {
+            MDC.remove(CorrelationIds.MDC_KEY);
+        }
+
+        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .withHeader("X-User-Id", equalTo(TECHNICAL_USER_ID))
+                .withHeader("X-User-Role", equalTo("AUDITOR"))
+                .withHeader("X-Service-Name", equalTo("ms03"))
+                .withHeader("X-Service-Key", equalTo("service-key"))
+                .withHeader(CorrelationIds.HEADER, equalTo(CORRELATION_ID)));
+    }
+
+    @Test
+    void validateRecipients_shouldRejectUnknownUser_whenMs01Returns404() {
+        String unknown = UUID.randomUUID().toString();
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + unknown))
+                .willReturn(aResponse().withStatus(404)));
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.ZONE, List.of("Z9")));
+                () -> client.validateRecipients(List.of(
+                        new RecipientRequest(RecipientType.USER, unknown))));
 
-        assertEquals(List.of("Z9"), ex.getInvalidIds());
+        assertEquals(List.of(unknown), ex.getInvalidIds());
     }
 
     @Test
-    void validateBuildingsZones_shouldThrowExternalServiceUnavailable_whenUpstreamFails() {
-        server.stubFor(post("/catalog/validate-scope")
-                .willReturn(aResponse().withStatus(500)));
-
-        assertThrows(
-                ExternalServiceUnavailableException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of("B1")));
-    }
-
-    @Test
-    void validateBuildingsZones_shouldThrowExternalServiceUnavailable_whenRequestTimesOut() {
-        server.stubFor(post("/catalog/validate-scope")
-                .willReturn(aResponse().withStatus(200).withFixedDelay(1000)));
-
-        assertThrows(
-                ExternalServiceUnavailableException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of("B1")));
-    }
-
-    @Test
-    void validateRecipients_shouldSendRecipientsAndThrowInvalidReference_whenSomeAreMissing() {
-        server.stubFor(post("/catalog/validate-recipients")
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("{\"invalidIds\":[\"STUDENT\"]}")));
-
-        List<RecipientRequest> recipients = List.of(
-                new RecipientRequest(RecipientType.USER, "usr-001"),
-                new RecipientRequest(RecipientType.ROLE, "STUDENT"));
+    void validateRecipients_shouldRejectInactiveUser() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(userJson(USER_ID, "INACTIVO"))));
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateRecipients(recipients));
+                () -> client.validateRecipients(List.of(
+                        new RecipientRequest(RecipientType.USER, USER_ID))));
 
-        assertEquals("destinatarios", ex.getField());
-        assertEquals(List.of("STUDENT"), ex.getInvalidIds());
-        server.verify(postRequestedFor(urlEqualTo("/catalog/validate-recipients"))
-                .withRequestBody(equalToJson(
-                        "{\"destinatarios\":[{\"tipo\":\"USER\",\"id\":\"usr-001\"},{\"tipo\":\"ROLE\",\"id\":\"STUDENT\"}]}")));
+        assertEquals(List.of(USER_ID), ex.getInvalidIds());
     }
 
     @Test
-    void findUserById_shouldReturnUser_whenUpstreamResponds200() {
-        server.stubFor(get("/users/usr-001")
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("{\"id\":\"usr-001\",\"email\":\"laura@example.edu.co\",\"name\":\"Laura\"}")));
+    void validateRecipients_shouldRejectInvalidRoleWithoutCallingMs01() {
+        InvalidReferenceException ex = assertThrows(
+                InvalidReferenceException.class,
+                () -> client.validateRecipients(List.of(
+                        new RecipientRequest(RecipientType.ROLE, "ROL_INEXISTENTE"))));
 
-        Optional<ResolvedUser> user = client.findUserById("usr-001");
+        assertEquals(List.of("ROL_INEXISTENTE"), ex.getInvalidIds());
+    }
+
+    @Test
+    void validateRecipients_shouldRejectMalformedUserIdWithoutCallingMs01() {
+        InvalidReferenceException ex = assertThrows(
+                InvalidReferenceException.class,
+                () -> client.validateRecipients(List.of(
+                        new RecipientRequest(RecipientType.USER, "usr-001"))));
+
+        assertEquals(List.of("usr-001"), ex.getInvalidIds());
+    }
+
+    @Test
+    void validateRecipients_shouldThrowExternalServiceUnavailable_whenMs01Fails() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .willReturn(aResponse().withStatus(503)));
+
+        assertThrows(
+                ExternalServiceUnavailableException.class,
+                () -> client.validateRecipients(List.of(
+                        new RecipientRequest(RecipientType.USER, USER_ID))));
+    }
+
+    @Test
+    void findUserById_shouldMapMs01Profile_whenUpstreamResponds200() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(userJson(USER_ID, "ACTIVO"))));
+
+        Optional<ResolvedUser> user = client.findUserById(USER_ID);
 
         assertTrue(user.isPresent());
+        assertEquals(USER_ID, user.orElseThrow().id());
         assertEquals("laura@example.edu.co", user.orElseThrow().email());
+        assertEquals("Laura Cárdenas Rojas", user.orElseThrow().name());
+        assertEquals("ACTIVO", user.orElseThrow().state());
+        assertEquals(1, user.orElseThrow().roles().size());
     }
 
     @Test
     void findUserById_shouldReturnEmpty_whenUpstreamResponds404() {
-        server.stubFor(get("/users/usr-404").willReturn(aResponse().withStatus(404)));
+        String unknown = UUID.randomUUID().toString();
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + unknown))
+                .willReturn(aResponse().withStatus(404)));
 
-        assertTrue(client.findUserById("usr-404").isEmpty());
+        assertTrue(client.findUserById(unknown).isEmpty());
     }
 
     @Test
     void findUserById_shouldThrowExternalServiceUnavailable_whenUpstreamFails() {
-        server.stubFor(get("/users/usr-001").willReturn(aResponse().withStatus(503)));
+        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+                .willReturn(aResponse().withStatus(503)));
 
-        assertThrows(ExternalServiceUnavailableException.class, () -> client.findUserById("usr-001"));
+        assertThrows(
+                ExternalServiceUnavailableException.class,
+                () -> client.findUserById(USER_ID));
     }
 
     @Test
-    void getUsersByRole_shouldReturnUsers_whenUpstreamResponds200() {
-        server.stubFor(get("/users?role=STUDENT")
-                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json")
-                        .withBody("[{\"id\":\"usr-001\",\"email\":\"laura@example.edu.co\",\"name\":\"Laura\"}]")));
+    void getUsersByRole_shouldReadAllPagesAndFilterActiveUsers() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                .withQueryParam("page", equalTo("0"))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(pageJson(0, 2))));
+        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                .withQueryParam("page", equalTo("1"))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(pageJson(1, 2))));
 
-        List<ResolvedUser> users = client.getUsersByRole("STUDENT");
+        List<ResolvedUser> users = client.getUsersByRole("COORDINADOR");
 
-        assertEquals(1, users.size());
-        assertEquals("usr-001", users.get(0).id());
-        server.verify(getRequestedFor(urlEqualTo("/users?role=STUDENT")));
+        assertEquals(2, users.size());
+        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users"))
+                .withQueryParam("rol", equalTo("COORDINADOR"))
+                .withQueryParam("estado", equalTo("ACTIVO"))
+                .withQueryParam("page", equalTo("0"))
+                .withQueryParam("size", equalTo("100")));
+        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users"))
+                .withQueryParam("page", equalTo("1")));
+    }
+
+    @Test
+    void getUsersByRole_shouldThrowInvalidReference_whenMs01RejectsRole() {
+        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                .willReturn(aResponse().withStatus(400)));
+
+        InvalidReferenceException ex = assertThrows(
+                InvalidReferenceException.class,
+                () -> client.getUsersByRole("NO-EXISTE"));
+
+        assertEquals(List.of("NO-EXISTE"), ex.getInvalidIds());
     }
 
     @Test
     void getUsersByRole_shouldThrowExternalServiceUnavailable_whenUpstreamFails() {
-        server.stubFor(get("/users?role=STUDENT").willReturn(aResponse().withStatus(500)));
+        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                .willReturn(aResponse().withStatus(500)));
 
-        assertThrows(ExternalServiceUnavailableException.class, () -> client.getUsersByRole("STUDENT"));
+        assertThrows(
+                ExternalServiceUnavailableException.class,
+                () -> client.getUsersByRole("ESTUDIANTE"));
     }
 }

@@ -25,7 +25,6 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
-import edu.eci.dosw.campusseguro.alertas.security.local.LocalTokenService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
 import java.time.Instant;
@@ -49,6 +48,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(properties = {
@@ -59,6 +59,21 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "local"})
 class AlertApiIntegrationIT {
+
+    private static final UUID COORDINATOR_ID =
+            UUID.fromString("77777777-7777-4777-8777-777777777777");
+
+    private static final UUID ORGANIZER_ID =
+            UUID.fromString("99999999-9999-4999-8999-999999999999");
+
+    private static final UUID AUDITOR_ID =
+            UUID.fromString("88888888-8888-4888-8888-888888888888");
+
+    private static final UUID STUDENT_ID =
+            UUID.fromString("11111111-1111-4111-8111-111111111111");
+
+    private static final String STUB_USER_ID =
+            "11111111-1111-4111-8111-111111111111";
 
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("campusseguro_alerts_it")
@@ -96,9 +111,6 @@ class AlertApiIntegrationIT {
 
     @MockitoBean
     private NotificationService notificationService;
-
-    @Autowired
-    private LocalTokenService localTokenService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -200,11 +212,11 @@ class AlertApiIntegrationIT {
         AlertEntity alert = alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.now(), null));
         jdbcTemplate.update(
                 "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
-                alert.getId(), "usr-001");
+                alert.getId(), STUB_USER_ID);
 
         assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
                 "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
-                alert.getId(), "usr-001"));
+                alert.getId(), STUB_USER_ID));
     }
 
     @Test
@@ -213,65 +225,80 @@ class AlertApiIntegrationIT {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(createRequestJson()))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"));
     }
 
     @Test
     void create_shouldForbidGenericUser() throws Exception {
-        String token = localTokenService.generate("usr-001", List.of("STUDENT"));
-
-        mockMvc.perform(post("/api/v1/alertas")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createRequestJson()))
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(createRequestJson()),
+                        STUDENT_ID,
+                        "ESTUDIANTE"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void create_shouldRequireSimulationOriginForOrganizer() throws Exception {
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(createRequestJson()),
+                        ORGANIZER_ID,
+                        "ORGANIZADOR"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("PROHIBIDO"));
     }
 
     @Test
     void create_withSameSimulationId_shouldBeIdempotentAndRejectDifferentData()
             throws Exception {
 
-        String token = localTokenService.generate(
-                "service-ms06", List.of("SERVICE_MS06"));
         UUID simulationId = UUID.randomUUID();
         String payload = simulationCreateRequestJson(
                 simulationId, "Evacuar el campus");
 
-        mockMvc.perform(post("/api/v1/alertas")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(payload),
+                        ORGANIZER_ID,
+                        "ORGANIZADOR"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.origin").value("SIMULATION"))
                 .andExpect(jsonPath("$.simulationId").value(simulationId.toString()))
                 .andExpect(jsonPath("$.status").value("SCHEDULED"));
 
-        mockMvc.perform(post("/api/v1/alertas")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(payload),
+                        ORGANIZER_ID,
+                        "ORGANIZADOR"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SCHEDULED"));
 
-        mockMvc.perform(post("/api/v1/alertas")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(simulationCreateRequestJson(
-                                simulationId, "Otra instruccion")))
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(simulationCreateRequestJson(
+                                        simulationId, "Otra instruccion")),
+                        ORGANIZER_ID,
+                        "ORGANIZADOR"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code")
-                        .value("DUPLICATE_SIMULATION_ALERT"));
+                .andExpect(jsonPath("$.codigo")
+                        .value("SIMULACION_DUPLICADA"));
     }
 
     @Test
     void coordinator_shouldCreateAlertAndAuditorShouldViewIt() throws Exception {
-        String coordinatorToken = localTokenService.generate("coordinator-1", List.of("COORDINATOR"));
-        String auditorToken = localTokenService.generate("auditor-1", List.of("AUDITOR"));
-
-        String location = mockMvc.perform(post("/api/v1/alertas")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + coordinatorToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(createRequestJson()))
+        String location = mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(createRequestJson()),
+                        COORDINATOR_ID,
+                        "COORDINADOR"))
                 .andExpect(status().isCreated())
                 .andExpect(header().string(HttpHeaders.LOCATION, notNullValue()))
                 .andExpect(jsonPath("$.id").value(notNullValue()))
@@ -282,9 +309,18 @@ class AlertApiIntegrationIT {
         assertNotNull(location);
         String path = location.substring(location.indexOf("/api/"));
 
-        mockMvc.perform(get(path).header(HttpHeaders.AUTHORIZATION, "Bearer " + auditorToken))
+        mockMvc.perform(as(get(path), AUDITOR_ID, "AUDITOR"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.recipients[0].id").value("usr-001"));
+                .andExpect(jsonPath("$.recipients[0].id").value(STUB_USER_ID));
+    }
+
+    private MockHttpServletRequestBuilder as(
+            MockHttpServletRequestBuilder builder,
+            UUID userId,
+            String roles) {
+        return builder
+                .header("X-User-Id", userId.toString())
+                .header("X-User-Role", roles);
     }
 
     private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {
@@ -328,9 +364,9 @@ class AlertApiIntegrationIT {
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "Evacuar el campus",
-                  "recipients": [{"type": "USER", "id": "usr-001"}]
+                  "recipients": [{"type": "USER", "id": "%s"}]
                 }
-                """;
+                """.formatted(STUB_USER_ID);
     }
 
     private String simulationCreateRequestJson(
@@ -342,13 +378,13 @@ class AlertApiIntegrationIT {
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "%s",
-                  "recipients": [{"type": "USER", "id": "usr-001"}],
+                  "recipients": [{"type": "USER", "id": "%s"}],
                   "origin": {
                     "type": "SIMULATION",
                     "simulationId": "%s"
                   },
                   "activationAt": "2030-10-16T18:00:00Z"
                 }
-                """.formatted(instructions, simulationId);
+                """.formatted(instructions, STUB_USER_ID, simulationId);
     }
 }

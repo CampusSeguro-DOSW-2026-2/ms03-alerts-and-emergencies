@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.exception;
 
 import static org.mockito.Mockito.mock;
@@ -14,9 +13,6 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -42,9 +38,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 class GlobalExceptionHandlerTest {
 
-    private static final Instant NOW =
-            Instant.parse("2026-10-15T18:00:00Z");
-
     private static final UUID ID =
             UUID.fromString("66666666-6666-6666-6666-666666666666");
 
@@ -65,9 +58,7 @@ class GlobalExceptionHandlerTest {
 
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
-                .setControllerAdvice(
-                        new GlobalExceptionHandler(
-                                Clock.fixed(NOW, ZoneOffset.UTC)))
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
     }
 
@@ -82,56 +73,55 @@ class GlobalExceptionHandlerTest {
     // ---------- Domain exceptions ----------
 
     @Test
-    void handleAlertNotFound_shouldReturn404WithAlertNotFoundCode_whenAlertDoesNotExist()
+    void handleAlertNotFound_shouldReturn404WithSpanishCode_whenAlertDoesNotExist()
             throws Exception {
 
         performFailingWith(new AlertNotFoundException(ID))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.code").value("ALERT_NOT_FOUND"))
-                .andExpect(jsonPath("$.message")
-                        .value("Alert not found with ID: " + ID))
-                .andExpect(jsonPath("$.path").value(FAIL_URL))
-                .andExpect(jsonPath("$.timestamp").exists())
-                .andExpect(jsonPath("$.details").isEmpty());
+                .andExpect(jsonPath("$.codigo").value("ALERTA_NO_ENCONTRADA"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No se encontró la alerta con ID: " + ID))
+                .andExpect(jsonPath("$.errores").isEmpty())
+                .andExpect(jsonPath("$.correlation_id").exists());
     }
 
     @Test
-    void handleInvalidAlertState_shouldReturn409WithInvalidAlertStateCode_whenStateDoesNotAllowOperation()
+    void handleInvalidAlertState_shouldReturn409WithSpanishCode_whenStateDoesNotAllowOperation()
             throws Exception {
 
         performFailingWith(
                 new InvalidAlertStateException(AlertStatus.ACTIVE))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.code").value("INVALID_ALERT_STATE"))
-                .andExpect(jsonPath("$.message")
-                        .value("The alert is in status ACTIVE and does not allow this operation"))
-                .andExpect(jsonPath("$.path").value(FAIL_URL));
+                .andExpect(jsonPath("$.codigo").value("ESTADO_ALERTA_INVALIDO"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("La alerta está en estado ACTIVE "
+                                + "y no permite esta operación"));
     }
 
     @Test
-    void handleInvalidTransition_shouldReturn409WithInvalidTransitionCode_whenTransitionIsNotAllowed()
+    void handleInvalidTransition_shouldReturn409WithSpanishCode_whenTransitionIsNotAllowed()
             throws Exception {
 
         performFailingWith(
                 new InvalidTransitionException(
                         AlertStatus.ACTIVE, AlertStatus.DRAFT))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("INVALID_TRANSITION"))
-                .andExpect(jsonPath("$.message")
-                        .value("Cannot transition the alert from ACTIVE to DRAFT"));
+                .andExpect(jsonPath("$.codigo").value("TRANSICION_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("No se puede cambiar la alerta de ACTIVE a DRAFT"));
     }
 
     @Test
-    void handleInvalidActivationDate_shouldReturn400WithInvalidActivationDateCode_whenDateIsNotValid()
+    void handleInvalidActivationDate_shouldReturn400WithSpanishCode_whenDateIsNotValid()
             throws Exception {
 
         performFailingWith(new InvalidActivationDateException())
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_ACTIVATION_DATE"))
-                .andExpect(jsonPath("$.message")
-                        .value("The activation date and time must be in the future"));
+                .andExpect(jsonPath("$.codigo").value("FECHA_ACTIVACION_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("La fecha de activación debe ser futura"));
     }
 
     @Test
@@ -142,18 +132,18 @@ class GlobalExceptionHandlerTest {
                 new InvalidReferenceException(
                         "alcance.ids", List.of("B1", "B2")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_REFERENCE"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("REFERENCIA_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.INVALID_REFERENCE.defaultMessage()))
-                .andExpect(jsonPath("$.details.length()").value(2))
-                .andExpect(jsonPath("$.details[0].field")
+                .andExpect(jsonPath("$.errores.length()").value(2))
+                .andExpect(jsonPath("$.errores[0].campo")
                         .value("alcance.ids"))
-                .andExpect(jsonPath("$.details[0].message")
-                        .value("The referenced ID does not exist: B1"))
-                .andExpect(jsonPath("$.details[1].field")
+                .andExpect(jsonPath("$.errores[0].mensaje")
+                        .value("La referencia no existe: B1"))
+                .andExpect(jsonPath("$.errores[1].campo")
                         .value("alcance.ids"))
-                .andExpect(jsonPath("$.details[1].message")
-                        .value("The referenced ID does not exist: B2"));
+                .andExpect(jsonPath("$.errores[1].mensaje")
+                        .value("La referencia no existe: B2"));
     }
 
     @Test
@@ -164,12 +154,12 @@ class GlobalExceptionHandlerTest {
                 new InvalidPaginationException(
                         "size", "Page size must be between 1 and 100"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_PAGINATION"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("PAGINACION_INVALIDA"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.INVALID_PAGINATION.defaultMessage()))
-                .andExpect(jsonPath("$.details.length()").value(1))
-                .andExpect(jsonPath("$.details[0].field").value("size"))
-                .andExpect(jsonPath("$.details[0].message")
+                .andExpect(jsonPath("$.errores.length()").value(1))
+                .andExpect(jsonPath("$.errores[0].campo").value("size"))
+                .andExpect(jsonPath("$.errores[0].mensaje")
                         .value("Page size must be between 1 and 100"));
     }
 
@@ -180,10 +170,23 @@ class GlobalExceptionHandlerTest {
         performFailingWith(
                 new ExternalServiceUnavailableException("catalogo"))
                 .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code")
-                        .value("EXTERNAL_SERVICE_UNAVAILABLE"))
-                .andExpect(jsonPath("$.message")
-                        .value("Service catalogo is unavailable. Please try again later."));
+                .andExpect(jsonPath("$.codigo")
+                        .value("SERVICIO_EXTERNO_NO_DISPONIBLE"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value(ErrorCode.EXTERNAL_SERVICE_UNAVAILABLE.defaultMessage()));
+    }
+
+    @Test
+    void handleForbiddenOperation_shouldReturn403WithOperationMessage_whenOperationIsNotAllowed()
+            throws Exception {
+
+        performFailingWith(
+                new ForbiddenOperationException(
+                        "Los organizadores solo pueden crear alertas de simulacro"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("PROHIBIDO"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("Los organizadores solo pueden crear alertas de simulacro"));
     }
 
     @Test
@@ -194,36 +197,36 @@ class GlobalExceptionHandlerTest {
                 new OptimisticLockingFailureException(
                         "row was updated by another transaction"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("CONCURRENT_MODIFICATION"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("MODIFICACION_CONCURRENTE"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.CONCURRENT_MODIFICATION.defaultMessage()));
     }
 
     // ---------- Simulation exceptions ----------
 
     @Test
-    void handleSimulationMismatch_shouldReturn409WithSimulationMismatchCode_whenSimulationDoesNotMatchAlert()
+    void handleSimulationMismatch_shouldReturn409WithSpanishCode_whenSimulationDoesNotMatchAlert()
             throws Exception {
 
         performFailingWith(new SimulationMismatchException(ID, EVENT_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.code").value("SIMULATION_MISMATCH"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("CONFLICTO_SIMULACION"))
+                .andExpect(jsonPath("$.mensaje")
                         .value("La alerta " + ID
                                 + " no corresponde al simulacro " + EVENT_ID));
     }
 
     @Test
-    void handleDuplicateSimulationAlert_shouldReturn409WithDuplicateCode_whenLiveAlertAlreadyExists()
+    void handleDuplicateSimulationAlert_shouldReturn409WithSpanishCode_whenLiveAlertAlreadyExists()
             throws Exception {
 
         performFailingWith(
                 new DuplicateSimulationAlertException(EVENT_ID, OTHER_ID))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.code").value("DUPLICATE_SIMULATION_ALERT"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("SIMULACION_DUPLICADA"))
+                .andExpect(jsonPath("$.mensaje")
                         .value("Ya existe una alerta viva para el simulacro "
                                 + EVENT_ID + ": " + OTHER_ID));
     }
@@ -247,10 +250,10 @@ class GlobalExceptionHandlerTest {
         performFailingWith(
                 new ConstraintViolationException(Set.of(violation)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.length()").value(1))
-                .andExpect(jsonPath("$.details[0].field").value("name"))
-                .andExpect(jsonPath("$.details[0].message")
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores.length()").value(1))
+                .andExpect(jsonPath("$.errores[0].campo").value("name"))
+                .andExpect(jsonPath("$.errores[0].mensaje")
                         .value("must not be blank"));
     }
 
@@ -260,8 +263,8 @@ class GlobalExceptionHandlerTest {
 
         performFailingWith(new AccessDeniedException("role missing"))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("PROHIBIDO"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.FORBIDDEN.defaultMessage()));
     }
 
@@ -271,8 +274,8 @@ class GlobalExceptionHandlerTest {
 
         performFailingWith(new BadCredentialsException("bad token"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("NO_AUTENTICADO"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.UNAUTHORIZED.defaultMessage()));
     }
 
@@ -284,10 +287,10 @@ class GlobalExceptionHandlerTest {
                 new IllegalStateException("secret internal detail"))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.code").value("INTERNAL_ERROR"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("ERROR_INTERNO"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.INTERNAL_ERROR.defaultMessage()))
-                .andExpect(jsonPath("$.details").isEmpty());
+                .andExpect(jsonPath("$.errores").isEmpty());
     }
 
     // ---------- Spring MVC exceptions ----------
@@ -300,12 +303,11 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"name\": \"\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.VALIDATION_ERROR.defaultMessage()))
-                .andExpect(jsonPath("$.path").value("/test/body"))
-                .andExpect(jsonPath("$.details.length()").value(1))
-                .andExpect(jsonPath("$.details[0].field").value("name"));
+                .andExpect(jsonPath("$.errores.length()").value(1))
+                .andExpect(jsonPath("$.errores[0].campo").value("name"));
     }
 
     @Test
@@ -316,10 +318,10 @@ class GlobalExceptionHandlerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ not json"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.message")
-                        .value("The request body is missing, malformed, or contains invalid values"))
-                .andExpect(jsonPath("$.path").value("/test/body"));
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value("El cuerpo de la solicitud falta, está mal formado "
+                                + "o contiene valores inválidos"));
     }
 
     @Test
@@ -328,28 +330,27 @@ class GlobalExceptionHandlerTest {
 
         mockMvc.perform(get("/test/typed/{id}", "not-a-uuid"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-                .andExpect(jsonPath("$.details.length()").value(1))
-                .andExpect(jsonPath("$.details[0].field").value("id"))
-                .andExpect(jsonPath("$.details[0].message")
-                        .value("The supplied value is invalid"));
+                .andExpect(jsonPath("$.codigo").value("VALIDACION"))
+                .andExpect(jsonPath("$.errores.length()").value(1))
+                .andExpect(jsonPath("$.errores[0].campo").value("id"))
+                .andExpect(jsonPath("$.errores[0].mensaje")
+                        .value("El valor enviado no es válido"));
     }
 
     @Test
-    void handleExceptionInternal_shouldReturn405WithMethodNotAllowedCode_whenHttpMethodIsNotSupported()
+    void handleExceptionInternal_shouldReturn405WithSpanishCode_whenHttpMethodIsNotSupported()
             throws Exception {
 
         mockMvc.perform(post("/test/only-get"))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.status").value(405))
-                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
-                .andExpect(jsonPath("$.message")
-                        .value(ErrorCode.METHOD_NOT_ALLOWED.defaultMessage()))
-                .andExpect(jsonPath("$.path").value("/test/only-get"));
+                .andExpect(jsonPath("$.codigo").value("METODO_NO_PERMITIDO"))
+                .andExpect(jsonPath("$.mensaje")
+                        .value(ErrorCode.METHOD_NOT_ALLOWED.defaultMessage()));
     }
 
     @Test
-    void handleExceptionInternal_shouldReturn415WithUnsupportedMediaTypeCode_whenContentTypeIsNotSupported()
+    void handleExceptionInternal_shouldReturn415WithSpanishCode_whenContentTypeIsNotSupported()
             throws Exception {
 
         mockMvc.perform(post("/test/body")
@@ -357,20 +358,20 @@ class GlobalExceptionHandlerTest {
                         .content("name"))
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.status").value(415))
-                .andExpect(jsonPath("$.code").value("UNSUPPORTED_MEDIA_TYPE"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("TIPO_NO_SOPORTADO"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.UNSUPPORTED_MEDIA_TYPE.defaultMessage()));
     }
 
     @Test
-    void handleExceptionInternal_shouldReturn404WithResourceNotFoundCode_whenNoHandlerMatchesThePath()
+    void handleExceptionInternal_shouldReturn404WithSpanishCode_whenNoHandlerMatchesThePath()
             throws Exception {
 
         mockMvc.perform(get("/test/does-not-exist"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.status").value(404))
-                .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
-                .andExpect(jsonPath("$.message")
+                .andExpect(jsonPath("$.codigo").value("NO_ENCONTRADO"))
+                .andExpect(jsonPath("$.mensaje")
                         .value(ErrorCode.RESOURCE_NOT_FOUND.defaultMessage()));
     }
 

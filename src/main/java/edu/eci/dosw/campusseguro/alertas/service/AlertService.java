@@ -7,11 +7,14 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import java.util.UUID;
 
 public interface AlertService {
 
-    AlertCreationResult create(AlertCreateRequest request, String actor);
+    AlertCreationResult create(
+            AlertCreateRequest request,
+            RequesterContext requester);
 
     AlertResponse update(UUID id, AlertUpdateRequest request, String actor);
 

@@ -1,0 +1,22 @@
+spring:
+  config:
+    import: optional:file:.env[.properties]
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+app:
+  catalog:
+    base-url: ${MS01_URL:http://localhost:8081}
+    service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+    technical-user-id: ${MS01_TECHNICAL_USER_ID:}
+    technical-user-role: ${MS01_TECHNICAL_USER_ROLE:AUDITOR}
+    connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
+
+logging:
+  level:
+    edu.eci.dosw.campusseguro.alertas: INFO

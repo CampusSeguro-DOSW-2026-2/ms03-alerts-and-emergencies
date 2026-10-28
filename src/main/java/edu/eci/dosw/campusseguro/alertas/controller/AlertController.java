@@ -12,6 +12,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
@@ -37,7 +38,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 @RestController
 @RequestMapping(
@@ -46,14 +46,17 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 @Tag(name = "Alertas", description = "Gestion y ciclo de vida de alertas")
 public class AlertController {
 
-    private static final String COORDINATOR_ONLY =
-            "hasRole('COORDINATOR')";
+    private static final String CAN_MANAGE =
+            "hasAuthority('ms03:alert:manage')";
 
-    private static final String COORDINATOR_OR_SERVICE =
-            "hasAnyRole('COORDINATOR', 'SERVICE_MS06')";
+    private static final String CAN_MANAGE_ALERTS =
+            "hasAnyAuthority('ms03:alert:manage', 'ms03:alert:manage_drill')";
 
-    private static final String COORDINATOR_OR_AUDITOR =
-            "hasAnyRole('COORDINATOR', 'AUDITOR')";
+    private static final String CAN_READ_HISTORY =
+            "hasAuthority('ms03:alert:read_history')";
+
+    private static final String CAN_VIEW =
+            "hasAnyAuthority('ms03:alert:receive', 'ms03:alert:read_history')";
 
     private final AlertService alertService;
     private final AlertLifecycleService alertLifecycleService;
@@ -69,13 +72,13 @@ public class AlertController {
     }
 
     @PostMapping
-    @PreAuthorize(COORDINATOR_OR_SERVICE)
+    @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(
             summary = "Crear alerta",
             description = "Crea una alerta manual o de simulacro. Si ya existe "
                     + "una alerta SCHEDULED o ACTIVE para el mismo simulationId "
                     + "con los mismos datos, devuelve la existente con 200. Si "
-                    + "los datos difieren, responde 409 DUPLICATE_SIMULATION_ALERT.")
+                    + "los datos difieren, responde 409 SIMULACION_DUPLICADA.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Alerta creada"),
             @ApiResponse(responseCode = "200", description = "Alerta existente para el simulationId"),
@@ -88,24 +91,22 @@ public class AlertController {
     public ResponseEntity<AlertResponse> create(
             @Valid @RequestBody AlertCreateRequest request) {
 
+        RequesterContext requester = actorResolver.requester();
         AlertCreationResult result =
-                alertService.create(request, actorResolver.resolve());
+                alertService.create(request, requester);
 
         if (!result.created()) {
             return ResponseEntity.ok(result.alert());
         }
 
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(result.alert().id())
-                .toUri();
+        URI location = URI.create(
+                "/api/v1/alertas/" + result.alert().id());
 
         return ResponseEntity.created(location).body(result.alert());
     }
 
     @GetMapping
-    @PreAuthorize(COORDINATOR_OR_AUDITOR)
+    @PreAuthorize(CAN_READ_HISTORY)
     @Operation(summary = "Listar alertas", description = "Listado paginado con filtros.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Listado paginado"),
@@ -139,7 +140,7 @@ public class AlertController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize(CAN_VIEW)
     @Operation(
             summary = "Consultar alerta",
             description = "Visible para roles elevados y para destinatarios autorizados "
@@ -160,7 +161,7 @@ public class AlertController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(COORDINATOR_ONLY)
+    @PreAuthorize(CAN_MANAGE)
     @Operation(summary = "Editar alerta", description = "Solo alertas DRAFT o SCHEDULED.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta actualizada"),
@@ -182,7 +183,7 @@ public class AlertController {
     }
 
     @PatchMapping("/{id}/programar")
-    @PreAuthorize(COORDINATOR_ONLY)
+    @PreAuthorize(CAN_MANAGE)
     @Operation(summary = "Programar alerta", description = "DRAFT -> SCHEDULED con fecha futura.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta programada"),
@@ -203,7 +204,7 @@ public class AlertController {
     }
 
     @PatchMapping("/{id}/activar")
-    @PreAuthorize(COORDINATOR_OR_SERVICE)
+    @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(
             summary = "Activar alerta",
             description = "Permite DRAFT -> ACTIVE y SCHEDULED -> ACTIVE, incluso "
@@ -222,14 +223,15 @@ public class AlertController {
     }
 
     @PatchMapping("/{id}/finalizar")
-    @PreAuthorize(COORDINATOR_OR_SERVICE)
+    @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(
             summary = "Finalizar alerta",
             description = "ACTIVE -> ENDED. Es idempotente si ya esta ENDED. "
-                    + "SERVICE_MS06 debe enviar simulationId y debe coincidir.")
+                    + "MS06 y los organizadores de simulacros deben enviar "
+                    + "simulationId y debe coincidir.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta finalizada"),
-            @ApiResponse(responseCode = "400", description = "simulationId requerido para SERVICE_MS06"),
+            @ApiResponse(responseCode = "400", description = "simulationId requerido para MS06 y organizadores"),
             @ApiResponse(responseCode = "401", description = "No autenticado"),
             @ApiResponse(responseCode = "403", description = "Sin permiso"),
             @ApiResponse(responseCode = "404", description = "Alerta no encontrada"),
@@ -242,11 +244,11 @@ public class AlertController {
         return alertLifecycleService.end(
                 id,
                 request,
-                actorResolver.resolve());
+                actorResolver.requester());
     }
 
     @PatchMapping("/{id}/archivar")
-    @PreAuthorize(COORDINATOR_ONLY)
+    @PreAuthorize(CAN_MANAGE)
     @Operation(summary = "Archivar alerta", description = "ENDED -> ARCHIVED.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta archivada"),
