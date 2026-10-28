@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.service;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
+import java.util.List;
 import java.util.UUID;
 
 public interface AlertLifecycleService {
@@ -11,7 +12,7 @@ public interface AlertLifecycleService {
 
     AlertResponse activate(UUID id, String actor);
 
-    void activateScheduledAlerts();
+    List<UUID> findDueScheduledAlertIds();
 
     AlertResponse end(UUID id, AlertEndRequest request, String actor);
 
