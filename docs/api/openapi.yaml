@@ -130,7 +130,7 @@ paths:
         Crea una alerta manual o asociada a un simulacro. Solo COORDINATOR y
         SERVICE_MS06.
 
-        Idempotencia MS06: si ya existe una alerta SCHEDULED o ACTIVE para el
+        Idempotencia MS06: si ya existe una alerta DRAFT, SCHEDULED o ACTIVE para el
         mismo simulationId y los datos de creacion coinciden, responde 200 con
         la alerta existente. Si los datos difieren, responde 409
         DUPLICATE_SIMULATION_ALERT. La comparacion usa type, title,

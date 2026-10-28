@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
@@ -207,8 +208,40 @@ class AlertServiceImplTest {
         when(expected.recipients()).thenReturn(List.of());
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
-        when(alertRepository.findBySimulationIdAndStatusIn(
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId), any())).thenReturn(Optional.of(existing));
+        when(alertMapper.toResponse(eq(existing), any(), any()))
+                .thenReturn(expected);
+
+        AlertCreationResult result = service.create(request, ACTOR);
+
+        assertSame(expected, result.alert());
+        assertFalse(result.created());
+        verify(alertRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_withSameSimulationIdWhileDraft_shouldReturnExistingAlert() {
+        UUID simulationId = UUID.randomUUID();
+        ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
+        AlertEntity existing = alert(AlertStatus.DRAFT, "Evacuar");
+        existing.setSimulationId(simulationId);
+
+        AlertCreateRequest request = simulationRequest(
+                simulationId,
+                "Simulacro",
+                "Evacuar",
+                null);
+
+        AlertResponse expected = mock(AlertResponse.class);
+        when(expected.scope()).thenReturn(scope);
+        when(expected.recipients()).thenReturn(List.of());
+        when(alertMapper.normalizeScope(any())).thenReturn(scope);
+        when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
+                eq(simulationId),
+                argThat(statuses -> statuses.contains(AlertStatus.DRAFT))))
+                .thenReturn(Optional.of(existing));
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
@@ -235,7 +268,7 @@ class AlertServiceImplTest {
         AlertResponse current = mock(AlertResponse.class);
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
-        when(alertRepository.findBySimulationIdAndStatusIn(
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId), any())).thenReturn(Optional.of(existing));
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(current);

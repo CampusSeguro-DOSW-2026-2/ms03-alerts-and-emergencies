@@ -62,8 +62,9 @@ public class AlertServiceImpl implements AlertService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
 
-    private static final Set<AlertStatus> LIVE_STATUSES =
-            EnumSet.of(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
+    // Una solicitud repetida de MS06 reutiliza la alerta del simulacro mientras no haya terminado.
+    private static final Set<AlertStatus> REUSABLE_SIMULATION_STATUSES =
+            EnumSet.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
 
     private final AlertRepository alertRepository;
     private final AlertScopeItemRepository scopeItemRepository;
@@ -123,9 +124,9 @@ public class AlertServiceImpl implements AlertService {
 
         if (simulationId != null) {
             AlertEntity existing = alertRepository
-                    .findBySimulationIdAndStatusIn(
+                    .findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                             simulationId,
-                            LIVE_STATUSES)
+                            REUSABLE_SIMULATION_STATUSES)
                     .orElse(null);
 
             if (existing != null) {
