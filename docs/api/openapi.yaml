@@ -3,20 +3,27 @@ info:
   title: MS03 - Alertas y Emergencias
   description: |
     API de gestion de alertas, ciclo de vida, confirmaciones y auditoria de
-    CampusSeguro. Todos los endpoints, salvo los de salud y tokens locales,
-    requieren un JWT con esquema Bearer.
+    CampusSeguro.
 
-    Roles con privilegio: COORDINATOR, AUDITOR y SERVICE_MS06. No existe el rol
-    RECIPIENT: el acceso de un usuario generico a GET /alertas/{id} y a
+    MS03 no valida JWT: confia en la identidad que inyecta el API Gateway en
+    `X-User-Id`, `X-User-Role`, `X-Service-Name` y `X-Correlation-ID`. El
+    servicio solo debe exponerse a traves del Gateway.
+
+    Roles oficiales: ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA,
+    COORDINADOR, ORGANIZADOR, ADMIN y AUDITOR. No existe el rol RECIPIENT: el
+    acceso de un usuario generico a GET /alertas/{id} y a
     POST /alertas/{id}/confirmaciones lo decide AlertAccessPolicy.
-  version: 1.0.0
+
+    Permisos MS03: ms03:alert:manage, ms03:alert:manage_drill,
+    ms03:alert:read_history y ms03:alert:receive. COORDINADOR administra
+    alertas, ORGANIZADOR solo simulacros, AUDITOR consulta historial y la
+    comunidad recibe alertas.
+  version: 2.0.0
   license:
     name: Uso academico - CampusSeguro
 servers:
   - url: http://localhost:8080
-    description: Entorno local
-security:
-  - bearerAuth: []
+    description: API Gateway local (MS03 escucha en 8083 sin exposicion directa)
 tags:
   - name: Alertas
     description: Gestion y ciclo de vida de alertas
@@ -26,14 +33,25 @@ tags:
     description: Consulta de eventos de auditoria
 paths:
   /api/v1/alertas:
+    parameters:
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
       tags:
         - Alertas
       operationId: listAlerts
       summary: Listar alertas
       description: |
-        Listado paginado, ordenado por fecha de creacion descendente. Solo
-        COORDINATOR y AUDITOR. El rango de fechas se aplica sobre createdAt.
+        Listado paginado, ordenado por fecha de creacion descendente. Requiere
+        el permiso ms03:alert:read_history. El rango de fechas se aplica sobre
+        createdAt.
+      x-permiso: ms03:alert:read_history
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
+        - AUDITOR
       parameters:
         - name: status
           in: query
@@ -82,7 +100,7 @@ paths:
         - name: size
           in: query
           required: false
-          description: Tamano de pagina.
+          description: Tamano de pagina, entre 1 y 100.
           schema:
             type: integer
             format: int32
@@ -99,22 +117,22 @@ paths:
               examples:
                 page:
                   value:
-                    content:
+                    contenido:
                       - id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
                         type: EARTHQUAKE
                         title: Sismo en bloque B
                         scope:
                           type: BUILDING
                           ids:
-                            - bld-001
+                            - BLD-001
                         status: ACTIVE
                         origin: MANUAL
                         simulationId: null
                         createdAt: '2026-10-22T14:05:00Z'
                     page: 0
                     size: 20
-                    totalElements: 1
-                    totalPages: 1
+                    total_elementos: 1
+                    total_paginas: 1
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -127,19 +145,25 @@ paths:
       operationId: createAlert
       summary: Crear alerta
       description: |
-        Crea una alerta manual o asociada a un simulacro. Solo COORDINATOR y
-        SERVICE_MS06.
+        Crea una alerta manual o asociada a un simulacro. Requiere
+        ms03:alert:manage (COORDINADOR) o ms03:alert:manage_drill
+        (ORGANIZADOR). El ORGANIZADOR solo puede crear alertas con
+        origin.type = SIMULATION; en caso contrario responde 403 PROHIBIDO.
 
         Idempotencia MS06: si ya existe una alerta SCHEDULED o ACTIVE para el
         mismo simulationId y los datos de creacion coinciden, responde 200 con
         la alerta existente. Si los datos difieren, responde 409
-        DUPLICATE_SIMULATION_ALERT. La comparacion usa type, title,
-        instructions, scope, recipients y activationAt.
+        SIMULACION_DUPLICADA. La comparacion usa type, title, instructions,
+        scope, recipients y activationAt.
 
-        Si activateImmediately es true, la alerta se crea en DRAFT y se activa
-        en la misma operacion, respondiendo 201 con estado ACTIVE. Se acepta el
+        Si activateImmediately es true, la alerta se crea y se activa en la
+        misma operacion, respondiendo 201 con estado ACTIVE. Se acepta el
         alias activarInmediatamente. En origin se acepta eventId como alias de
         simulationId y tipo como alias de type.
+      x-permiso: ms03:alert:manage | ms03:alert:manage_drill
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
       requestBody:
         required: true
         content:
@@ -155,11 +179,11 @@ paths:
                   scope:
                     type: BUILDING
                     ids:
-                      - bld-001
+                      - BLD-001
                   instructions: Evacuar el bloque B y dirigirse al punto de encuentro.
                   recipients:
                     - type: ROLE
-                      id: STUDENTS
+                      id: ESTUDIANTE
                   origin:
                     type: MANUAL
               simulationScheduled:
@@ -172,7 +196,7 @@ paths:
                   instructions: Seguir las indicaciones de los brigadistas.
                   recipients:
                     - type: ROLE
-                      id: STUDENTS
+                      id: ESTUDIANTE
                   origin:
                     type: SIMULATION
                     simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
@@ -187,7 +211,7 @@ paths:
                   instructions: Evacuar de inmediato.
                   recipients:
                     - type: ROLE
-                      id: STUDENTS
+                      id: ESTUDIANTE
                   origin:
                     type: SIMULATION
                     simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
@@ -197,10 +221,10 @@ paths:
           description: Alerta creada.
           headers:
             Location:
-              description: URI de la alerta creada.
+              description: URI relativa de la alerta creada.
               schema:
                 type: string
-                format: uri
+                example: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
           content:
             application/json:
               schema:
@@ -220,8 +244,8 @@ paths:
                     instructions: Seguir las indicaciones de los brigadistas.
                     recipients:
                       - type: ROLE
-                        id: STUDENTS
-                    createdBy: service-ms06
+                        id: ESTUDIANTE
+                    createdBy: 99999999-9999-4999-8999-999999999999
                     createdAt: '2026-10-22T14:05:00Z'
                     updatedAt: '2026-10-22T14:05:00Z'
                     activationAt: '2026-11-05T15:00:00Z'
@@ -234,29 +258,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                existing:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: SIMULATION
-                    title: Simulacro nacional de evacuacion
-                    status: SCHEDULED
-                    origin: SIMULATION
-                    simulationId: 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
-                    scope:
-                      type: CAMPUS
-                      ids: []
-                    instructions: Seguir las indicaciones de los brigadistas.
-                    recipients:
-                      - type: ROLE
-                        id: STUDENTS
-                    createdBy: service-ms06
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:05:00Z'
-                    activationAt: '2026-11-05T15:00:00Z'
-                    activatedAt: null
-                    endedAt: null
-                    archivedAt: null
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -270,15 +271,30 @@ paths:
   /api/v1/alertas/{id}:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
       tags:
         - Alertas
       operationId: getAlert
       summary: Consultar alerta
       description: |
-        Visible para COORDINATOR, AUDITOR y para usuarios autorizados por
-        AlertAccessPolicy (destinatario directo, rol destinatario o registro de
-        envio).
+        Visible para usuarios con ms03:alert:receive o
+        ms03:alert:read_history. AlertAccessPolicy permite el acceso a
+        destinatarios directos, miembros del rol destinatario, usuarios con
+        registro de envio y roles privilegiados (COORDINADOR, ORGANIZADOR y
+        AUDITOR).
+      x-permiso: ms03:alert:receive | ms03:alert:read_history
+      x-roles:
+        - ESTUDIANTE
+        - PROFESOR
+        - ADMINISTRATIVO
+        - BRIGADISTA
+        - COORDINADOR
+        - ORGANIZADOR
+        - AUDITOR
       responses:
         '200':
           description: Alerta encontrada.
@@ -286,30 +302,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                detail:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: ACTIVE
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar el bloque B.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:10:00Z'
-                    activationAt: null
-                    activatedAt: '2026-10-22T14:10:00Z'
-                    endedAt: null
-                    archivedAt: null
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -322,10 +314,13 @@ paths:
       operationId: updateAlert
       summary: Editar alerta
       description: |
-        Solo COORDINATOR y solo alertas DRAFT o SCHEDULED. Se actualizan
-        unicamente los campos enviados. Si la alerta esta ACTIVE, ENDED o
-        ARCHIVED responde 409 INVALID_ALERT_STATE. Un conflicto de version
-        responde 409 CONCURRENT_MODIFICATION.
+        Solo COORDINADOR (ms03:alert:manage) y solo alertas DRAFT o SCHEDULED.
+        Se actualizan unicamente los campos enviados. Si la alerta esta ACTIVE,
+        ENDED o ARCHIVED responde 409 ESTADO_ALERTA_INVALIDO. Un conflicto de
+        version responde 409 MODIFICACION_CONCURRENTE.
+      x-permiso: ms03:alert:manage
+      x-roles:
+        - COORDINADOR
       requestBody:
         required: true
         content:
@@ -344,30 +339,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                updated:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: DRAFT
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar por la salida norte.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:15:00Z'
-                    activationAt: null
-                    activatedAt: null
-                    endedAt: null
-                    archivedAt: null
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -383,16 +354,23 @@ paths:
   /api/v1/alertas/{id}/programar:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
       tags:
         - Alertas
       operationId: scheduleAlert
       summary: Programar alerta
       description: |
-        Transicion DRAFT -> SCHEDULED. Solo COORDINATOR. La fecha de activacion
+        Transicion DRAFT -> SCHEDULED. Solo COORDINADOR. La fecha de activacion
         debe ser futura; si es pasada o igual al instante actual responde 400
-        INVALID_ACTIVATION_DATE. Cualquier otro estado de origen responde 409
-        INVALID_TRANSITION.
+        FECHA_ACTIVACION_INVALIDA. Cualquier otro estado de origen responde 409
+        TRANSICION_INVALIDA.
+      x-permiso: ms03:alert:manage
+      x-roles:
+        - COORDINADOR
       requestBody:
         required: true
         content:
@@ -410,30 +388,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                scheduled:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: SCHEDULED
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar el bloque B.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:15:00Z'
-                    activationAt: '2026-11-05T15:00:00Z'
-                    activatedAt: null
-                    endedAt: null
-                    archivedAt: null
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -447,6 +401,10 @@ paths:
   /api/v1/alertas/{id}/activar:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
       tags:
         - Alertas
@@ -461,7 +419,12 @@ paths:
 
         Si la alerta ya esta ACTIVE la operacion es idempotente y responde 200
         sin una nueva notificacion. ENDED o ARCHIVED responde 409
-        INVALID_TRANSITION. Solo COORDINATOR y SERVICE_MS06.
+        TRANSICION_INVALIDA. Requiere ms03:alert:manage (COORDINADOR) o
+        ms03:alert:manage_drill (ORGANIZADOR).
+      x-permiso: ms03:alert:manage | ms03:alert:manage_drill
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
       responses:
         '200':
           description: Alerta activa.
@@ -469,30 +432,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                active:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: ACTIVE
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar el bloque B.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:15:00Z'
-                    activationAt: null
-                    activatedAt: '2026-10-22T14:15:00Z'
-                    endedAt: null
-                    archivedAt: null
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -504,6 +443,10 @@ paths:
   /api/v1/alertas/{id}/finalizar:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
       tags:
         - Alertas
@@ -511,13 +454,17 @@ paths:
       summary: Finalizar alerta
       description: |
         Transicion ACTIVE -> ENDED. Si ya esta ENDED responde 200 sin cambios.
-        DRAFT, SCHEDULED o ARCHIVED responde 409 INVALID_TRANSITION. Solo
-        COORDINATOR y SERVICE_MS06.
+        DRAFT, SCHEDULED o ARCHIVED responde 409 TRANSICION_INVALIDA. Requiere
+        ms03:alert:manage o ms03:alert:manage_drill.
 
-        Cuando el actor es SERVICE_MS06 el cuerpo es obligatorio y debe incluir
-        simulationId; si falta responde 400 VALIDATION_ERROR y si no coincide
-        con el de la alerta responde 409 SIMULATION_MISMATCH. Se acepta eventId
-        como alias de simulationId.
+        Cuando el actor es MS06 (X-Service-Name: ms06) o un ORGANIZADOR, el
+        cuerpo es obligatorio y debe incluir simulationId; si falta responde
+        400 VALIDACION y si no coincide con el de la alerta responde 409
+        CONFLICTO_SIMULACION. Se acepta eventId como alias de simulationId.
+      x-permiso: ms03:alert:manage | ms03:alert:manage_drill
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
       requestBody:
         required: false
         content:
@@ -539,30 +486,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                ended:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: ENDED
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar el bloque B.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:30:00Z'
-                    activationAt: null
-                    activatedAt: '2026-10-22T14:15:00Z'
-                    endedAt: '2026-10-22T14:30:00Z'
-                    archivedAt: null
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -576,14 +499,22 @@ paths:
   /api/v1/alertas/{id}/archivar:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
       tags:
         - Alertas
       operationId: archiveAlert
       summary: Archivar alerta
       description: |
-        Transicion ENDED -> ARCHIVED. Solo COORDINATOR. Cualquier otro estado
-        responde 409 INVALID_TRANSITION. Una alerta archivada no admite cambios.
+        Transicion ENDED -> ARCHIVED. Solo COORDINADOR. Cualquier otro estado
+        responde 409 TRANSICION_INVALIDA. Una alerta archivada no admite
+        cambios.
+      x-permiso: ms03:alert:manage
+      x-roles:
+        - COORDINADOR
       responses:
         '200':
           description: Alerta archivada.
@@ -591,30 +522,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlertResponse'
-              examples:
-                archived:
-                  value:
-                    id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    type: EARTHQUAKE
-                    title: Sismo en bloque B
-                    status: ARCHIVED
-                    origin: MANUAL
-                    simulationId: null
-                    scope:
-                      type: BUILDING
-                      ids:
-                        - bld-001
-                    instructions: Evacuar el bloque B.
-                    recipients:
-                      - type: USER
-                        id: usr-001
-                    createdBy: coordinator-01
-                    createdAt: '2026-10-22T14:05:00Z'
-                    updatedAt: '2026-10-22T14:35:00Z'
-                    activationAt: null
-                    activatedAt: '2026-10-22T14:15:00Z'
-                    endedAt: '2026-10-22T14:30:00Z'
-                    archivedAt: '2026-10-22T14:35:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -626,16 +533,29 @@ paths:
   /api/v1/alertas/{id}/confirmaciones:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     post:
       tags:
         - Confirmaciones
       operationId: confirmAlert
       summary: Confirmar recepcion
       description: |
-        Registra la confirmacion del usuario autenticado. La primera confirmacion
-        responde 201; un reintento del mismo usuario responde 200 con la
-        confirmacion existente. Solo para destinatarios autorizados por
-        AlertAccessPolicy. La alerta debe estar ACTIVE.
+        Registra la confirmacion del usuario autenticado. Requiere
+        ms03:alert:receive. La primera confirmacion responde 201; un reintento
+        del mismo usuario responde 200 con la confirmacion existente. Solo para
+        destinatarios autorizados por AlertAccessPolicy. La alerta debe estar
+        ACTIVE.
+      x-permiso: ms03:alert:receive
+      x-roles:
+        - ESTUDIANTE
+        - PROFESOR
+        - ADMINISTRATIVO
+        - BRIGADISTA
+        - COORDINADOR
+        - ORGANIZADOR
       responses:
         '201':
           description: Confirmacion creada.
@@ -648,7 +568,7 @@ paths:
                   value:
                     id: 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
                     idAlerta: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    usuarioId: usr-001
+                    usuarioId: 11111111-1111-4111-8111-111111111111
                     fechaConfirmacion: '2026-10-22T14:12:00Z'
         '200':
           description: Confirmacion ya existente.
@@ -656,13 +576,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ConfirmationResponse'
-              examples:
-                existing:
-                  value:
-                    id: 0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
-                    idAlerta: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                    usuarioId: usr-001
-                    fechaConfirmacion: '2026-10-22T14:12:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -674,6 +587,10 @@ paths:
   /api/v1/alertas/{id}/auditoria:
     parameters:
       - $ref: '#/components/parameters/AlertId'
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
       tags:
         - Auditoria
@@ -681,7 +598,12 @@ paths:
       summary: Consultar auditoria
       description: |
         Devuelve los eventos de auditoria de la alerta ordenados por fecha
-        ascendente. Solo COORDINATOR y AUDITOR.
+        ascendente. Requiere ms03:alert:read_history.
+      x-permiso: ms03:alert:read_history
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
+        - AUDITOR
       responses:
         '200':
           description: Eventos de auditoria.
@@ -696,8 +618,8 @@ paths:
                   value:
                     - id: 9b8c7d6e-5f4a-4b3c-8d2e-1f0a9b8c7d6e
                       alertId: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                      actor: coordinator-01
-                      actorType: COORDINATOR
+                      actor: 77777777-7777-4777-8777-777777777777
+                      actorType: USER
                       action: CREATE
                       fromStatus: null
                       toStatus: DRAFT
@@ -705,13 +627,13 @@ paths:
                       occurredAt: '2026-10-22T14:05:00Z'
                     - id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
                       alertId: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                      actor: coordinator-01
-                      actorType: COORDINATOR
-                      action: ACTIVATE
-                      fromStatus: DRAFT
-                      toStatus: ACTIVE
-                      detail: 'Alert activated from DRAFT'
-                      occurredAt: '2026-10-22T14:10:00Z'
+                      actor: ms06:99999999-9999-4999-8999-999999999999
+                      actorType: SERVICE
+                      action: END
+                      fromStatus: ACTIVE
+                      toStatus: ENDED
+                      detail: 'Alert ended'
+                      occurredAt: '2026-10-22T14:30:00Z'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -719,11 +641,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
   parameters:
     AlertId:
       name: id
@@ -733,11 +650,52 @@ components:
       schema:
         type: string
         format: uuid
+    UserIdHeader:
+      name: X-User-Id
+      in: header
+      required: true
+      description: UUID del usuario emisor, inyectado por el API Gateway.
+      schema:
+        type: string
+        format: uuid
+    UserRoleHeader:
+      name: X-User-Role
+      in: header
+      required: true
+      description: |
+        Uno o varios roles oficiales separados por coma. Valores permitidos:
+        ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR,
+        ORGANIZADOR, ADMIN y AUDITOR.
+      schema:
+        type: string
+        example: COORDINADOR
+    ServiceNameHeader:
+      name: X-Service-Name
+      in: header
+      required: false
+      description: |
+        Origen de servicio. ms06 identifica las llamadas de MS06 y se usa para
+        exigir simulationId al finalizar.
+      schema:
+        type: string
+        enum:
+          - ms03
+          - ms06
+    CorrelationIdHeader:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      description: |
+        UUID v4 de correlacion. Si falta o no es valido, MS03 genera uno nuevo
+        y lo devuelve en la respuesta.
+      schema:
+        type: string
+        format: uuid
   responses:
     BadRequest:
       description: |
-        Datos invalidos. Puede ser VALIDATION_ERROR, INVALID_REFERENCE,
-        INVALID_PAGINATION o INVALID_ACTIVATION_DATE.
+        Datos invalidos. Puede ser VALIDACION, REFERENCIA_INVALIDA,
+        PAGINACION_INVALIDA o FECHA_ACTIVACION_INVALIDA.
       content:
         application/json:
           schema:
@@ -745,44 +703,42 @@ components:
           examples:
             validation:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 400
-                code: VALIDATION_ERROR
-                message: The submitted data is invalid
-                path: /api/v1/alertas
-                details:
-                  - field: title
-                    message: Title is required
+                codigo: VALIDACION
+                mensaje: Los datos enviados no son válidos
+                errores:
+                  - campo: title
+                    mensaje: Title is required
+                correlation_id: 11111111-1111-4111-8111-111111111111
             reference:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 400
-                code: INVALID_REFERENCE
-                message: One or more references do not exist
-                path: /api/v1/alertas
-                details:
-                  - field: scope.ids
-                    message: 'The referenced ID does not exist: bld-999'
+                codigo: REFERENCIA_INVALIDA
+                mensaje: Una o más referencias no existen
+                errores:
+                  - campo: alcance.ids
+                    mensaje: 'La referencia no existe: BLD-999'
+                correlation_id: 11111111-1111-4111-8111-111111111111
             pagination:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 400
-                code: INVALID_PAGINATION
-                message: The query parameters are invalid
-                path: /api/v1/alertas
-                details:
-                  - field: size
-                    message: Page size must be between 1 and 100
+                codigo: PAGINACION_INVALIDA
+                mensaje: Los parámetros de consulta no son válidos
+                errores:
+                  - campo: size
+                    mensaje: Page size must be between 1 and 100
+                correlation_id: 11111111-1111-4111-8111-111111111111
             activationDate:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 400
-                code: INVALID_ACTIVATION_DATE
-                message: The activation date and time must be in the future
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/programar
-                details: []
+                codigo: FECHA_ACTIVACION_INVALIDA
+                mensaje: La fecha de activación debe ser futura
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
     Unauthorized:
-      description: Falta el token o es invalido/expirado.
+      description: |
+        Faltan las cabeceras de identidad, son invalidas o el rol no pertenece
+        a la matriz oficial. El Gateway debe inyectarlas.
       content:
         application/json:
           schema:
@@ -790,16 +746,15 @@ components:
           examples:
             unauthorized:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 401
-                code: UNAUTHORIZED
-                message: Authentication is required or the token is invalid
-                path: /api/v1/alertas
-                details: []
+                codigo: NO_AUTENTICADO
+                mensaje: Se requiere autenticación o la identidad no es válida
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
     Forbidden:
       description: |
-        El rol no permite la operacion (FORBIDDEN) o el usuario no es
-        destinatario de la alerta (NOT_A_RECIPIENT).
+        El permiso no permite la operacion (PROHIBIDO) o el usuario no es
+        destinatario de la alerta (NO_ES_DESTINATARIO).
       content:
         application/json:
           schema:
@@ -807,20 +762,18 @@ components:
           examples:
             forbidden:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 403
-                code: FORBIDDEN
-                message: You do not have permission to perform this operation
-                path: /api/v1/alertas
-                details: []
+                codigo: PROHIBIDO
+                mensaje: No tienes permiso para realizar esta operación
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
             notARecipient:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 403
-                code: NOT_A_RECIPIENT
-                message: No es destinatario de la alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                details: []
+                codigo: NO_ES_DESTINATARIO
+                mensaje: No eres destinatario de esta alerta
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
     NotFound:
       description: La alerta no existe.
       content:
@@ -830,17 +783,16 @@ components:
           examples:
             alertNotFound:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 404
-                code: ALERT_NOT_FOUND
-                message: 'Alert not found with ID: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                details: []
+                codigo: ALERTA_NO_ENCONTRADA
+                mensaje: 'No se encontró la alerta con ID: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
     Conflict:
       description: |
-        Conflicto de estado o de datos: INVALID_ALERT_STATE, INVALID_TRANSITION,
-        ALERT_NOT_ACTIVE, SIMULATION_MISMATCH, DUPLICATE_SIMULATION_ALERT o
-        CONCURRENT_MODIFICATION.
+        Conflicto de estado o de datos: ESTADO_ALERTA_INVALIDO,
+        TRANSICION_INVALIDA, ALERTA_NO_ACTIVA, CONFLICTO_SIMULACION,
+        SIMULACION_DUPLICADA o MODIFICACION_CONCURRENTE.
       content:
         application/json:
           schema:
@@ -848,54 +800,41 @@ components:
           examples:
             invalidAlertState:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 409
-                code: INVALID_ALERT_STATE
-                message: The alert is in status ACTIVE and does not allow this operation
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                details: []
+                codigo: ESTADO_ALERTA_INVALIDO
+                mensaje: La alerta está en estado ACTIVE y no permite esta operación
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
             invalidTransition:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 409
-                code: INVALID_TRANSITION
-                message: Cannot transition the alert from ENDED to ACTIVE
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/activar
-                details: []
-            alertNotActive:
-              value:
-                timestamp: '2026-10-22T14:05:00Z'
-                status: 409
-                code: ALERT_NOT_ACTIVE
-                message: La alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10 no esta activa
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/confirmaciones
-                details: []
+                codigo: TRANSICION_INVALIDA
+                mensaje: No se puede cambiar la alerta de ENDED a ACTIVE
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
             simulationMismatch:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 409
-                code: SIMULATION_MISMATCH
-                message: La alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10 no corresponde al simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10/finalizar
-                details: []
+                codigo: CONFLICTO_SIMULACION
+                mensaje: La alerta 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10 no corresponde al simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
             duplicateSimulationAlert:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 409
-                code: DUPLICATE_SIMULATION_ALERT
-                message: 'Ya existe una alerta viva para el simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
-                path: /api/v1/alertas
-                details: []
+                codigo: SIMULACION_DUPLICADA
+                mensaje: 'Ya existe una alerta viva para el simulacro 3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10'
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
             concurrentModification:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 409
-                code: CONCURRENT_MODIFICATION
-                message: The alert was modified by another user
-                path: /api/v1/alertas/7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
-                details: []
+                codigo: MODIFICACION_CONCURRENTE
+                mensaje: La alerta fue modificada por otro usuario
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
     ServiceUnavailable:
-      description: Un servicio externo (MS01, MS02 o MS06) no esta disponible.
+      description: Un servicio externo (MS01 o MS02) no esta disponible.
       content:
         application/json:
           schema:
@@ -903,12 +842,11 @@ components:
           examples:
             unavailable:
               value:
-                timestamp: '2026-10-22T14:05:00Z'
                 status: 503
-                code: EXTERNAL_SERVICE_UNAVAILABLE
-                message: Service MS02 is unavailable. Please try again later.
-                path: /api/v1/alertas
-                details: []
+                codigo: SERVICIO_EXTERNO_NO_DISPONIBLE
+                mensaje: El servicio MS01 no está disponible. Intenta de nuevo más tarde
+                errores: []
+                correlation_id: 11111111-1111-4111-8111-111111111111
   schemas:
     AlertStatus:
       type: string
@@ -967,7 +905,7 @@ components:
           items:
             type: string
           example:
-            - bld-001
+            - BLD-001
     RecipientRequest:
       type: object
       required:
@@ -979,7 +917,12 @@ components:
         id:
           type: string
           maxLength: 64
-          example: usr-001
+          description: |
+            UUID del usuario cuando type es USER. Uno de los 8 roles oficiales
+            cuando type es ROLE.
+          examples:
+            - 11111111-1111-4111-8111-111111111111
+            - ESTUDIANTE
     AlertOriginRequest:
       type: object
       required:
@@ -1026,7 +969,7 @@ components:
           format: date-time
           description: |
             Si es futura, la alerta nace SCHEDULED. Si es pasada o igual al
-            instante actual, responde 400 INVALID_ACTIVATION_DATE.
+            instante actual, responde 400 FECHA_ACTIVACION_INVALIDA.
         activateImmediately:
           type: boolean
           description: |
@@ -1068,8 +1011,8 @@ components:
           type: string
           format: uuid
           description: |
-            Obligatorio cuando el actor es SERVICE_MS06. Se acepta el alias
-            eventId.
+            Obligatorio cuando el actor es MS06 u ORGANIZADOR. Se acepta el
+            alias eventId.
     AlertResponse:
       type: object
       properties:
@@ -1099,6 +1042,7 @@ components:
             $ref: '#/components/schemas/RecipientRequest'
         createdBy:
           type: string
+          description: Actor que creo la alerta (UUID del usuario o actor de servicio).
         createdAt:
           type: string
           format: date-time
@@ -1152,7 +1096,7 @@ components:
     PageResponseAlertSummaryResponse:
       type: object
       properties:
-        content:
+        contenido:
           type: array
           items:
             $ref: '#/components/schemas/AlertSummaryResponse'
@@ -1162,10 +1106,10 @@ components:
         size:
           type: integer
           format: int32
-        totalElements:
+        total_elementos:
           type: integer
           format: int64
-        totalPages:
+        total_paginas:
           type: integer
           format: int32
     ConfirmationResponse:
@@ -1179,6 +1123,7 @@ components:
           format: uuid
         usuarioId:
           type: string
+          format: uuid
         fechaConfirmacion:
           type: string
           format: date-time
@@ -1195,7 +1140,10 @@ components:
           type: string
         actorType:
           type: string
-          description: COORDINATOR, AUDITOR, SERVICE_MS06 o USER.
+          enum:
+            - USER
+            - SERVICE
+            - SYSTEM
         action:
           $ref: '#/components/schemas/AuditAction'
         fromStatus:
@@ -1213,56 +1161,56 @@ components:
           format: date-time
     ErrorResponse:
       type: object
+      additionalProperties: false
       required:
-        - timestamp
         - status
-        - code
-        - message
-        - path
-        - details
+        - codigo
+        - mensaje
+        - errores
+        - correlation_id
       properties:
-        timestamp:
-          type: string
-          format: date-time
         status:
           type: integer
-        code:
+          description: Codigo HTTP de la respuesta.
+        codigo:
           type: string
           enum:
-            - VALIDATION_ERROR
-            - INVALID_REFERENCE
-            - INVALID_PAGINATION
-            - INVALID_ACTIVATION_DATE
-            - UNAUTHORIZED
-            - FORBIDDEN
-            - NOT_A_RECIPIENT
-            - ALERT_NOT_FOUND
-            - RESOURCE_NOT_FOUND
-            - METHOD_NOT_ALLOWED
-            - UNSUPPORTED_MEDIA_TYPE
-            - INVALID_ALERT_STATE
-            - INVALID_TRANSITION
-            - ALERT_NOT_ACTIVE
-            - SIMULATION_MISMATCH
-            - DUPLICATE_SIMULATION_ALERT
-            - CONCURRENT_MODIFICATION
-            - EXTERNAL_SERVICE_UNAVAILABLE
-            - INTERNAL_ERROR
-        message:
+            - VALIDACION
+            - REFERENCIA_INVALIDA
+            - PAGINACION_INVALIDA
+            - FECHA_ACTIVACION_INVALIDA
+            - NO_AUTENTICADO
+            - PROHIBIDO
+            - NO_ES_DESTINATARIO
+            - ALERTA_NO_ENCONTRADA
+            - NO_ENCONTRADO
+            - METODO_NO_PERMITIDO
+            - TIPO_NO_SOPORTADO
+            - ESTADO_ALERTA_INVALIDO
+            - TRANSICION_INVALIDA
+            - ALERTA_NO_ACTIVA
+            - CONFLICTO_SIMULACION
+            - SIMULACION_DUPLICADA
+            - MODIFICACION_CONCURRENTE
+            - SERVICIO_EXTERNO_NO_DISPONIBLE
+            - ERROR_INTERNO
+        mensaje:
           type: string
-        path:
-          type: string
-        details:
+        errores:
           type: array
           items:
             $ref: '#/components/schemas/ErrorDetail'
+        correlation_id:
+          type: string
+          format: uuid
     ErrorDetail:
       type: object
+      additionalProperties: false
       required:
-        - field
-        - message
+        - campo
+        - mensaje
       properties:
-        field:
+        campo:
           type: string
-        message:
+        mensaje:
           type: string
