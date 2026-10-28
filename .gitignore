@@ -1,8 +1,12 @@
 target/
 .env
+.env.gw
+*.pem
 .idea/
 *.iml
 .vscode/
+hs_err_pid*.log
+replay_pid*.log
 
 # Notas locales del asistente
 CLAUDE.md
