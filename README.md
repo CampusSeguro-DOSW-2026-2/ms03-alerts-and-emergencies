@@ -173,9 +173,12 @@ The project is analyzed with SonarQube, using the JaCoCo XML report (`target/sit
 
 ![context Diagram](/docs/images/diagramaContexto.png)
 
-### Components Diagram
+### containers Diagram
 
 ![Components Diagram](/docs/images/diagramaComponentes.png)
+
+### components Diagram
+![Diagrama de componentes UML de MS03](docs/images/diagrama-componentes-ms03.svg)
 
 
 ---
