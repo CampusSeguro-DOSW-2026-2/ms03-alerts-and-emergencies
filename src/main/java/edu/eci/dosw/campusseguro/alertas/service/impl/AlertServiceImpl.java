@@ -392,12 +392,23 @@ public class AlertServiceImpl implements AlertService {
                                 .collect(Collectors.groupingBy(
                                         AlertScopeItemEntity::getAlertId));
 
+        // Una sola consulta por página: el listado no necesita pedir el detalle de cada alerta.
+        Map<UUID, List<AlertRecipientEntity>> recipientsByAlert =
+                ids.isEmpty()
+                        ? Map.of()
+                        : recipientRepository.findByAlertIdIn(ids)
+                                .stream()
+                                .collect(Collectors.groupingBy(
+                                        AlertRecipientEntity::getAlertId));
+
         List<AlertSummaryResponse> content =
                 result.getContent()
                         .stream()
                         .map(alert -> alertMapper.toSummary(
                                 alert,
                                 scopeByAlert.getOrDefault(
+                                        alert.getId(), List.of()),
+                                recipientsByAlert.getOrDefault(
                                         alert.getId(), List.of())))
                         .toList();
 
