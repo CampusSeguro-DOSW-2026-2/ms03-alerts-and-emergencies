@@ -171,9 +171,6 @@ public class BrevoEmailSender implements EmailSender {
 
     private String errorMessage(RestClientResponseException ex) {
         String body = ex.getResponseBodyAsString();
-        if (body == null) {
-            body = "";
-        }
         if (body.length() > MAX_ERROR_BODY) {
             body = body.substring(0, MAX_ERROR_BODY);
         }

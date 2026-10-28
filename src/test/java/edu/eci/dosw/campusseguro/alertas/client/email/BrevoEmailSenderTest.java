@@ -199,4 +199,15 @@ class BrevoEmailSenderTest {
 
         assertEquals(300, ex.getMessage().substring(ex.getMessage().indexOf(": ") + 2).length());
     }
+
+    @Test
+    void send_shouldReportStatus_whenErrorResponseHasNoBody() {
+        server.stubFor(post("/v3/smtp/email").willReturn(aResponse().withStatus(400)));
+
+        EmailSendException ex = assertThrows(
+                EmailSendException.class,
+                () -> sender("api-key", 1).send(MESSAGE));
+
+        assertEquals("Brevo respondió 400: ", ex.getMessage());
+    }
 }
