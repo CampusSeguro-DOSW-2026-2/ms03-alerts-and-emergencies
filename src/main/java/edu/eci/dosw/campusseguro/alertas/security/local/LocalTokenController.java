@@ -18,6 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class LocalTokenController {
 
     private static final String GENERIC_USER = "USER";
+    // Usuario de catalog-stub.json con rol STUDENT, para demostrar ver y confirmar alertas.
+    private static final String DEMO_RECIPIENT = "RECIPIENT";
+    private static final String DEMO_RECIPIENT_ID = "usr-002";
+    private static final String DEMO_RECIPIENT_ROLE = "STUDENT";
 
     private final LocalTokenService localTokenService;
 
@@ -33,6 +37,7 @@ public class LocalTokenController {
             tokens.put(role.name(), localTokenService.generate(subject, List.of(role.name())));
         }
         tokens.put(GENERIC_USER, localTokenService.generate("local-user", List.of()));
+        tokens.put(DEMO_RECIPIENT, localTokenService.generate(DEMO_RECIPIENT_ID, List.of(DEMO_RECIPIENT_ROLE)));
         return tokens;
     }
 }
