@@ -19,6 +19,13 @@
 
     <properties>
         <java.version>21</java.version>
+
+        <!-- Análisis estático con SonarQube (mvn verify sonar:sonar) -->
+        <sonar.projectKey>ms03-alerts-and-emergencies</sonar.projectKey>
+        <sonar.projectName>MS03 - Alerts and Emergencies</sonar.projectName>
+        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+        <sonar.coverage.exclusions>**/AlertsApplication.java</sonar.coverage.exclusions>
     </properties>
 
     <dependencies>
@@ -149,6 +156,11 @@
                 </execution>
             </executions>
         </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>5.1.0.4751</version>
+            </plugin>
         </plugins>
     </build>
 </project>
