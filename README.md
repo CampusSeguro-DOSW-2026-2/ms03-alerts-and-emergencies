@@ -156,6 +156,29 @@ Actually we have 78% of coverage with the implemented tests
 
 ![Jacoco](/docs/images/alerts_jacoco.png)
 
+### Static Analysis (SonarQube)
+
+The project is analyzed with SonarQube, using the JaCoCo XML report (`target/site/jacoco/jacoco.xml`) as the coverage source.
+
+**Run it locally:**
+
+1. Start SonarQube (http://localhost:9000, first login `admin`/`admin`):
+
+   ```bash
+   docker compose --profile sonar up -d sonarqube
+   ```
+
+2. In SonarQube, create a local project with key `ms03-alerts-and-emergencies` and generate a token.
+3. Build, test and analyze (Docker must be running for the `*IT` tests):
+
+   ```bash
+   mvn clean verify sonar:sonar -Dsonar.token=<YOUR_TOKEN>
+   ```
+
+   Never commit the token; pass it on the command line or through the `SONAR_TOKEN` environment variable.
+
+**Continuous integration:** `.github/workflows/sonarqube.yml` runs the analysis on every push to `main`/`develop` and on pull requests, and fails if the Quality Gate is not met. It requires the repository secrets `SONAR_TOKEN` and `SONAR_HOST_URL`.
+
 ## 8. Diagrams
 
 ### DataBase Diagram
