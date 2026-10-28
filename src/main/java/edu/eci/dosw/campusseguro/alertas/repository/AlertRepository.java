@@ -27,7 +27,9 @@ public interface AlertRepository
             AlertStatus status,
             Instant activationAt);
 
-    Optional<AlertEntity> findBySimulationIdAndStatusIn(UUID simulationId, Collection<AlertStatus> statuses);
+    Optional<AlertEntity> findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
+            UUID simulationId,
+            Collection<AlertStatus> statuses);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""

@@ -13,6 +13,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.mail.MailException;
@@ -24,6 +25,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 @Component
+@ConditionalOnProperty(name = "app.mail.provider", havingValue = "brevo", matchIfMissing = true)
 public class BrevoEmailSender implements EmailSender {
 
     private static final Logger log = LoggerFactory.getLogger(BrevoEmailSender.class);
@@ -171,9 +173,6 @@ public class BrevoEmailSender implements EmailSender {
 
     private String errorMessage(RestClientResponseException ex) {
         String body = ex.getResponseBodyAsString();
-        if (body == null) {
-            body = "";
-        }
         if (body.length() > MAX_ERROR_BODY) {
             body = body.substring(0, MAX_ERROR_BODY);
         }

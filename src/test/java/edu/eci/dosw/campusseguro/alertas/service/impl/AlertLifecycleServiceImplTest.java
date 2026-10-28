@@ -26,7 +26,6 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
-import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -257,59 +256,24 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
-    void activateScheduledAlerts_shouldActivateDueAlerts() {
+    void findDueScheduledAlertIds_shouldReturnIdsOfDueScheduledAlerts() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         AlertEntity first = alert(AlertStatus.SCHEDULED);
         AlertEntity second = alert(AlertStatus.SCHEDULED);
         ReflectionTestUtils.setField(second, "id", secondId);
-
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of(first, second));
-        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(first));
-        when(alertRepository.findForUpdate(secondId)).thenReturn(Optional.of(second));
-        when(alertRepository.activateIfPending(
-                any(UUID.class), eq(AlertStatus.ACTIVE), eq(NOW), any()))
-                .thenAnswer(invocation -> {
-                    UUID id = invocation.getArgument(0);
-                    AlertEntity target = ID.equals(id) ? first : second;
-                    target.setStatus(AlertStatus.ACTIVE);
-                    target.setActivatedAt(NOW);
-                    return 1;
-                });
 
-        service.activateScheduledAlerts();
-
-        assertEquals(AlertStatus.ACTIVE, first.getStatus());
-        assertEquals(AlertStatus.ACTIVE, second.getStatus());
-        verify(alertRepository, never()).saveAndFlush(any(AlertEntity.class));
-        verify(auditService).record(
-                ID,
-                AuditAction.ACTIVATE,
-                ActorResolver.SYSTEM_SCHEDULER,
-                AlertStatus.SCHEDULED,
-                AlertStatus.ACTIVE,
-                "Alert activated from SCHEDULED");
-        verify(auditService).record(
-                secondId,
-                AuditAction.ACTIVATE,
-                ActorResolver.SYSTEM_SCHEDULER,
-                AlertStatus.SCHEDULED,
-                AlertStatus.ACTIVE,
-                "Alert activated from SCHEDULED");
-        verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW));
-        verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(secondId, AlertStatus.SCHEDULED, NOW));
+        assertEquals(List.of(ID, secondId), service.findDueScheduledAlertIds());
+        verifyNoInteractions(stateMachine, auditService, eventPublisher);
     }
 
     @Test
-    void activateScheduledAlerts_shouldNotActivateAnything_whenThereAreNoDueAlerts() {
+    void findDueScheduledAlertIds_shouldReturnEmpty_whenThereAreNoDueAlerts() {
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of());
 
-        service.activateScheduledAlerts();
-
-        verifyNoInteractions(stateMachine, auditService);
+        assertEquals(List.of(), service.findDueScheduledAlertIds());
     }
 
     @Test

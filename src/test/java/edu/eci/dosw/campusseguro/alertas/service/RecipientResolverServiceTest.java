@@ -88,12 +88,14 @@ class RecipientResolverServiceTest {
     }
 
     @Test
-    void resolve_shouldFail_whenDirectUserDoesNotExist() {
-        when(recipientRepository.findByAlertId(ALERT_ID))
-                .thenReturn(List.of(recipient(RecipientType.USER, "usr-404")));
+    void resolve_shouldSkipMissingUserAndKeepTheOthers() {
+        when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(
+                recipient(RecipientType.USER, "usr-404"),
+                recipient(RecipientType.USER, "usr-001")));
         when(catalogClient.findUserById("usr-404")).thenReturn(Optional.empty());
+        when(catalogClient.findUserById("usr-001")).thenReturn(Optional.of(ANA));
 
-        assertThrows(ExternalServiceUnavailableException.class, () -> service.resolve(ALERT_ID));
+        assertEquals(List.of(ANA), service.resolve(ALERT_ID));
         verify(catalogClient).findUserById("usr-404");
     }
 

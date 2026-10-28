@@ -37,13 +37,14 @@ The microservice is intended to support the following responsibilities:
 
 ## 4. Technology Stack
 
-The project structure indicates a Java-based application. Complete this section with the technologies and versions configured in the repository.
-
-- **Programming Language:** Java
-- **Application Framework:** [Spring Boot]
-- **Build Tool:** [Maven]
-- **Database:** [PostgresSQL]
-- **Testing Framework:** [JUnit]
+- **Programming Language:** Java 21
+- **Application Framework:** Spring Boot 4.1 (Web MVC, Data JPA, Security with JWT resource server, Validation)
+- **Build Tool:** Maven
+- **Database:** PostgreSQL 17 on Docker
+- **Email:** Brevo (simulated in the local profile)
+- **API documentation:** springdoc-openapi (Swagger UI) and `docs/api/openapi.yaml`
+- **Testing:** JUnit 5, Mockito, MockMvc, WireMock, Testcontainers, JaCoCo
+- **Static analysis:** SonarQube
 - **Version Control:** Git
 
 ## 5. Project Structure
@@ -55,7 +56,7 @@ ms03-alerts-and-emergencies/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── edu/eci/dosw/campuseguro/alertas/
+│   │   │   └── edu/eci/dosw/campusseguro/alertas/
 │   │   │       ├── client/
 │   │   │       ├── config/
 │   │   │       ├── controller/
@@ -72,7 +73,7 @@ ms03-alerts-and-emergencies/
 │   │   └── resources/
 │   └── test/
 │       └── java/
-│           └── edu/eci/dosw/campuseguro/alertas/
+│           └── edu/eci/dosw/campusseguro/alertas/
 │               ├── client/
 │               ├── controller/
 │               ├── exception/
@@ -88,73 +89,75 @@ ms03-alerts-and-emergencies/
 
 ### Prerequisites
 
-Before running the application, ensure that the following tools are installed and configured:
+- JDK 21 or newer.
+- Maven 3.9+ (the repository has no Maven Wrapper).
+- Docker Desktop (PostgreSQL and the integration tests run on Docker).
 
-- Java Development Kit (JDK), using the version required by the project (at least 21).
-- The project's configured build tool, such as Maven.
-- Git.
-- Any database or external services required by the application.
+### Run locally
 
-### Clone the Repository
+1. Start PostgreSQL 17. The scripts in `database/` run in order the first time the volume is created, including `005_sample_data.sql`, which loads one alert in each lifecycle state:
 
-```bash
-git clone <REPOSITORY_URL>
-cd ms03-alerts-and-emergencies
-```
+   ```bash
+   docker compose up -d
+   ```
 
-Replace `<REPOSITORY_URL>` with the actual repository URL.
+   To reload the scripts from scratch: `docker compose down -v && docker compose up -d`.
 
-### Configure the Application
+2. Start the service with the default `local` profile (http://localhost:8080, Swagger at http://localhost:8080/swagger-ui.html):
 
-Review the configuration files in `src/main/resources/` and configure the required environment variables, database connection, credentials, and external service endpoints.
+   ```bash
+   mvn spring-boot:run
+   ```
 
-Do not commit passwords, access tokens, or other sensitive credentials to the repository.
+The `local` profile needs no external services:
 
-### Build and Run
+- **MS01/MS02** are replaced by `src/main/resources/catalog-stub.json` (buildings, zones, roles and users).
+- **Email** is simulated: each notification is written to the log and recorded as sent. To send real email through Brevo, set `MAIL_PROVIDER=brevo` and `BREVO_API_KEY` in a `.env` file (ignored by Git).
+- **Tokens:** `GET http://localhost:8080/local/tokens` returns a JWT for each role:
 
-Use the commands corresponding to the build tool configured in the project.
+  | Key | Use |
+  |---|---|
+  | `COORDINATOR` | Creates, edits and manages the lifecycle of alerts |
+  | `AUDITOR` | Reads alerts and their audit history |
+  | `SERVICE_MS06` | Creates, activates and ends simulation alerts |
+  | `RECIPIENT` | User `usr-002` with role `STUDENT`; can view and confirm the sample ACTIVE alert |
+  | `USER` | Authenticated user who is not a recipient (gets 403) |
 
-For a Maven project with a Maven Wrapper:
+The Postman collection in `docs/postman/` covers the full contract: `npx newman run docs/postman/ms03-alertas.postman_collection.json` with the service running.
 
-**Linux/macOS:**
-
-```bash
-./mvnw clean install
-./mvnw spring-boot:run
-```
-
-**Windows:**
-
-```powershell
-.\mvnw.cmd clean install
-.\mvnw.cmd spring-boot:run
-```
-
-These commands apply if the repository contains a compatible Maven Wrapper and is configured as a Spring Boot application.
+Never commit passwords, access tokens or other credentials to the repository.
 
 ## 7. Testing
 
-The project contains a test structure organized by component, including controllers, services, clients, mappers, exceptions, and security.
-
-To execute the test suite in a Maven-based project, run:
-
-**Linux/macOS:**
-
 ```bash
-./mvnw test
+mvn test     # unit tests (JUnit 5, Mockito, MockMvc, WireMock)
+mvn verify   # also integration tests *IT with Testcontainers (requires Docker) and the JaCoCo report
 ```
 
-**Windows:**
+`mvn verify` fails if line coverage drops below 80%. The current line coverage is about 88%; the HTML report is generated in `target/site/jacoco/index.html`.
 
-```powershell
-.\mvnw.cmd test
-```
+### Static Analysis (SonarQube)
 
-Tests should verify the expected behavior of the application, including business rules, request validation, exception handling, service interactions, and security controls, as applicable.
+The project is analyzed with SonarQube, using the JaCoCo XML report (`target/site/jacoco/jacoco.xml`) as the coverage source.
 
-Actually we have 78% of coverage with the implemented tests
+**Run it locally:**
 
-![Jacoco](/docs/images/alerts_jacoco.png)
+1. Start SonarQube (http://localhost:9000, first login `admin`/`admin`):
+
+   ```bash
+   docker compose --profile sonar up -d sonarqube
+   ```
+
+2. In SonarQube, create a local project with key `ms03-alerts-and-emergencies` and generate a token.
+3. Build, test and analyze (Docker must be running for the `*IT` tests):
+
+   ```bash
+   mvn clean verify sonar:sonar -Dsonar.token=<YOUR_TOKEN>
+   ```
+
+   Never commit the token; pass it on the command line or through the `SONAR_TOKEN` environment variable.
+
+**Continuous integration:** `.github/workflows/sonarqube.yml` runs the analysis on every push to `main`/`develop` and on pull requests, and fails if the Quality Gate is not met. It requires the repository secrets `SONAR_TOKEN` and `SONAR_HOST_URL`.
 
 ## 8. Diagrams
 
