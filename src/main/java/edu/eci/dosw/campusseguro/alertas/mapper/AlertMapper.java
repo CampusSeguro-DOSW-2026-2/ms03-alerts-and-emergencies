@@ -11,11 +11,15 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
@@ -77,7 +81,7 @@ public class AlertMapper {
         AlertOriginRequest origin = request.origin();
 
         AlertEntity alert = new AlertEntity();
-        alert.setType(request.type());
+        alert.setTypes(new LinkedHashSet<>(sortedTypes(request.types())));
         alert.setTitle(request.title().strip());
         alert.setStatus(AlertStatus.DRAFT);
         alert.setInstructions(request.instructions().strip());
@@ -209,7 +213,7 @@ public class AlertMapper {
 
         return new AlertResponse(
                 alert.getId(),
-                alert.getType(),
+                sortedTypes(alert.getTypes()),
                 alert.getTitle(),
                 alert.getStatus(),
                 alert.getOrigin(),
@@ -222,7 +226,6 @@ public class AlertMapper {
                 alert.getUpdatedAt(),
                 alert.getActivationAt(),
                 alert.getActivatedAt(),
-                alert.getEndedAt(),
                 alert.getArchivedAt());
     }
 
@@ -235,13 +238,28 @@ public class AlertMapper {
 
         return new AlertSummaryResponse(
                 alert.getId(),
-                alert.getType(),
+                sortedTypes(alert.getTypes()),
                 alert.getTitle(),
                 toScope(scopeItems),
                 alert.getStatus(),
                 alert.getOrigin(),
                 alert.getSimulationId(),
                 alert.getCreatedAt());
+    }
+
+    public List<AlertType> sortedTypes(Collection<AlertType> types) {
+        if (types == null) {
+            return List.of();
+        }
+
+        return types.stream()
+                .filter(Objects::nonNull)
+                .sorted(Comparator.comparingInt(AlertType::ordinal))
+                .toList();
+    }
+
+    public Set<AlertType> toTypeSet(Collection<AlertType> types) {
+        return new LinkedHashSet<>(sortedTypes(types));
     }
 
     private AlertScopeItemEntity newScopeItem(

@@ -1,13 +1,14 @@
-
 package edu.eci.dosw.campusseguro.alertas.repository;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import jakarta.persistence.criteria.Join;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -21,7 +22,7 @@ public final class AlertSpecifications {
 
         return Specification.allOf(
                 hasStatus(filter.status()),
-                hasType(filter.type()),
+                hasAnyType(filter.types()),
                 createdFrom(startOfDay(filter.startDate(), zone)),
                 createdBefore(startOfDay(nextDay(filter.endDate()), zone)),
                 hasSimulationId(filter.simulationId()));
@@ -35,12 +36,18 @@ public final class AlertSpecifications {
                 : cb.equal(root.get("status"), status);
     }
 
-    private static Specification<AlertEntity> hasType(
-            AlertType type) {
+    private static Specification<AlertEntity> hasAnyType(
+            List<AlertType> types) {
 
-        return (root, query, cb) -> type == null
-                ? cb.conjunction()
-                : cb.equal(root.get("type"), type);
+        return (root, query, cb) -> {
+            if (types == null || types.isEmpty()) {
+                return cb.conjunction();
+            }
+
+            query.distinct(true);
+            Join<AlertEntity, AlertType> typeJoin = root.join("types");
+            return typeJoin.in(types);
+        };
     }
 
     private static Specification<AlertEntity> createdFrom(

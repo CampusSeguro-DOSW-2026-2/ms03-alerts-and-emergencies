@@ -43,16 +43,16 @@ class RequesterContextTest {
         RequesterContext service = new RequesterContext(
                 "service-user",
                 Set.of(UserRole.ORGANIZADOR),
-                "MS06");
+                "MS07");
         RequesterContext user = new RequesterContext(
                 "user-1",
                 Set.of(UserRole.COORDINADOR),
-                "ms03");
+                null);
 
-        assertTrue(service.isServiceMs06());
-        assertEquals("ms06:service-user", service.auditActor());
-        assertFalse(user.isServiceMs06());
+        assertEquals("MS07:service-user", service.auditActor());
         assertEquals("user-1", user.auditActor());
+        assertTrue(service.isSimulationOnly());
+        assertFalse(user.isSimulationOnly());
     }
 
     @Test

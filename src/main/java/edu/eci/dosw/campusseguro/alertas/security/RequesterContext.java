@@ -20,11 +20,9 @@ public record RequesterContext(
                 && has(Permission.ALERT_MANAGE_DRILL);
     }
 
-    public boolean isServiceMs06() {
-        return "ms06".equalsIgnoreCase(serviceName);
-    }
-
     public String auditActor() {
-        return isServiceMs06() ? "ms06:" + actor : actor;
+        return serviceName == null || serviceName.isBlank()
+                ? actor
+                : serviceName.strip() + ":" + actor;
     }
 }

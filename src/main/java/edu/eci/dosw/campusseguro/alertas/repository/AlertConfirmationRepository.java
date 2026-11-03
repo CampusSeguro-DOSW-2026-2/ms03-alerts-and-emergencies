@@ -2,6 +2,8 @@ package edu.eci.dosw.campusseguro.alertas.repository;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +16,10 @@ public interface AlertConfirmationRepository extends JpaRepository<AlertConfirma
     Optional<AlertConfirmationEntity> findByAlertIdAndUserId(UUID alertId, String userId);
 
     boolean existsByAlertIdAndUserId(UUID alertId, String userId);
+
+    List<AlertConfirmationEntity> findByUserIdAndAlertIdIn(
+            String userId,
+            Collection<UUID> alertIds);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """

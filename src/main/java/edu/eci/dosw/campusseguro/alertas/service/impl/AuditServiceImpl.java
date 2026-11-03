@@ -4,6 +4,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -43,6 +44,11 @@ public class AuditServiceImpl implements AuditService {
         Objects.requireNonNull(alertId, "Alert ID must not be null.");
         Objects.requireNonNull(action, "Audit action must not be null.");
 
+        if (action == AuditAction.END) {
+            throw new IllegalArgumentException(
+                    "END is a legacy audit action and cannot be emitted.");
+        }
+
         if (actor == null || actor.isBlank()) {
             throw new IllegalArgumentException(
                     "The audit actor must not be null or blank.");
@@ -54,13 +60,19 @@ public class AuditServiceImpl implements AuditService {
         event.setAlertId(alertId);
         event.setAction(action);
         event.setActor(truncate(actor.strip(), MAX_ACTOR_LENGTH));
-        event.setFromStatus(fromStatus);
-        event.setToStatus(toStatus);
+        event.setFromStatus(toAuditStatus(fromStatus));
+        event.setToStatus(toAuditStatus(toStatus));
         event.setDetails(truncate(details, MAX_DETAILS_LENGTH));
         event.setCreatedAt(now);
         event.setUpdatedAt(now);
 
         auditEventRepository.save(event);
+    }
+
+    private AuditStatus toAuditStatus(AlertStatus status) {
+        return status == null
+                ? null
+                : AuditStatus.valueOf(status.name());
     }
 
     private String truncate(String value, int maxLength) {

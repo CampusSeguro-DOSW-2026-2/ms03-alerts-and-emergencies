@@ -31,7 +31,6 @@ class AlertStateRulesTest {
     @Test
     void shouldRejectEditingOtherStates() {
         assertFalse(rules.isEditable(alert(AlertStatus.ACTIVE)));
-        assertFalse(rules.isEditable(alert(AlertStatus.ENDED)));
         assertFalse(rules.isEditable(alert(AlertStatus.ARCHIVED)));
         assertThrows(InvalidAlertStateException.class,
                 () -> rules.assertEditable(alert(AlertStatus.ACTIVE)));
@@ -39,7 +38,7 @@ class AlertStateRulesTest {
 
     @Test
     void shouldRejectChangesOnlyForArchivedAlerts() {
-        assertDoesNotThrow(() -> rules.assertNotArchived(alert(AlertStatus.ENDED)));
+        assertDoesNotThrow(() -> rules.assertNotArchived(alert(AlertStatus.ACTIVE)));
         assertThrows(InvalidAlertStateException.class,
                 () -> rules.assertNotArchived(alert(AlertStatus.ARCHIVED)));
     }

@@ -50,10 +50,11 @@ public class AuditQueryServiceImpl implements AuditQueryService {
     }
 
     private String actorType(String actor) {
-        if (ActorResolver.SYSTEM_SCHEDULER.equals(actor)) {
+        if (ActorResolver.SYSTEM_SCHEDULER.equals(actor)
+                || ActorResolver.SYSTEM_NOTIFIER.equals(actor)) {
             return "SYSTEM";
         }
-        if (actor != null && actor.startsWith("ms06:")) {
+        if (actor != null && actor.contains(":")) {
             return "SERVICE";
         }
         return "USER";

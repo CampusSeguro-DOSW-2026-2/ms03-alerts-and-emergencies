@@ -5,11 +5,12 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record AlertSummaryResponse(
         UUID id,
-        AlertType type,
+        List<AlertType> types,
         String title,
         ScopeRequest scope,
         AlertStatus status,

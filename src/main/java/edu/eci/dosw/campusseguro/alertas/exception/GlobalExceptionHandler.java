@@ -128,15 +128,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 List.of());
     }
 
-    @ExceptionHandler(SimulationMismatchException.class)
-    public ResponseEntity<Object> handleSimulationMismatch(
-            SimulationMismatchException ex) {
-        return respond(
-                ErrorCode.SIMULATION_MISMATCH,
-                ex.getMessage(),
-                List.of());
-    }
-
     @ExceptionHandler(DuplicateSimulationAlertException.class)
     public ResponseEntity<Object> handleDuplicateSimulationAlert(
             DuplicateSimulationAlertException ex) {

@@ -64,10 +64,6 @@ public enum ErrorCode {
             HttpStatus.CONFLICT,
             "ALERTA_NO_ACTIVA",
             "La alerta no está activa"),
-    SIMULATION_MISMATCH(
-            HttpStatus.CONFLICT,
-            "CONFLICTO_SIMULACION",
-            "El simulacro no corresponde a la alerta"),
     DUPLICATE_SIMULATION_ALERT(
             HttpStatus.CONFLICT,
             "SIMULACION_DUPLICADA",

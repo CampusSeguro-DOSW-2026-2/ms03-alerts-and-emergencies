@@ -16,7 +16,7 @@ public interface AlertService {
             AlertCreateRequest request,
             RequesterContext requester);
 
-    AlertResponse update(UUID id, AlertUpdateRequest request, String actor);
+    AlertResponse update(UUID id, AlertUpdateRequest request, RequesterContext requester);
 
     AlertResponse findById(UUID id, AccessActor actor);
 

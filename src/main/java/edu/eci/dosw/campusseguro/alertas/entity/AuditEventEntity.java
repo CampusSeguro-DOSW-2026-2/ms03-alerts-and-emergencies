@@ -1,7 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.entity;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,11 +32,11 @@ public class AuditEventEntity extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "from_status", updatable = false, length = 20)
-    private AlertStatus fromStatus;
+    private AuditStatus fromStatus;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "to_status", updatable = false, length = 20)
-    private AlertStatus toStatus;
+    private AuditStatus toStatus;
 
     @Column(name = "details", updatable = false, length = 500)
     private String details;
@@ -69,19 +69,19 @@ public class AuditEventEntity extends BaseEntity {
         this.actor = actor;
     }
 
-    public AlertStatus getFromStatus() {
+    public AuditStatus getFromStatus() {
         return fromStatus;
     }
 
-    public void setFromStatus(AlertStatus fromStatus) {
+    public void setFromStatus(AuditStatus fromStatus) {
         this.fromStatus = fromStatus;
     }
 
-    public AlertStatus getToStatus() {
+    public AuditStatus getToStatus() {
         return toStatus;
     }
 
-    public void setToStatus(AlertStatus toStatus) {
+    public void setToStatus(AuditStatus toStatus) {
         this.toStatus = toStatus;
     }
 

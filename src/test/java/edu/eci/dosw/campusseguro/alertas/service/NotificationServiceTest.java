@@ -33,6 +33,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -86,7 +87,7 @@ class NotificationServiceTest {
     private AlertEntity alert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setType(AlertType.EARTHQUAKE);
+        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
         alert.setStatus(AlertStatus.ACTIVE);
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions("Evacuar");

@@ -74,21 +74,20 @@ class ActorResolverTest {
         assertTrue(context.has(Permission.ALERT_MANAGE));
         assertTrue(context.has(Permission.ALERT_RECEIVE));
         assertFalse(context.isSimulationOnly());
-        assertFalse(context.isServiceMs06());
+        assertEquals("ms03:" + USER_ID, context.auditActor());
     }
 
     @Test
-    void requester_shouldReturnAuditActorWithServicePrefix_whenServiceIsMs06() {
+    void requester_shouldReturnAuditActorWithServicePrefix_forAnyService() {
         authenticate(new RequesterIdentity(
                 USER_ID,
                 Set.of(UserRole.ORGANIZADOR),
-                "MS06"));
+                "MS07"));
 
         RequesterContext context = resolver.requester();
 
-        assertEquals("ms06", context.serviceName());
-        assertTrue(context.isServiceMs06());
-        assertEquals("ms06:" + USER_ID, context.auditActor());
+        assertEquals("ms07", context.serviceName());
+        assertEquals("ms07:" + USER_ID, context.auditActor());
         assertTrue(context.isSimulationOnly());
     }
 

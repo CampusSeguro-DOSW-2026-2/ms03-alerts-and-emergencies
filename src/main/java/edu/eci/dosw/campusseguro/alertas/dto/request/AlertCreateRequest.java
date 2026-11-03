@@ -1,6 +1,5 @@
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -11,8 +10,11 @@ import java.time.Instant;
 import java.util.List;
 
 public record AlertCreateRequest(
-        @NotNull(message = "Alert type is required")
-        AlertType type,
+        @NotEmpty(message = "At least one alert type is required")
+        List<
+                @NotNull(message = "Alert type cannot be null")
+                AlertType
+        > types,
 
         @NotBlank(message = "Title is required")
         @Size(max = 150, message = "Title cannot exceed 150 characters")
@@ -37,7 +39,6 @@ public record AlertCreateRequest(
 
         Instant activationAt,
 
-        @JsonAlias("activarInmediatamente")
         Boolean activateImmediately
 ) {
 }

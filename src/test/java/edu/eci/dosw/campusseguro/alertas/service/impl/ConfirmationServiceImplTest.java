@@ -119,7 +119,7 @@ class ConfirmationServiceImplTest {
 
     @Test
     void confirm_shouldThrowNotActive_whenAlertIsNotActive() {
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ENDED)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.DRAFT)));
 
         assertThrows(AlertNotActiveException.class, () -> service.confirm(ALERT_ID, ACTOR));
 

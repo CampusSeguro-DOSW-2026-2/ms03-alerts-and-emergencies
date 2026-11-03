@@ -3,6 +3,8 @@ package edu.eci.dosw.campusseguro.alertas.client.email;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import java.util.Comparator;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
@@ -10,54 +12,165 @@ import org.springframework.web.util.HtmlUtils;
 @Component
 public class EmailTemplateBuilder {
 
+    private static final String MESSAGE_BASE =
+            "Has recibido una alerta oficial de CampusSeguro. "
+                    + "Confirma la recepción y sigue los pasos indicados: ";
+
     private final String appBaseUrl;
 
-    public EmailTemplateBuilder(@Value("${app.mail.app-base-url:http://localhost:5173}") String appBaseUrl) {
-        this.appBaseUrl = appBaseUrl.endsWith("/")
-                ? appBaseUrl.substring(0, appBaseUrl.length() - 1)
-                : appBaseUrl;
+    public EmailTemplateBuilder(
+            @Value("${app.mail.app-base-url:http://localhost:5173}")
+            String appBaseUrl) {
+
+        this.appBaseUrl = appBaseUrl == null
+                ? ""
+                : appBaseUrl.strip().replaceAll("/+$", "");
     }
 
     public EmailMessage build(AlertEntity alert, ResolvedUser recipient) {
-        String link = appBaseUrl + "/alertas/" + alert.getId() + "/ver";
-        String type = typeLabel(alert.getType());
+        List<AlertType> types = sortedTypes(alert.getTypes());
+        boolean operational = types.contains(AlertType.OPERATIVA);
+        String link = link(alert);
         String instructions = alert.getInstructions();
-        String safeInstructions = HtmlUtils.htmlEscape(instructions, "UTF-8");
-        String safeType = HtmlUtils.htmlEscape(type, "UTF-8");
-        String safeLink = HtmlUtils.htmlEscape(link, "UTF-8");
-        String safeName = HtmlUtils.htmlEscape(recipient.name() == null ? "" : recipient.name(), "UTF-8");
+        String title = alert.getTitle();
 
-        String subject = "Alerta CampusSeguro: " + type;
-        String html = """
-                <!doctype html>
-                <html lang="es">
-                <body>
-                  <p>Hola %s,</p>
-                  <p>Se activó una alerta de <strong>%s</strong> en CampusSeguro.</p>
-                  <p>%s</p>
-                  <p><a href="%s">Ver y confirmar alerta</a></p>
-                </body>
-                </html>
-                """.formatted(safeName, safeType, safeInstructions, safeLink);
-        String text = """
-                Hola %s,
+        String subject = operational
+                ? "[Operativa] " + title
+                : "Alerta CampusSeguro: " + labels(types);
 
-                Se activó una alerta de %s en CampusSeguro.
+        String html = operational
+                ? operationalHtml(title, instructions, link)
+                : emergencyHtml(instructions, link);
 
-                %s
+        String text = operational
+                ? operationalText(title, instructions, link)
+                : emergencyText(instructions, link);
 
-                Ver y confirmar alerta: %s
-                """.formatted(recipient.name() == null ? "" : recipient.name(), type, instructions, link);
+        return new EmailMessage(
+                recipient.email(),
+                recipient.name(),
+                subject,
+                html,
+                text);
+    }
 
-        return new EmailMessage(recipient.email(), recipient.name(), subject, html, text);
+    private String emergencyHtml(String instructions, String link) {
+        String escapedInstructions = escape(instructions);
+
+        StringBuilder html = new StringBuilder();
+        html.append("<p>")
+                .append(escape(MESSAGE_BASE))
+                .append(escapedInstructions)
+                .append(".</p>");
+
+        if (link != null) {
+            html.append("<p>Ver y confirmar alerta: <a href=\"")
+                    .append(escape(link))
+                    .append("\">")
+                    .append(escape(link))
+                    .append("</a></p>");
+        }
+
+        return html.toString();
+    }
+
+    private String operationalHtml(
+            String title,
+            String instructions,
+            String link) {
+
+        StringBuilder html = new StringBuilder();
+        html.append("<p><strong>")
+                .append(escape(title))
+                .append("</strong></p>")
+                .append("<p>")
+                .append(escape(instructions))
+                .append("</p>");
+
+        if (link != null) {
+            html.append("<p><a href=\"")
+                    .append(escape(link))
+                    .append("\">Ver y confirmar alerta</a></p>");
+        }
+
+        return html.toString();
+    }
+
+    private String emergencyText(String instructions, String link) {
+        StringBuilder text = new StringBuilder()
+                .append(MESSAGE_BASE)
+                .append(instructions)
+                .append(".");
+
+        if (link != null) {
+            text.append(System.lineSeparator())
+                    .append("Ver y confirmar alerta: ")
+                    .append(link);
+        }
+
+        return text.toString();
+    }
+
+    private String operationalText(
+            String title,
+            String instructions,
+            String link) {
+
+        StringBuilder text = new StringBuilder()
+                .append(title)
+                .append(System.lineSeparator())
+                .append(System.lineSeparator())
+                .append(instructions);
+
+        if (link != null) {
+            text.append(System.lineSeparator())
+                    .append(System.lineSeparator())
+                    .append("Ver y confirmar alerta: ")
+                    .append(link);
+        }
+
+        return text.toString();
+    }
+
+    private String link(AlertEntity alert) {
+        if (appBaseUrl.isBlank()) {
+            return null;
+        }
+
+        return appBaseUrl + "/bandeja?alerta=" + alert.getId();
+    }
+
+    private List<AlertType> sortedTypes(
+            java.util.Collection<AlertType> types) {
+
+        if (types == null) {
+            return List.of();
+        }
+
+        return types.stream()
+                .sorted(Comparator.comparingInt(AlertType::ordinal))
+                .toList();
+    }
+
+    private String labels(List<AlertType> types) {
+        return types.stream()
+                .map(this::typeLabel)
+                .reduce((left, right) -> left + ", " + right)
+                .orElse("");
+    }
+
+    private String escape(String value) {
+        return HtmlUtils.htmlEscape(
+                value == null ? "" : value,
+                "UTF-8");
     }
 
     private String typeLabel(AlertType type) {
         return switch (type) {
             case EARTHQUAKE -> "Terremoto";
-            case SIMULATION -> "Simulacro";
             case FIRE -> "Incendio";
             case OTHER -> "Otra emergencia";
+            case OPERATIVA -> "Operativa";
         };
     }
 }

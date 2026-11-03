@@ -1,20 +1,18 @@
-
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
-import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
-import edu.eci.dosw.campusseguro.alertas.exception.SimulationMismatchException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
@@ -29,7 +27,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,9 +78,10 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     public AlertResponse schedule(
             UUID id,
             AlertScheduleRequest request,
-            String actor) {
+            RequesterContext requester) {
 
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
         Instant now = clock.instant();
         Instant activationAt = request.activationAt();
@@ -106,7 +105,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 alert.getId(),
                 AuditAction.SCHEDULE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),
                 "Alert scheduled for " + activationAt);
@@ -116,18 +115,19 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
     @Override
     @Transactional
-    public AlertResponse activate(UUID id, String actor) {
-        return activate(id, actor, CorrelationIds.current());
+    public AlertResponse activate(UUID id, RequesterContext requester) {
+        return activate(id, requester, CorrelationIds.current());
     }
 
     @Override
     @Transactional
     public AlertResponse activate(
             UUID id,
-            String actor,
+            RequesterContext requester,
             String correlationId) {
 
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
         if (alert.getStatus() == AlertStatus.ACTIVE) {
             return toResponse(alert);
@@ -163,7 +163,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 activated.getId(),
                 AuditAction.ACTIVATE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 activated.getStatus(),
                 "Alert activated from " + previousStatus);
@@ -188,14 +188,16 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                         AlertStatus.SCHEDULED,
                         now);
 
+        RequesterContext system = new RequesterContext(
+                ActorResolver.SYSTEM_SCHEDULER,
+                Set.of(),
+                null);
+
         for (AlertEntity alert : alerts) {
             String correlationId = CorrelationIds.resolve(null);
             MDC.put(CorrelationIds.MDC_KEY, correlationId);
             try {
-                activate(
-                        alert.getId(),
-                        ActorResolver.SYSTEM_SCHEDULER,
-                        correlationId);
+                activate(alert.getId(), system, correlationId);
             } catch (RuntimeException ex) {
                 log.warn(
                         "No se pudo activar la alerta programada {}: {}",
@@ -209,63 +211,13 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
     @Override
     @Transactional
-    public AlertResponse end(
-            UUID id,
-            AlertEndRequest request,
-            RequesterContext requester) {
-
-        String actor = requester.auditActor();
+    public AlertResponse archive(UUID id, RequesterContext requester) {
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (requester.isServiceMs06() || requester.isSimulationOnly()) {
-            if (request == null || request.simulationId() == null) {
-                throw new InvalidAlertRequestException(
-                        "simulationId",
-                        "simulationId es obligatorio para MS06 "
-                                + "y para los organizadores de simulacros");
-            }
-
-            if (!Objects.equals(
-                    request.simulationId(),
-                    alert.getSimulationId())) {
-                throw new SimulationMismatchException(
-                        alert.getId(),
-                        request.simulationId());
-            }
-        }
-
-        if (alert.getStatus() == AlertStatus.ENDED) {
+        if (alert.getStatus() == AlertStatus.ARCHIVED) {
             return toResponse(alert);
         }
-
-        AlertStatus previousStatus = alert.getStatus();
-        Instant now = clock.instant();
-
-        alertStateMachine.assertTransition(
-                previousStatus,
-                AlertStatus.ENDED);
-
-        alert.setStatus(AlertStatus.ENDED);
-        alert.setEndedAt(now);
-        alert.setUpdatedAt(now);
-
-        alertRepository.saveAndFlush(alert);
-
-        auditService.record(
-                alert.getId(),
-                AuditAction.END,
-                actor,
-                previousStatus,
-                alert.getStatus(),
-                "Alert ended");
-
-        return toResponse(alert);
-    }
-
-    @Override
-    @Transactional
-    public AlertResponse archive(UUID id, String actor) {
-        AlertEntity alert = findAlertForUpdate(id);
 
         AlertStatus previousStatus = alert.getStatus();
         Instant now = clock.instant();
@@ -283,7 +235,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 alert.getId(),
                 AuditAction.ARCHIVE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),
                 "Alert archived");
@@ -294,6 +246,18 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     private AlertEntity findAlertForUpdate(UUID id) {
         return alertRepository.findForUpdate(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
+    }
+
+    private void assertManageDrillAllowed(
+            RequesterContext requester,
+            AlertOrigin origin) {
+
+        if (requester.isSimulationOnly()
+                && origin != AlertOrigin.SIMULATION) {
+            throw new ForbiddenOperationException(
+                    "El rol ORGANIZADOR solo puede operar alertas "
+                            + "asociadas a un simulacro");
+        }
     }
 
     private AlertResponse toResponse(AlertEntity alert) {

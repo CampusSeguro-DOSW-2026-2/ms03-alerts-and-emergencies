@@ -17,9 +17,10 @@ class AlertStateMachineTest {
     void shouldAllowEveryValidTransition() {
         assertTrue(stateMachine.canTransition(AlertStatus.DRAFT, AlertStatus.SCHEDULED));
         assertTrue(stateMachine.canTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE));
+        assertTrue(stateMachine.canTransition(AlertStatus.DRAFT, AlertStatus.ARCHIVED));
         assertTrue(stateMachine.canTransition(AlertStatus.SCHEDULED, AlertStatus.ACTIVE));
-        assertTrue(stateMachine.canTransition(AlertStatus.ACTIVE, AlertStatus.ENDED));
-        assertTrue(stateMachine.canTransition(AlertStatus.ENDED, AlertStatus.ARCHIVED));
+        assertTrue(stateMachine.canTransition(AlertStatus.SCHEDULED, AlertStatus.ARCHIVED));
+        assertTrue(stateMachine.canTransition(AlertStatus.ACTIVE, AlertStatus.ARCHIVED));
         assertDoesNotThrow(() -> stateMachine.assertTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE));
     }
 
@@ -28,7 +29,7 @@ class AlertStateMachineTest {
         assertFalse(stateMachine.canTransition(AlertStatus.ACTIVE, AlertStatus.DRAFT));
         assertFalse(stateMachine.canTransition(AlertStatus.ARCHIVED, AlertStatus.ACTIVE));
         assertThrows(InvalidTransitionException.class,
-                () -> stateMachine.assertTransition(AlertStatus.ENDED, AlertStatus.ACTIVE));
+                () -> stateMachine.assertTransition(AlertStatus.ARCHIVED, AlertStatus.ACTIVE));
     }
 
     @Test

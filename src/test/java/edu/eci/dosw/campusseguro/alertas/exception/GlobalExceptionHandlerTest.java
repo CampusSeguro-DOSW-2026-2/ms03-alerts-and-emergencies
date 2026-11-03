@@ -205,19 +205,6 @@ class GlobalExceptionHandlerTest {
     // ---------- Simulation exceptions ----------
 
     @Test
-    void handleSimulationMismatch_shouldReturn409WithSpanishCode_whenSimulationDoesNotMatchAlert()
-            throws Exception {
-
-        performFailingWith(new SimulationMismatchException(ID, EVENT_ID))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.status").value(409))
-                .andExpect(jsonPath("$.codigo").value("CONFLICTO_SIMULACION"))
-                .andExpect(jsonPath("$.mensaje")
-                        .value("La alerta " + ID
-                                + " no corresponde al simulacro " + EVENT_ID));
-    }
-
-    @Test
     void handleDuplicateSimulationAlert_shouldReturn409WithSpanishCode_whenLiveAlertAlreadyExists()
             throws Exception {
 

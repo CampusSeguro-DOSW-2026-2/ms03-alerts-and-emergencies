@@ -1,7 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,8 +11,8 @@ public record AuditEventResponse(
         String actor,
         String actorType,
         AuditAction action,
-        AlertStatus fromStatus,
-        AlertStatus toStatus,
+        AuditStatus fromStatus,
+        AuditStatus toStatus,
         String detail,
         Instant occurredAt) {
 }

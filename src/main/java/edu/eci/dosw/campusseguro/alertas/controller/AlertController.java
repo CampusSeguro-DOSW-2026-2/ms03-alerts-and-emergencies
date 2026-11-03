@@ -1,12 +1,13 @@
 package edu.eci.dosw.campusseguro.alertas.controller;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
-import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
+import edu.eci.dosw.campusseguro.alertas.dto.request.InboxStatus;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
+import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
@@ -16,6 +17,7 @@ import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
+import edu.eci.dosw.campusseguro.alertas.service.InboxService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -23,6 +25,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
@@ -46,9 +49,6 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Alertas", description = "Gestion y ciclo de vida de alertas")
 public class AlertController {
 
-    private static final String CAN_MANAGE =
-            "hasAuthority('ms03:alert:manage')";
-
     private static final String CAN_MANAGE_ALERTS =
             "hasAnyAuthority('ms03:alert:manage', 'ms03:alert:manage_drill')";
 
@@ -60,14 +60,17 @@ public class AlertController {
 
     private final AlertService alertService;
     private final AlertLifecycleService alertLifecycleService;
+    private final InboxService inboxService;
     private final ActorResolver actorResolver;
 
     public AlertController(
             AlertService alertService,
             AlertLifecycleService alertLifecycleService,
+            InboxService inboxService,
             ActorResolver actorResolver) {
         this.alertService = alertService;
         this.alertLifecycleService = alertLifecycleService;
+        this.inboxService = inboxService;
         this.actorResolver = actorResolver;
     }
 
@@ -75,10 +78,11 @@ public class AlertController {
     @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(
             summary = "Crear alerta",
-            description = "Crea una alerta manual o de simulacro. Si ya existe "
-                    + "una alerta SCHEDULED o ACTIVE para el mismo simulationId "
-                    + "con los mismos datos, devuelve la existente con 200. Si "
-                    + "los datos difieren, responde 409 SIMULACION_DUPLICADA.")
+            description = "Crea una alerta manual o de simulacro con uno o varios "
+                    + "tipos. Si ya existe una alerta SCHEDULED o ACTIVE para el "
+                    + "mismo simulationId con los mismos datos, devuelve la "
+                    + "existente con 200. Si los datos difieren, responde 409 "
+                    + "SIMULACION_DUPLICADA.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Alerta creada"),
             @ApiResponse(responseCode = "200", description = "Alerta existente para el simulationId"),
@@ -116,7 +120,8 @@ public class AlertController {
     })
     public PageResponse<AlertSummaryResponse> search(
             @RequestParam(required = false) AlertStatus status,
-            @RequestParam(required = false) AlertType type,
+            @RequestParam(name = "type", required = false)
+            List<AlertType> types,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate startDate,
@@ -129,7 +134,7 @@ public class AlertController {
 
         AlertFilter filter = new AlertFilter(
                 status,
-                type,
+                types,
                 startDate,
                 endDate,
                 simulationId,
@@ -137,6 +142,32 @@ public class AlertController {
                 size);
 
         return alertService.search(filter);
+    }
+
+    @GetMapping("/mias")
+    @PreAuthorize("hasAuthority('ms03:alert:receive')")
+    @Operation(
+            summary = "Consultar bandeja",
+            description = "Devuelve las alertas dirigidas al actor por usuario, "
+                    + "rol o entrega registrada. Por defecto solo ACTIVE; acepta "
+                    + "ARCHIVED y ALL. Nunca devuelve DRAFT ni SCHEDULED.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Bandeja paginada"),
+            @ApiResponse(responseCode = "400", description = "Paginacion invalida"),
+            @ApiResponse(responseCode = "401", description = "No autenticado"),
+            @ApiResponse(responseCode = "403", description = "Sin permiso")
+    })
+    public PageResponse<InboxAlertResponse> inbox(
+            @RequestParam(required = false) InboxStatus status,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            Authentication authentication) {
+
+        return inboxService.inbox(
+                status,
+                page,
+                size,
+                AccessActor.from(authentication));
     }
 
     @GetMapping("/{id}")
@@ -161,7 +192,7 @@ public class AlertController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize(CAN_MANAGE)
+    @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(summary = "Editar alerta", description = "Solo alertas DRAFT o SCHEDULED.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta actualizada"),
@@ -179,11 +210,11 @@ public class AlertController {
         return alertService.update(
                 id,
                 request,
-                actorResolver.resolve());
+                actorResolver.requester());
     }
 
     @PatchMapping("/{id}/programar")
-    @PreAuthorize(CAN_MANAGE)
+    @PreAuthorize(CAN_MANAGE_ALERTS)
     @Operation(summary = "Programar alerta", description = "DRAFT -> SCHEDULED con fecha futura.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta programada"),
@@ -200,7 +231,7 @@ public class AlertController {
         return alertLifecycleService.schedule(
                 id,
                 request,
-                actorResolver.resolve());
+                actorResolver.requester());
     }
 
     @PatchMapping("/{id}/activar")
@@ -219,37 +250,15 @@ public class AlertController {
     public AlertResponse activate(@PathVariable UUID id) {
         return alertLifecycleService.activate(
                 id,
-                actorResolver.resolve());
-    }
-
-    @PatchMapping("/{id}/finalizar")
-    @PreAuthorize(CAN_MANAGE_ALERTS)
-    @Operation(
-            summary = "Finalizar alerta",
-            description = "ACTIVE -> ENDED. Es idempotente si ya esta ENDED. "
-                    + "MS06 y los organizadores de simulacros deben enviar "
-                    + "simulationId y debe coincidir.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Alerta finalizada"),
-            @ApiResponse(responseCode = "400", description = "simulationId requerido para MS06 y organizadores"),
-            @ApiResponse(responseCode = "401", description = "No autenticado"),
-            @ApiResponse(responseCode = "403", description = "Sin permiso"),
-            @ApiResponse(responseCode = "404", description = "Alerta no encontrada"),
-            @ApiResponse(responseCode = "409", description = "Transicion invalida o simulacro distinto")
-    })
-    public AlertResponse end(
-            @PathVariable UUID id,
-            @Valid @RequestBody(required = false) AlertEndRequest request) {
-
-        return alertLifecycleService.end(
-                id,
-                request,
                 actorResolver.requester());
     }
 
     @PatchMapping("/{id}/archivar")
-    @PreAuthorize(CAN_MANAGE)
-    @Operation(summary = "Archivar alerta", description = "ENDED -> ARCHIVED.")
+    @PreAuthorize(CAN_MANAGE_ALERTS)
+    @Operation(
+            summary = "Archivar alerta",
+            description = "DRAFT, SCHEDULED o ACTIVE -> ARCHIVED. Es idempotente "
+                    + "si ya esta ARCHIVED.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Alerta archivada"),
             @ApiResponse(responseCode = "401", description = "No autenticado"),
@@ -260,6 +269,6 @@ public class AlertController {
     public AlertResponse archive(@PathVariable UUID id) {
         return alertLifecycleService.archive(
                 id,
-                actorResolver.resolve());
+                actorResolver.requester());
     }
 }

@@ -25,12 +25,15 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,7 +56,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(properties = {
         "spring.sql.init.mode=always",
-        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql,file:database/004_align_simulation_contract.sql",
+        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql,file:database/004_align_simulation_contract.sql,file:database/005_business_logic_update.sql",
         "app.alerts.activation-check-ms=3600000"
 })
 @AutoConfigureMockMvc
@@ -118,7 +121,7 @@ class AlertApiIntegrationIT {
     @BeforeEach
     void cleanDatabase() {
         jdbcTemplate.execute("TRUNCATE TABLE audit_events, notification_deliveries, alert_confirmations, "
-                + "alert_recipients, alert_scope_items, alerts CASCADE");
+                + "alert_recipients, alert_scope_items, alert_types, alerts CASCADE");
     }
 
     @Test
@@ -134,7 +137,7 @@ class AlertApiIntegrationIT {
 
         AlertFilter filter = new AlertFilter(
                 AlertStatus.ACTIVE,
-                AlertType.EARTHQUAKE,
+                List.of(AlertType.EARTHQUAKE),
                 LocalDate.parse("2026-10-04"),
                 LocalDate.parse("2026-10-06"),
                 null,
@@ -185,7 +188,12 @@ class AlertApiIntegrationIT {
     void activation_shouldMoveAlertToActiveAndAuditOnce() {
         AlertEntity alert = alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
 
-        AlertResponse response = alertLifecycleService.activate(alert.getId(), "it-coordinator");
+        AlertResponse response = alertLifecycleService.activate(
+                alert.getId(),
+                new RequesterContext(
+                        "it-coordinator",
+                        Set.of(UserRole.COORDINADOR),
+                        null));
 
         assertEquals(AlertStatus.ACTIVE, response.status());
         assertEquals(AlertStatus.ACTIVE, alertRepository.findById(alert.getId()).orElseThrow().getStatus());
@@ -200,7 +208,12 @@ class AlertApiIntegrationIT {
         alert.setActivationAt(Instant.now().plusSeconds(3600));
         AlertEntity saved = alertRepository.save(alert);
 
-        AlertResponse response = alertLifecycleService.activate(saved.getId(), "it-coordinator");
+        AlertResponse response = alertLifecycleService.activate(
+                saved.getId(),
+                new RequesterContext(
+                        "it-coordinator",
+                        Set.of(UserRole.COORDINADOR),
+                        null));
 
         assertEquals(AlertStatus.ACTIVE, response.status());
         assertEquals(AlertStatus.ACTIVE,
@@ -325,7 +338,7 @@ class AlertApiIntegrationIT {
 
     private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {
         AlertEntity alert = new AlertEntity();
-        alert.setType(AlertType.EARTHQUAKE);
+        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
         alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
@@ -337,11 +350,8 @@ class AlertApiIntegrationIT {
         if (status == AlertStatus.SCHEDULED) {
             alert.setActivationAt(createdAt.plusSeconds(3600));
         }
-        if (status == AlertStatus.ACTIVE || status == AlertStatus.ENDED || status == AlertStatus.ARCHIVED) {
+        if (status == AlertStatus.ACTIVE || status == AlertStatus.ARCHIVED) {
             alert.setActivatedAt(createdAt);
-        }
-        if (status == AlertStatus.ENDED || status == AlertStatus.ARCHIVED) {
-            alert.setEndedAt(createdAt);
         }
         if (status == AlertStatus.ARCHIVED) {
             alert.setArchivedAt(createdAt);
@@ -360,7 +370,7 @@ class AlertApiIntegrationIT {
     private String createRequestJson() {
         return """
                 {
-                  "type": "EARTHQUAKE",
+                  "types": ["EARTHQUAKE"],
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "Evacuar el campus",
@@ -374,7 +384,7 @@ class AlertApiIntegrationIT {
             String instructions) {
         return """
                 {
-                  "type": "EARTHQUAKE",
+                  "types": ["EARTHQUAKE"],
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "%s",
