@@ -15,12 +15,31 @@ MS03 does not validate JWT. The client authenticates against MS01 and sends the 
 |---|---|---|
 | `X-User-Id` | Yes | User UUID |
 | `X-User-Role` | Yes | One or more official roles separated by commas |
-| `X-Service-Name` | No | `ms03` or `ms06` |
+| `X-Service-Name` | No | Optional audit metadata; it does not change the alert origin or permissions |
 | `X-Correlation-ID` | No | UUID v4; MS03 generates one when missing or invalid |
 
 Official roles: `ESTUDIANTE`, `PROFESOR`, `ADMINISTRATIVO`, `BRIGADISTA`, `COORDINADOR`, `ORGANIZADOR`, `ADMIN`, `AUDITOR`. Permissions are `ms03:alert:manage`, `ms03:alert:manage_drill`, `ms03:alert:read_history` and `ms03:alert:receive`; see `docs/api/openapi.yaml`.
 
+| Role | Permissions |
+|---|---|
+| `ESTUDIANTE`, `PROFESOR`, `ADMINISTRATIVO`, `BRIGADISTA` | `receive` |
+| `COORDINADOR` | `receive`, `manage`, `read_history` |
+| `ORGANIZADOR` | `receive`, `manage_drill`, `read_history` |
+| `AUDITOR` | `read_history` |
+| `ADMIN` | No MS03 permissions |
+
+`manage` operates manual and simulation alerts. `manage_drill` only operates alerts with `origin=SIMULATION`; a manual alert returns `403 PROHIBIDO`.
+
 Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correlation_id`) and pagination uses `contenido`, `page`, `size`, `total_elementos` and `total_paginas`.
+
+### Alert model
+
+- `types` is an array with one or more values from `EARTHQUAKE`, `FIRE`, `OTHER` and `OPERATIVA`. `SIMULATION` is no longer a type; it is expressed with `origin=SIMULATION`.
+- `OPERATIVA` is exclusive: it cannot be combined with another type and cannot be used for a simulation.
+- The lifecycle states are `DRAFT`, `SCHEDULED`, `ACTIVE` and `ARCHIVED`. There is no `ENDED` state and there is no `/finalizar` endpoint.
+- Valid transitions are `DRAFT -> SCHEDULED/ACTIVE/ARCHIVED`, `SCHEDULED -> ACTIVE/ARCHIVED` and `ACTIVE -> ARCHIVED`.
+- Archiving is idempotent: a second archive returns `200`, preserves `archivedAt` and does not duplicate the audit event.
+- A simulation is idempotent by `simulationId`: the same live alert with the same data returns `200`; different data returns `409 SIMULACION_DUPLICADA`.
 
 ### Endpoints
 
@@ -28,14 +47,26 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 |---|---|---|
 | POST | `/api/v1/alertas` | `manage` or `manage_drill` |
 | GET | `/api/v1/alertas` | `read_history` |
+| GET | `/api/v1/alertas/mias` | `receive` |
 | GET | `/api/v1/alertas/{id}` | `receive` or `read_history` |
-| PUT | `/api/v1/alertas/{id}` | `manage` |
-| PATCH | `/api/v1/alertas/{id}/programar` | `manage` |
+| PUT | `/api/v1/alertas/{id}` | `manage` or `manage_drill` |
+| PATCH | `/api/v1/alertas/{id}/programar` | `manage` or `manage_drill` |
 | PATCH | `/api/v1/alertas/{id}/activar` | `manage` or `manage_drill` |
-| PATCH | `/api/v1/alertas/{id}/finalizar` | `manage` or `manage_drill` |
-| PATCH | `/api/v1/alertas/{id}/archivar` | `manage` |
+| PATCH | `/api/v1/alertas/{id}/archivar` | `manage` or `manage_drill` |
 | POST | `/api/v1/alertas/{id}/confirmaciones` | `receive` |
 | GET | `/api/v1/alertas/{id}/auditoria` | `read_history` |
+
+The list endpoint accepts repeated `type` parameters (`GET /api/v1/alertas?type=FIRE&type=EARTHQUAKE`) with OR semantics and returns each alert once. It also accepts `origin`, `scope` (the scope type), `activeAt` (an ISO instant to find alerts active at that moment), `status`, `startDate`, `endDate`, `simulationId` and pagination.
+
+### Inbox and confirmation
+
+`GET /api/v1/alertas/mias` returns only alerts addressed to the actor as `USER`, by `ROLE`, or through a registered notification delivery. It defaults to `status=ACTIVE`; `ARCHIVED` and `ALL` are also accepted. `DRAFT` and `SCHEDULED` alerts never appear. The response is ordered by `activatedAt` descending and includes `id`, `types`, `title`, `status`, `origin`, `scope`, `instructions`, `activatedAt`, `archivedAt` and `confirmedAt`.
+
+Confirmation is explicit through `POST /api/v1/alertas/{id}/confirmaciones`: the first confirmation returns `201`, a repeat returns `200`, a non-active alert returns `409 ALERTA_NO_ACTIVA`, a non-recipient returns `403 NO_ES_DESTINATARIO` and a missing alert returns `404 ALERTA_NO_ENCONTRADA`. Opening the email link does not confirm the alert.
+
+### Email
+
+Emergency alerts include the base message "Has recibido una alerta oficial de CampusSeguro. Confirma la recepcion y sigue los pasos indicados: {instrucciones}. Ver y confirmar alerta: {link}". `OPERATIVA` alerts omit that base message. The link is `{APP_BASE_URL}/bandeja?alerta={id}`; if `APP_BASE_URL` is empty the link line is omitted. Email is sent only when an alert becomes `ACTIVE`, never on `DRAFT`, `SCHEDULED` or `ARCHIVED`.
 
 ## 2. Team Information
 
@@ -150,6 +181,36 @@ Profiles:
 - `test`: stub catalog, used by the automated tests.
 - `integration`: real MS01 through `MS01_URL`, Swagger disabled, technical user required for recipient resolution.
 
+### Database migrations
+
+MS03 does not use Flyway or Liquibase. The scripts in `database/` are applied manually, in this order:
+
+1. `001_create_schema.sql`
+2. `002_indexes.sql`
+3. `003_phase2_contract.sql`
+4. `004_align_simulation_contract.sql`
+5. `005_business_logic_update.sql`
+
+`spring.jpa.hibernate.ddl-auto=validate` means the service will not start if `005` has not been applied. On a fresh Docker volume, the scripts run automatically in alphabetical order. To upgrade an existing local volume:
+
+1. Schedule a maintenance window and stop every process that writes to the database (MS03, Gateway and any integration job).
+2. Back up the database before applying `005`:
+
+   ```powershell
+   docker compose exec postgres pg_dump -U campusseguro -d campusseguro_alerts -Fc -f /tmp/ms03_before_005.dump
+   docker compose cp postgres:/tmp/ms03_before_005.dump .\ms03_before_005.dump
+   ```
+
+3. Apply the migration:
+
+   ```powershell
+   Get-Content -Raw .\database\005_business_logic_update.sql |
+       docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts -v ON_ERROR_STOP=1
+   ```
+
+4. Verify that `alerts` and `alert_types` counts match, that no `ENDED` value or `ended_at` column remains and that `archived_at` is complete for converted rows.
+5. Start the service and run the smoke tests. If the migration fails, restore the backup instead of running a partial rollback.
+
 ### Build and Run
 
 **Linux/macOS:**
@@ -189,7 +250,7 @@ mvn test
 mvn clean verify
 ```
 
-`mvn clean verify` runs unit and integration tests and generates the JaCoCo report at `target/site/jacoco/index.html`. The integration test uses PostgreSQL 17 with Testcontainers.
+`mvn clean verify` runs unit and integration tests and generates the JaCoCo report at `target/site/jacoco/index.html`. The integration test uses PostgreSQL 17 with Testcontainers and applies `001` through `005`; Docker must be running.
 
 ### Postman Collection
 
@@ -199,7 +260,7 @@ mvn clean verify
 postman collection run docs/postman/ms03-alertas.postman_collection.json -e <local-environment.json>
 ```
 
-The verified run executed 30 requests and 82 assertions with 0 failures. A temporary v3 migration lints with 0 errors and 0 warnings.
+The collection creates multi-type alerts, filters with repeated `type`, exercises scheduling, activation, the inbox, confirmation and archiving, and never calls the removed `/finalizar` endpoint.
 
 ## 8. Diagrams
 
