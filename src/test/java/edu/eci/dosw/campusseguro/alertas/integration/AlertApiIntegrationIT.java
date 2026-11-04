@@ -2,9 +2,11 @@ package edu.eci.dosw.campusseguro.alertas.integration;
 
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -12,23 +14,33 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
+import edu.eci.dosw.campusseguro.alertas.dto.request.InboxStatus;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
+import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
+import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
+import edu.eci.dosw.campusseguro.alertas.service.InboxService;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
+import jakarta.persistence.EntityManagerFactory;
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -53,11 +65,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(properties = {
-        "spring.sql.init.mode=always",
-        "spring.sql.init.schema-locations=file:database/001_create_schema.sql,file:database/002_indexes.sql,file:database/003_phase2_contract.sql,file:database/004_align_simulation_contract.sql,file:database/005_business_logic_update.sql",
-        "app.alerts.activation-check-ms=3600000"
+        "app.alerts.activation-check-ms=3600000",
+        "spring.jpa.properties.hibernate.generate_statistics=true"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles({"test", "local"})
@@ -85,6 +97,38 @@ class AlertApiIntegrationIT {
 
     static {
         POSTGRES.start();
+        applyMigrations();
+    }
+
+    private static void applyMigrations() {
+        try {
+            for (String script : List.of(
+                    "001_create_schema.sql",
+                    "002_indexes.sql",
+                    "003_phase2_contract.sql",
+                    "004_align_simulation_contract.sql",
+                    "005_business_logic_update.sql")) {
+                Path path = Path.of("database", script);
+                String containerPath = "/tmp/" + script;
+                POSTGRES.copyFileToContainer(MountableFile.forHostPath(path), containerPath);
+                var result = POSTGRES.execInContainer(
+                        "psql",
+                        "-U",
+                        POSTGRES.getUsername(),
+                        "-d",
+                        POSTGRES.getDatabaseName(),
+                        "-v",
+                        "ON_ERROR_STOP=1",
+                        "-f",
+                        containerPath);
+                if (result.getExitCode() != 0) {
+                    throw new IllegalStateException(
+                            "No se pudo aplicar " + script + ": " + result.getStderr());
+                }
+            }
+        } catch (Exception exception) {
+            throw new IllegalStateException("No se pudieron aplicar las migraciones", exception);
+        }
     }
 
     @DynamicPropertySource
@@ -104,10 +148,19 @@ class AlertApiIntegrationIT {
     private AlertRecipientRepository recipientRepository;
 
     @Autowired
+    private AlertScopeItemRepository scopeItemRepository;
+
+    @Autowired
     private AuditEventRepository auditEventRepository;
 
     @Autowired
     private AlertLifecycleService alertLifecycleService;
+
+    @Autowired
+    private InboxService inboxService;
+
+    @Autowired
+    private EntityManagerFactory entityManagerFactory;
 
     @MockitoBean
     private AlertActivationScheduler alertActivationScheduler;
@@ -138,6 +191,9 @@ class AlertApiIntegrationIT {
         AlertFilter filter = new AlertFilter(
                 AlertStatus.ACTIVE,
                 List.of(AlertType.EARTHQUAKE),
+                null,
+                null,
+                null,
                 LocalDate.parse("2026-10-04"),
                 LocalDate.parse("2026-10-06"),
                 null,
@@ -160,10 +216,61 @@ class AlertApiIntegrationIT {
 
         var result = alertRepository.findAll(
                 AlertSpecifications.fromFilter(
-                        new AlertFilter(null, null, null, null, simulationId, null, null), ZoneOffset.UTC));
+                        new AlertFilter(
+                                null, null, null, null, null,
+                                null, null, simulationId, null, null),
+                        ZoneOffset.UTC));
 
         assertEquals(1, result.size());
         assertEquals(simulationId, result.getFirst().getSimulationId());
+    }
+
+    @Test
+    void search_shouldFilterByOriginAndScope() {
+        AlertEntity manual = alertRepository.save(
+                newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+        AlertEntity simulation = alertRepository.save(
+                newAlert(AlertStatus.ACTIVE, Instant.now(), UUID.randomUUID()));
+
+        scopeItemRepository.save(newScopeItem(
+                manual.getId(), ScopeType.BUILDING, "BLD-001"));
+        scopeItemRepository.save(newScopeItem(
+                simulation.getId(), ScopeType.CAMPUS, null));
+
+        var byOrigin = search(new AlertFilter(
+                null, null, AlertOrigin.SIMULATION, null, null,
+                null, null, null, null, null));
+        var byScope = search(new AlertFilter(
+                null, null, null, ScopeType.BUILDING, null,
+                null, null, null, null, null));
+
+        assertEquals(1, byOrigin.size());
+        assertEquals(simulation.getId(), byOrigin.getFirst().getId());
+        assertEquals(1, byScope.size());
+        assertEquals(manual.getId(), byScope.getFirst().getId());
+    }
+
+    @Test
+    void search_shouldFilterAlertsActiveAtInstant() {
+        Instant activatedAt = Instant.parse("2026-10-01T10:00:00Z");
+
+        AlertEntity active = alertRepository.save(
+                newAlert(AlertStatus.ACTIVE, activatedAt, null));
+
+        AlertEntity archived = newAlert(AlertStatus.ARCHIVED, activatedAt, null);
+        archived.setArchivedAt(activatedAt.plusSeconds(7200));
+        alertRepository.save(archived);
+
+        var whileArchivedAlertWasActive = search(new AlertFilter(
+                null, null, null, null, activatedAt.plusSeconds(3600),
+                null, null, null, null, null));
+        var afterArchive = search(new AlertFilter(
+                null, null, null, null, activatedAt.plusSeconds(10800),
+                null, null, null, null, null));
+
+        assertEquals(2, whileArchivedAlertWasActive.size());
+        assertEquals(1, afterArchive.size());
+        assertEquals(active.getId(), afterArchive.getFirst().getId());
     }
 
     @Test
@@ -175,7 +282,10 @@ class AlertApiIntegrationIT {
 
         var firstPage = alertRepository.findAll(
                 AlertSpecifications.fromFilter(
-                        new AlertFilter(null, null, null, null, null, null, null), ZoneOffset.UTC),
+                        new AlertFilter(
+                                null, null, null, null, null,
+                                null, null, null, null, null),
+                        ZoneOffset.UTC),
                 PageRequest.of(0, 2, Sort.by(Sort.Order.desc("createdAt"))));
 
         assertEquals(2, firstPage.getNumberOfElements());
@@ -230,6 +340,78 @@ class AlertApiIntegrationIT {
         assertThrows(DataIntegrityViolationException.class, () -> jdbcTemplate.update(
                 "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
                 alert.getId(), STUB_USER_ID));
+    }
+
+    @Test
+    void inbox_shouldExposeOnlyActiveAndArchivedReceivedAlerts() throws Exception {
+        AlertEntity active = alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+        recipientRepository.save(newRecipient(active.getId(), STUB_USER_ID));
+
+        AlertEntity archivedFromDraft = newAlert(AlertStatus.ARCHIVED, Instant.now(), null);
+        archivedFromDraft.setActivatedAt(null);
+        archivedFromDraft = alertRepository.save(archivedFromDraft);
+        recipientRepository.save(newRecipient(archivedFromDraft.getId(), STUB_USER_ID));
+
+        AlertEntity draft = alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
+        recipientRepository.save(newRecipient(draft.getId(), STUB_USER_ID));
+
+        AlertEntity scheduled = newAlert(AlertStatus.SCHEDULED, Instant.now(), null);
+        scheduled.setActivationAt(Instant.now().plusSeconds(3600));
+        scheduled = alertRepository.save(scheduled);
+        recipientRepository.save(newRecipient(scheduled.getId(), STUB_USER_ID));
+
+        mockMvc.perform(as(
+                        get("/api/v1/alertas/mias"),
+                        STUDENT_ID,
+                        "ESTUDIANTE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(1)))
+                .andExpect(jsonPath("$.contenido[0].id").value(active.getId().toString()))
+                .andExpect(jsonPath("$.contenido[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$.contenido[0].types[0]").value("EARTHQUAKE"))
+                .andExpect(jsonPath("$.contenido[0].confirmedAt").value(nullValue()));
+
+        mockMvc.perform(as(
+                        get("/api/v1/alertas/mias").param("status", "ALL"),
+                        STUDENT_ID,
+                        "ESTUDIANTE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contenido", hasSize(2)))
+                .andExpect(jsonPath("$.contenido[1].id")
+                        .value(archivedFromDraft.getId().toString()))
+                .andExpect(jsonPath("$.contenido[1].status").value("ARCHIVED"))
+                .andExpect(jsonPath("$.contenido[1].activatedAt").value(nullValue()));
+
+        mockMvc.perform(as(
+                        get("/api/v1/alertas/mias"),
+                        AUDITOR_ID,
+                        "AUDITOR"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void inbox_shouldNotQueryTypesForEachAlert() {
+        for (int index = 0; index < 3; index++) {
+            AlertEntity alert = alertRepository.save(
+                    newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+            recipientRepository.save(newRecipient(alert.getId(), STUB_USER_ID));
+        }
+
+        Statistics statistics = entityManagerFactory
+                .unwrap(SessionFactory.class)
+                .getStatistics();
+        statistics.clear();
+
+        inboxService.inbox(
+                InboxStatus.ACTIVE,
+                0,
+                20,
+                new AccessActor(STUB_USER_ID, Set.of("ESTUDIANTE")));
+
+        long statements = statistics.getPrepareStatementCount();
+        assertTrue(
+                statements <= 7,
+                "La bandeja ejecuto " + statements + " consultas; posible N+1");
     }
 
     @Test
@@ -359,12 +541,28 @@ class AlertApiIntegrationIT {
         return alert;
     }
 
+    private List<AlertEntity> search(AlertFilter filter) {
+        return alertRepository.findAll(
+                AlertSpecifications.fromFilter(filter, ZoneOffset.UTC));
+    }
+
     private AlertRecipientEntity newRecipient(UUID alertId, String userId) {
         AlertRecipientEntity recipient = new AlertRecipientEntity();
         recipient.setAlertId(alertId);
         recipient.setRecipientType(RecipientType.USER);
         recipient.setRecipientRefId(userId);
         return recipient;
+    }
+
+    private AlertScopeItemEntity newScopeItem(
+            UUID alertId,
+            ScopeType type,
+            String refId) {
+        AlertScopeItemEntity item = new AlertScopeItemEntity();
+        item.setAlertId(alertId);
+        item.setScopeType(type);
+        item.setScopeRefId(refId);
+        return item;
     }
 
     private String createRequestJson() {

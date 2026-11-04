@@ -9,8 +9,10 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
@@ -24,6 +26,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -122,6 +125,11 @@ public class AlertController {
             @RequestParam(required = false) AlertStatus status,
             @RequestParam(name = "type", required = false)
             List<AlertType> types,
+            @RequestParam(required = false) AlertOrigin origin,
+            @RequestParam(required = false) ScopeType scope,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
+            Instant activeAt,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate startDate,
@@ -135,6 +143,9 @@ public class AlertController {
         AlertFilter filter = new AlertFilter(
                 status,
                 types,
+                origin,
+                scope,
+                activeAt,
                 startDate,
                 endDate,
                 simulationId,

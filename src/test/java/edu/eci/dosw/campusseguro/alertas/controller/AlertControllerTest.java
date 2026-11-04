@@ -27,8 +27,10 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
@@ -38,6 +40,7 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import edu.eci.dosw.campusseguro.alertas.service.InboxService;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
@@ -237,6 +240,9 @@ class AlertControllerTest {
 
         assertNull(filter.status());
         assertNull(filter.types());
+        assertNull(filter.origin());
+        assertNull(filter.scope());
+        assertNull(filter.activeAt());
         assertNull(filter.startDate());
         assertNull(filter.endDate());
         assertNull(filter.simulationId());
@@ -254,6 +260,9 @@ class AlertControllerTest {
         mockMvc.perform(get(BASE_URL)
                         .param("status", "ACTIVE")
                         .param("type", "EARTHQUAKE")
+                        .param("origin", "SIMULATION")
+                        .param("scope", "BUILDING")
+                        .param("activeAt", "2026-10-05T12:00:00Z")
                         .param("startDate", "2026-10-01")
                         .param("endDate", "2026-10-10")
                         .param("simulationId", SIMULATION_ID.toString())
@@ -270,6 +279,9 @@ class AlertControllerTest {
 
         assertEquals(AlertStatus.ACTIVE, filter.status());
         assertEquals(List.of(AlertType.EARTHQUAKE), filter.types());
+        assertEquals(AlertOrigin.SIMULATION, filter.origin());
+        assertEquals(ScopeType.BUILDING, filter.scope());
+        assertEquals(Instant.parse("2026-10-05T12:00:00Z"), filter.activeAt());
         assertEquals(
                 LocalDate.of(2026, 10, 1),
                 filter.startDate());

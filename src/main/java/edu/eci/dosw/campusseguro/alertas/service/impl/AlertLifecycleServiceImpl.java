@@ -25,6 +25,7 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -220,7 +221,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         }
 
         AlertStatus previousStatus = alert.getStatus();
-        Instant now = clock.instant();
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
 
         alertStateMachine.assertTransition(
                 previousStatus,

@@ -27,18 +27,23 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("MS03 - Alertas y Emergencias")
-                        .version("2.0.0")
+                        .version("3.0.0")
                         .description("API de gestión de alertas, ciclo de vida, "
-                                + "confirmaciones y auditoría de CampusSeguro. "
+                                + "confirmaciones, bandeja y auditoría de CampusSeguro. "
                                 + "La identidad llega del API Gateway en cabeceras; "
-                                + "MS03 no valida JWT."))
+                                + "MS03 no valida JWT. X-Service-Name es un metadato "
+                                + "opcional de auditoría y no altera el origen ni los "
+                                + "permisos."))
                 .components(new Components()
                         .addParameters("UserIdHeader", identityHeader(
                                 "X-User-Id", "UUID del usuario emisor.", true))
                         .addParameters("UserRoleHeader", identityHeader(
                                 "X-User-Role", "Roles oficiales separados por coma.", true))
                         .addParameters("ServiceNameHeader", identityHeader(
-                                "X-Service-Name", "Origen de servicio: ms03 o ms06.", false))
+                                "X-Service-Name",
+                                "Metadato opcional de auditoría. No altera el origen "
+                                        + "de la alerta ni los permisos.",
+                                false))
                         .addParameters("CorrelationIdHeader", correlationHeader())
                         .addSchemas(
                                 "ErrorResponse",

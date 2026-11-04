@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -17,12 +18,23 @@ class OpenApiConfigTest {
     void api_shouldDocumentIdentityHeadersInsteadOfBearerAuth() {
         OpenAPI api = config.campusSeguroAlertApi();
 
-        assertEquals("2.0.0", api.getInfo().getVersion());
+        assertEquals("3.0.0", api.getInfo().getVersion());
         assertNull(api.getComponents().getSecuritySchemes());
         assertTrue(api.getComponents().getParameters().containsKey("UserIdHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("UserRoleHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("ServiceNameHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("CorrelationIdHeader"));
+    }
+
+    @Test
+    void serviceNameHeader_shouldDescribeAuditMetadataWithoutMs06Rules() {
+        OpenAPI api = config.campusSeguroAlertApi();
+
+        var header = api.getComponents().getParameters().get("ServiceNameHeader");
+
+        assertTrue(header.getDescription().contains("auditoría"));
+        assertTrue(header.getDescription().contains("No altera"));
+        assertFalse(header.getDescription().contains("ms06"));
     }
 
     @Test

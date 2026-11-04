@@ -145,6 +145,7 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.DRAFT,
                 AlertStatus.SCHEDULED,
                 "Alert scheduled for " + activationAt);
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -304,6 +305,19 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
+    void activate_shouldBeIdempotent_whenAlertIsAlreadyActive() {
+        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertResponse expected = responseFor(alert);
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
+
+        AlertResponse result = service.activate(ID, REQUESTER, CORRELATION_ID);
+
+        assertSame(expected, result);
+        verify(alertRepository, never()).activateIfPending(any(), any(), any(), any());
+        verifyNoInteractions(stateMachine, auditService, eventPublisher);
+    }
+
+    @Test
     void activateScheduledAlerts_shouldActivateDueAlerts() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         AlertEntity first = alert(AlertStatus.SCHEDULED);
@@ -394,6 +408,7 @@ class AlertLifecycleServiceImplTest {
                 AlertStatus.ACTIVE,
                 AlertStatus.ARCHIVED,
                 "Alert archived");
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test
@@ -441,7 +456,7 @@ class AlertLifecycleServiceImplTest {
 
         assertSame(expected, result);
         assertEquals(NOW.minusSeconds(10), alert.getArchivedAt());
-        verifyNoInteractions(stateMachine, auditService);
+        verifyNoInteractions(stateMachine, auditService, eventPublisher);
         verify(alertRepository, never()).saveAndFlush(any());
     }
 
