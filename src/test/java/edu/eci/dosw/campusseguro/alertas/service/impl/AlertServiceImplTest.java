@@ -266,7 +266,7 @@ class AlertServiceImplTest {
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertFalse(result.created());
