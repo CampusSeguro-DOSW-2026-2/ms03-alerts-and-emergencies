@@ -67,7 +67,7 @@ public enum ErrorCode {
     DUPLICATE_SIMULATION_ALERT(
             HttpStatus.CONFLICT,
             "SIMULACION_DUPLICADA",
-            "Ya existe una alerta activa o programada para este simulacro"),
+            "Ya existe una alerta en borrador, programada o activa para este simulacro"),
     CONCURRENT_MODIFICATION(
             HttpStatus.CONFLICT,
             "MODIFICACION_CONCURRENTE",

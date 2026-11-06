@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.dto.response;
 
+import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
@@ -16,6 +17,8 @@ public record AlertSummaryResponse(
         AlertStatus status,
         AlertOrigin origin,
         UUID simulationId,
-        Instant createdAt
+        Instant createdAt,
+        String instructions,
+        List<RecipientRequest> recipients
 ) {
 }

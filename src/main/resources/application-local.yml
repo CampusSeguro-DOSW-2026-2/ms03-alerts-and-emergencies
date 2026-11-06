@@ -6,6 +6,11 @@ spring:
     username: ${DB_USER:campusseguro}
     password: ${DB_PASSWORD:campusseguro}
 
+app:
+  mail:
+    # En local los correos se simulan; usar MAIL_PROVIDER=brevo y BREVO_API_KEY para envíos reales.
+    provider: ${MAIL_PROVIDER:log}
+
 logging:
   level:
     edu.eci.dosw.campusseguro.alertas: DEBUG

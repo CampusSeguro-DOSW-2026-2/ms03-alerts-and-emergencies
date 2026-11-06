@@ -4,6 +4,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import java.util.List;
 import java.util.UUID;
 
 public interface AlertLifecycleService {
@@ -22,7 +23,7 @@ public interface AlertLifecycleService {
             RequesterContext requester,
             String correlationId);
 
-    void activateScheduledAlerts();
+    List<UUID> findDueScheduledAlertIds();
 
     AlertResponse archive(UUID id, RequesterContext requester);
 }

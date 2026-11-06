@@ -300,7 +300,10 @@ class AlertMapperTest {
     void toSummary_shouldMapSummaryFields_whenAlertHasScope() {
         AlertEntity alert = fullAlert();
 
-        AlertSummaryResponse result = mapper.toSummary(alert, List.of(scopeItem(ScopeType.CAMPUS, null)));
+        AlertSummaryResponse result = mapper.toSummary(
+                alert,
+                List.of(scopeItem(ScopeType.CAMPUS, null)),
+                List.of(recipient(RecipientType.USER, "usr-1"), recipient(RecipientType.ROLE, "STUDENT")));
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
@@ -310,7 +313,11 @@ class AlertMapperTest {
                 AlertStatus.ACTIVE,
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
-                NOW.minusSeconds(300));
+                NOW.minusSeconds(300),
+                "Evacuar",
+                List.of(
+                        new RecipientRequest(RecipientType.USER, "usr-1"),
+                        new RecipientRequest(RecipientType.ROLE, "STUDENT")));
         assertEquals(expected, result);
     }
 
@@ -318,7 +325,7 @@ class AlertMapperTest {
     void toSummary_shouldReturnNullScope_whenAlertHasNoScopeItems() {
         AlertEntity alert = fullAlert();
 
-        AlertSummaryResponse result = mapper.toSummary(alert, List.of());
+        AlertSummaryResponse result = mapper.toSummary(alert, List.of(), List.of());
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
@@ -328,7 +335,9 @@ class AlertMapperTest {
                 AlertStatus.ACTIVE,
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
-                NOW.minusSeconds(300));
+                NOW.minusSeconds(300),
+                "Evacuar",
+                List.of());
         assertEquals(expected, result);
     }
 }

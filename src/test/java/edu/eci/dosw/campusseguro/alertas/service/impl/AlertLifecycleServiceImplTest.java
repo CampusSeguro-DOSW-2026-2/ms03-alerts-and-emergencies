@@ -3,7 +3,6 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -28,7 +27,6 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
-import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
@@ -318,74 +316,24 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
-    void activateScheduledAlerts_shouldActivateDueAlerts() {
+    void findDueScheduledAlertIds_shouldReturnIdsOfDueScheduledAlerts() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         AlertEntity first = alert(AlertStatus.SCHEDULED);
         AlertEntity second = alert(AlertStatus.SCHEDULED);
         ReflectionTestUtils.setField(second, "id", secondId);
-
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of(first, second));
-        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(first));
-        when(alertRepository.findForUpdate(secondId)).thenReturn(Optional.of(second));
-        when(alertRepository.activateIfPending(
-                any(UUID.class), eq(AlertStatus.ACTIVE), eq(NOW), any()))
-                .thenAnswer(invocation -> {
-                    UUID id = invocation.getArgument(0);
-                    AlertEntity target = ID.equals(id) ? first : second;
-                    target.setStatus(AlertStatus.ACTIVE);
-                    target.setActivatedAt(NOW);
-                    return 1;
-                });
 
-        service.activateScheduledAlerts();
-
-        assertEquals(AlertStatus.ACTIVE, first.getStatus());
-        assertEquals(AlertStatus.ACTIVE, second.getStatus());
-        verify(alertRepository, never()).saveAndFlush(any(AlertEntity.class));
-        verify(auditService).record(
-                ID,
-                AuditAction.ACTIVATE,
-                ActorResolver.SYSTEM_SCHEDULER,
-                AlertStatus.SCHEDULED,
-                AlertStatus.ACTIVE,
-                "Alert activated from SCHEDULED");
-        verify(auditService).record(
-                secondId,
-                AuditAction.ACTIVATE,
-                ActorResolver.SYSTEM_SCHEDULER,
-                AlertStatus.SCHEDULED,
-                AlertStatus.ACTIVE,
-                "Alert activated from SCHEDULED");
-        org.mockito.ArgumentCaptor<Object> events =
-                org.mockito.ArgumentCaptor.forClass(Object.class);
-        verify(eventPublisher, org.mockito.Mockito.times(2))
-                .publishEvent(events.capture());
-
-        assertTrue(events.getAllValues().stream()
-                .filter(AlertActivatedEvent.class::isInstance)
-                .map(AlertActivatedEvent.class::cast)
-                .anyMatch(event -> ID.equals(event.alertId())
-                        && event.previousStatus() == AlertStatus.SCHEDULED
-                        && NOW.equals(event.activatedAt())
-                        && event.correlationId() != null));
-        assertTrue(events.getAllValues().stream()
-                .filter(AlertActivatedEvent.class::isInstance)
-                .map(AlertActivatedEvent.class::cast)
-                .anyMatch(event -> secondId.equals(event.alertId())
-                        && event.previousStatus() == AlertStatus.SCHEDULED
-                        && NOW.equals(event.activatedAt())
-                        && event.correlationId() != null));
+        assertEquals(List.of(ID, secondId), service.findDueScheduledAlertIds());
+        verifyNoInteractions(stateMachine, auditService, eventPublisher);
     }
 
     @Test
-    void activateScheduledAlerts_shouldNotActivateAnything_whenThereAreNoDueAlerts() {
+    void findDueScheduledAlertIds_shouldReturnEmpty_whenThereAreNoDueAlerts() {
         when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
                 .thenReturn(List.of());
 
-        service.activateScheduledAlerts();
-
-        verifyNoInteractions(stateMachine, auditService);
+        assertEquals(List.of(), service.findDueScheduledAlertIds());
     }
 
     @Test

@@ -17,7 +17,6 @@ import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
-import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
@@ -28,20 +27,13 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AlertLifecycleServiceImpl implements AlertLifecycleService {
-
-    private static final Logger log =
-            LoggerFactory.getLogger(AlertLifecycleServiceImpl.class);
 
     private static final EnumSet<AlertStatus> ACTIVATABLE_STATUSES =
             EnumSet.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED);
@@ -180,34 +172,14 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     }
 
     @Override
-    @Transactional
-    public void activateScheduledAlerts() {
-        Instant now = clock.instant();
-
-        List<AlertEntity> alerts =
-                alertRepository.findByStatusAndActivationAtLessThanEqual(
+    @Transactional(readOnly = true)
+    public List<UUID> findDueScheduledAlertIds() {
+        return alertRepository.findByStatusAndActivationAtLessThanEqual(
                         AlertStatus.SCHEDULED,
-                        now);
-
-        RequesterContext system = new RequesterContext(
-                ActorResolver.SYSTEM_SCHEDULER,
-                Set.of(),
-                null);
-
-        for (AlertEntity alert : alerts) {
-            String correlationId = CorrelationIds.resolve(null);
-            MDC.put(CorrelationIds.MDC_KEY, correlationId);
-            try {
-                activate(alert.getId(), system, correlationId);
-            } catch (RuntimeException ex) {
-                log.warn(
-                        "No se pudo activar la alerta programada {}: {}",
-                        alert.getId(),
-                        ex.getMessage());
-            } finally {
-                MDC.remove(CorrelationIds.MDC_KEY);
-            }
-        }
+                        clock.instant())
+                .stream()
+                .map(AlertEntity::getId)
+                .toList();
     }
 
     @Override

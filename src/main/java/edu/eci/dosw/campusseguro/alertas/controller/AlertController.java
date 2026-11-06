@@ -82,8 +82,8 @@ public class AlertController {
     @Operation(
             summary = "Crear alerta",
             description = "Crea una alerta manual o de simulacro con uno o varios "
-                    + "tipos. Si ya existe una alerta SCHEDULED o ACTIVE para el "
-                    + "mismo simulationId con los mismos datos, devuelve la "
+                    + "tipos. Si ya existe una alerta DRAFT, SCHEDULED o ACTIVE para "
+                    + "el mismo simulationId con los mismos datos, devuelve la "
                     + "existente con 200. Si los datos difieren, responde 409 "
                     + "SIMULACION_DUPLICADA.")
     @ApiResponses({

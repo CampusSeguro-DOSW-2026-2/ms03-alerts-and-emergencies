@@ -103,7 +103,9 @@ The microservice is intended to support the following responsibilities:
 - **Build Tool:** Maven
 - **Database:** PostgreSQL 17 (Docker Compose)
 - **Security:** Spring Security with Gateway-injected identity headers
-- **Testing:** JUnit 5, Mockito, MockMvc and Testcontainers
+- **Email:** Brevo (simulated in the `local` profile)
+- **Testing:** JUnit 5, Mockito, MockMvc, WireMock, Testcontainers and JaCoCo
+- **Static analysis:** SonarQube
 - **API Contract:** OpenAPI 3.1 (`docs/api/openapi.yaml`)
 - **Version Control:** Git
 
@@ -177,7 +179,7 @@ Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS_SERVICE_
 
 Profiles:
 
-- `local`: stub catalog (`catalog-stub.json`), debug logging, Swagger enabled.
+- `local`: stub catalog (`catalog-stub.json`), debug logging, Swagger enabled. Email is simulated: each notification is written to the log and recorded as sent. To send real email set `MAIL_PROVIDER=brevo` and `BREVO_API_KEY` in `.env`. On a new Docker volume, `database/006_sample_data.sql` loads one alert in each lifecycle state (`DRAFT`, `SCHEDULED`, `ACTIVE`, `ARCHIVED`); to reload it run `docker compose down -v && docker compose up -d postgres`.
 - `test`: stub catalog, used by the automated tests.
 - `integration`: real MS01 through `MS01_URL`, Swagger disabled, technical user required for recipient resolution.
 
@@ -261,6 +263,29 @@ postman collection run docs/postman/ms03-alertas.postman_collection.json -e <loc
 ```
 
 The collection creates multi-type alerts, filters with repeated `type`, exercises scheduling, activation, the inbox, confirmation and archiving, and never calls the removed `/finalizar` endpoint.
+
+### Static Analysis (SonarQube)
+
+The project is analyzed with SonarQube, using the JaCoCo XML report (`target/site/jacoco/jacoco.xml`) as the coverage source.
+
+**Run it locally:**
+
+1. Start SonarQube (http://localhost:9000, first login `admin`/`admin`):
+
+   ```bash
+   docker compose --profile sonar up -d sonarqube
+   ```
+
+2. In SonarQube, create a local project with key `ms03-alerts-and-emergencies` and generate a token.
+3. Build, test and analyze (Docker must be running for the `*IT` tests):
+
+   ```bash
+   mvn clean verify sonar:sonar -Dsonar.token=<YOUR_TOKEN>
+   ```
+
+   Never commit the token; pass it on the command line or through the `SONAR_TOKEN` environment variable.
+
+**Continuous integration:** `.github/workflows/sonarqube.yml` runs the analysis on every push to `main`/`develop` and on pull requests, and fails if the Quality Gate is not met. It requires the repository secrets `SONAR_TOKEN` and `SONAR_HOST_URL`.
 
 ## 8. Diagrams
 
