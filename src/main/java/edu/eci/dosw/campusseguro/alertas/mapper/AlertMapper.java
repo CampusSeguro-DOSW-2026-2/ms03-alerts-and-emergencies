@@ -228,10 +228,12 @@ public class AlertMapper {
 
     public AlertSummaryResponse toSummary(
             AlertEntity alert,
-            List<AlertScopeItemEntity> scopeItems) {
+            List<AlertScopeItemEntity> scopeItems,
+            List<AlertRecipientEntity> recipients) {
 
         Objects.requireNonNull(alert, "Alert cannot be null");
         Objects.requireNonNull(scopeItems, "Scope items cannot be null");
+        Objects.requireNonNull(recipients, "Recipients cannot be null");
 
         return new AlertSummaryResponse(
                 alert.getId(),
@@ -241,7 +243,9 @@ public class AlertMapper {
                 alert.getStatus(),
                 alert.getOrigin(),
                 alert.getSimulationId(),
-                alert.getCreatedAt());
+                alert.getCreatedAt(),
+                alert.getInstructions(),
+                toRecipientRequests(recipients));
     }
 
     private AlertScopeItemEntity newScopeItem(

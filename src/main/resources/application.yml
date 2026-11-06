@@ -59,6 +59,8 @@ app:
   security:
     roles-claim: ${JWT_ROLES_CLAIM:roles}
   mail:
+    # brevo (correo real) o log (simulado, solo registra en el log)
+    provider: ${MAIL_PROVIDER:brevo}
     from: ${MAIL_FROM:no-reply@campusseguro.local}
     from-name: ${MAIL_FROM_NAME:CampusSeguro}
     app-base-url: ${APP_BASE_URL:http://localhost:5173}

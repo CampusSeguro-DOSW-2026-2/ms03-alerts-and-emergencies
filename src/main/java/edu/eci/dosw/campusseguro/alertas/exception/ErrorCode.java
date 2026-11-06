@@ -56,7 +56,7 @@ public enum ErrorCode {
             "The simulation does not match the alert"),
     DUPLICATE_SIMULATION_ALERT(
             HttpStatus.CONFLICT,
-            "An active or scheduled alert already exists for this simulation"),
+            "An alert already exists for this simulation and it has not ended"),
     CONCURRENT_MODIFICATION(
             HttpStatus.CONFLICT,
             "The alert was modified by another user"),

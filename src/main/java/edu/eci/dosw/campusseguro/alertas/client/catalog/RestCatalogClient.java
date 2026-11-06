@@ -25,8 +25,8 @@ public class RestCatalogClient implements CatalogClient {
     private static final String MS01 = "MS01";
     private static final String MS02 = "MS02";
 
-    private final RestClient ms01;
-    private final RestClient ms02;
+    private final RestClient ms01Client;
+    private final RestClient ms02Client;
     private final String scopeValidationPath;
     private final String recipientValidationPath;
     private final String userPath;
@@ -54,8 +54,8 @@ public class RestCatalogClient implements CatalogClient {
             configured.defaultHeader("Authorization", "Bearer " + serviceToken);
         }
 
-        this.ms01 = configured.clone().baseUrl(ms01Url).build();
-        this.ms02 = configured.clone().baseUrl(ms02Url).build();
+        this.ms01Client = configured.clone().baseUrl(ms01Url).build();
+        this.ms02Client = configured.clone().baseUrl(ms02Url).build();
         this.scopeValidationPath = scopeValidationPath;
         this.recipientValidationPath = recipientValidationPath;
         this.userPath = userPath;
@@ -68,7 +68,7 @@ public class RestCatalogClient implements CatalogClient {
             return;
         }
         ValidationResponse response = postValidation(
-                ms02,
+                ms02Client,
                 MS02,
                 scopeValidationPath,
                 new ScopeValidationRequest(type.name(), ids));
@@ -84,7 +84,7 @@ public class RestCatalogClient implements CatalogClient {
                 .map(recipient -> new RecipientPayload(recipient.type().name(), recipient.id()))
                 .toList();
         ValidationResponse response = postValidation(
-                ms01,
+                ms01Client,
                 MS01,
                 recipientValidationPath,
                 new RecipientValidationRequest(payload));
@@ -94,7 +94,7 @@ public class RestCatalogClient implements CatalogClient {
     @Override
     public Optional<ResolvedUser> findUserById(String userId) {
         try {
-            ResolvedUser user = ms01.get()
+            ResolvedUser user = ms01Client.get()
                     .uri(userPath, userId)
                     .retrieve()
                     .body(ResolvedUser.class);
@@ -112,7 +112,7 @@ public class RestCatalogClient implements CatalogClient {
     @Override
     public List<ResolvedUser> getUsersByRole(String role) {
         try {
-            List<ResolvedUser> users = ms01.get()
+            List<ResolvedUser> users = ms01Client.get()
                     .uri(roleUsersPath, role)
                     .retrieve()
                     .body(new ParameterizedTypeReference<List<ResolvedUser>>() {

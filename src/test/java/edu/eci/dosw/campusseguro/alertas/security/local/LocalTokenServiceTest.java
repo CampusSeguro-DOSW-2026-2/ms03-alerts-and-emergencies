@@ -72,4 +72,14 @@ class LocalTokenServiceTest {
         assertTrue(tokens.containsKey("USER"));
         verify(service).generate("local-coordinator", List.of("COORDINATOR"));
     }
+
+    @Test
+    void controller_shouldExposeTokenForCatalogRecipient() {
+        LocalTokenService service = mock(LocalTokenService.class);
+        when(service.generate(eq("usr-002"), eq(List.of("STUDENT")))).thenReturn("recipient-token");
+
+        Map<String, String> tokens = new LocalTokenController(service).tokens();
+
+        assertEquals("recipient-token", tokens.get("RECIPIENT"));
+    }
 }

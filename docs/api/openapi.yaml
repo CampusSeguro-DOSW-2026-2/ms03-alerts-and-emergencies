@@ -130,7 +130,7 @@ paths:
         Crea una alerta manual o asociada a un simulacro. Solo COORDINATOR y
         SERVICE_MS06.
 
-        Idempotencia MS06: si ya existe una alerta SCHEDULED o ACTIVE para el
+        Idempotencia MS06: si ya existe una alerta DRAFT, SCHEDULED o ACTIVE para el
         mismo simulationId y los datos de creacion coinciden, responde 200 con
         la alerta existente. Si los datos difieren, responde 409
         DUPLICATE_SIMULATION_ALERT. La comparacion usa type, title,
@@ -1127,6 +1127,9 @@ components:
           format: date-time
     AlertSummaryResponse:
       type: object
+      description: |
+        Resumen para el listado. Incluye instrucciones y destinatarios para que
+        el cliente no tenga que pedir el detalle de cada alerta.
       properties:
         id:
           type: string
@@ -1149,6 +1152,12 @@ components:
         createdAt:
           type: string
           format: date-time
+        instructions:
+          type: string
+        recipients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipientRequest'
     PageResponseAlertSummaryResponse:
       type: object
       properties:

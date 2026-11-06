@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
@@ -33,6 +34,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
@@ -207,8 +209,40 @@ class AlertServiceImplTest {
         when(expected.recipients()).thenReturn(List.of());
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
-        when(alertRepository.findBySimulationIdAndStatusIn(
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId), any())).thenReturn(Optional.of(existing));
+        when(alertMapper.toResponse(eq(existing), any(), any()))
+                .thenReturn(expected);
+
+        AlertCreationResult result = service.create(request, ACTOR);
+
+        assertSame(expected, result.alert());
+        assertFalse(result.created());
+        verify(alertRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_withSameSimulationIdWhileDraft_shouldReturnExistingAlert() {
+        UUID simulationId = UUID.randomUUID();
+        ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
+        AlertEntity existing = alert(AlertStatus.DRAFT, "Evacuar");
+        existing.setSimulationId(simulationId);
+
+        AlertCreateRequest request = simulationRequest(
+                simulationId,
+                "Simulacro",
+                "Evacuar",
+                null);
+
+        AlertResponse expected = mock(AlertResponse.class);
+        when(expected.scope()).thenReturn(scope);
+        when(expected.recipients()).thenReturn(List.of());
+        when(alertMapper.normalizeScope(any())).thenReturn(scope);
+        when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
+                eq(simulationId),
+                argThat(statuses -> statuses.contains(AlertStatus.DRAFT))))
+                .thenReturn(Optional.of(existing));
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
@@ -235,7 +269,7 @@ class AlertServiceImplTest {
         AlertResponse current = mock(AlertResponse.class);
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
-        when(alertRepository.findBySimulationIdAndStatusIn(
+        when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId), any())).thenReturn(Optional.of(existing));
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(current);
@@ -511,6 +545,7 @@ class AlertServiceImplTest {
 
         assertEquals(0, result.content().size());
         verify(scopeItemRepository, never()).findByAlertIdIn(any());
+        verify(recipientRepository, never()).findByAlertIdIn(any());
     }
 
     @Test
@@ -548,16 +583,21 @@ class AlertServiceImplTest {
     }
 
     @Test
-    void search_shouldGroupScopesByAlert_whenThereAreResults() {
+    void search_shouldGroupScopesAndRecipientsByAlert_whenThereAreResults() {
         AlertFilter filter = filterWith(null, null);
         AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertScopeItemEntity item = scopeItem(ScopeType.CAMPUS, null);
+        AlertRecipientEntity recipient = new AlertRecipientEntity();
+        recipient.setAlertId(ID);
+        recipient.setRecipientType(RecipientType.ROLE);
+        recipient.setRecipientRefId("STUDENT");
         AlertSummaryResponse summary = mock(AlertSummaryResponse.class);
         Page<AlertEntity> page = new PageImpl<>(List.of(alert), PageRequest.of(0, 20), 1);
         when(alertRepository.findAll(ArgumentMatchers.<Specification<AlertEntity>>any(), any(Pageable.class)))
                 .thenReturn(page);
         when(scopeItemRepository.findByAlertIdIn(List.of(ID))).thenReturn(List.of(item));
-        when(alertMapper.toSummary(alert, List.of(item))).thenReturn(summary);
+        when(recipientRepository.findByAlertIdIn(List.of(ID))).thenReturn(List.of(recipient));
+        when(alertMapper.toSummary(alert, List.of(item), List.of(recipient))).thenReturn(summary);
 
         PageResponse<AlertSummaryResponse> result = service.search(filter);
 

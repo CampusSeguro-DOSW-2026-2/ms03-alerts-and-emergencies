@@ -7,6 +7,9 @@ spring:
     password: ${DB_PASSWORD:campusseguro}
 
 app:
+  mail:
+    # En local los correos se simulan; usar MAIL_PROVIDER=brevo y BREVO_API_KEY para envíos reales.
+    provider: ${MAIL_PROVIDER:log}
   security:
     local-jwt-secret: ${JWT_LOCAL_SECRET:campusseguro-local-secret-key-change-me-0123456789}
 
