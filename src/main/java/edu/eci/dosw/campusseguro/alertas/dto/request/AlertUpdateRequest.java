@@ -10,7 +10,11 @@ import java.util.List;
 
 @AtLeastOneField
 public record AlertUpdateRequest(
-        AlertType type,
+        @Size(min = 1, message = "You must specify at least one alert type.")
+        List<
+                @NotNull(message = "Alert type cannot be null")
+                AlertType
+        > types,
 
         @Size(max = 150, message = "Title cannot exceed 150 characters")
         @Pattern(
@@ -38,7 +42,7 @@ public record AlertUpdateRequest(
         > recipients
 ) {
     public boolean hasAnyField() {
-        return type != null
+        return types != null
                 || title != null
                 || scope != null
                 || instructions != null

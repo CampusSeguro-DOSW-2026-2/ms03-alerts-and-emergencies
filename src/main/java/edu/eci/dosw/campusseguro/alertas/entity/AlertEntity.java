@@ -3,17 +3,24 @@ package edu.eci.dosw.campusseguro.alertas.entity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
+import org.hibernate.annotations.BatchSize;
 
 @Entity
 @Table(name = "alerts")
@@ -23,9 +30,14 @@ public class AlertEntity extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Enumerated(EnumType.STRING)
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "alert_types",
+            joinColumns = @JoinColumn(name = "alert_id"))
     @Column(name = "type", nullable = false, length = 20)
-    private AlertType type;
+    @Enumerated(EnumType.STRING)
+    @BatchSize(size = 50)
+    private Set<AlertType> types = new LinkedHashSet<>();
 
     @Column(name = "title", nullable = false, length = 150)
     private String title;
@@ -53,9 +65,6 @@ public class AlertEntity extends BaseEntity {
     @Column(name = "activated_at")
     private Instant activatedAt;
 
-    @Column(name = "ended_at")
-    private Instant endedAt;
-
     @Column(name = "archived_at")
     private Instant archivedAt;
 
@@ -67,12 +76,14 @@ public class AlertEntity extends BaseEntity {
         return id;
     }
 
-    public AlertType getType() {
-        return type;
+    public Set<AlertType> getTypes() {
+        return types;
     }
 
-    public void setType(AlertType type) {
-        this.type = type;
+    public void setTypes(Set<AlertType> types) {
+        this.types = types == null
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(types);
     }
 
     public AlertStatus getStatus() {
@@ -129,14 +140,6 @@ public class AlertEntity extends BaseEntity {
 
     public void setActivatedAt(Instant activatedAt) {
         this.activatedAt = activatedAt;
-    }
-
-    public Instant getEndedAt() {
-        return endedAt;
-    }
-
-    public void setEndedAt(Instant endedAt) {
-        this.endedAt = endedAt;
     }
 
     public Instant getArchivedAt() {

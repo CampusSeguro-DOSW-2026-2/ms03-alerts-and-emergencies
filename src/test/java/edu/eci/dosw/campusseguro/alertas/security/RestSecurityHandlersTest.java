@@ -31,6 +31,10 @@ class RestSecurityHandlersTest {
         new RestAuthenticationEntryPoint(writer)
                 .commence(request, response, new BadCredentialsException("invalid"));
 
-        verify(writer).write(request, response, ErrorCode.UNAUTHORIZED);
+        verify(writer).write(
+                request,
+                response,
+                ErrorCode.UNAUTHORIZED,
+                ErrorCode.UNAUTHORIZED.defaultMessage());
     }
 }

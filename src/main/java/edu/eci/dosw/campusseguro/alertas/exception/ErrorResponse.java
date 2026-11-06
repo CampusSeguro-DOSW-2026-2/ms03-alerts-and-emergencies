@@ -1,37 +1,33 @@
-
 package edu.eci.dosw.campusseguro.alertas.exception;
 
-import java.time.Instant;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 public record ErrorResponse(
-        Instant timestamp,
         int status,
-        String code,
-        String message,
-        String path,
-        List<Detail> details) {
+        String codigo,
+        String mensaje,
+        List<ErrorDetail> errores,
+        @JsonProperty("correlation_id") String correlationId) {
 
     public ErrorResponse {
-        details = details == null ? List.of() : List.copyOf(details);
+        errores = errores == null ? List.of() : List.copyOf(errores);
     }
 
-    public record Detail(String field, String message) {
+    public record ErrorDetail(String campo, String mensaje) {
     }
 
     public static ErrorResponse of(
-            Instant timestamp,
             ErrorCode code,
             String message,
-            String path,
-            List<Detail> details) {
+            List<ErrorDetail> errors,
+            String correlationId) {
 
         return new ErrorResponse(
-                timestamp,
                 code.status().value(),
-                code.name(),
+                code.codigo(),
                 message,
-                path,
-                details);
+                errors,
+                correlationId);
     }
 }

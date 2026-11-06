@@ -18,8 +18,19 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
     }
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException)
-            throws IOException {
-        errorResponseWriter.write(request, response, ErrorCode.UNAUTHORIZED);
+    public void commence(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException authException) throws IOException {
+
+        String message = authException instanceof InvalidIdentityHeadersException
+                ? authException.getMessage()
+                : ErrorCode.UNAUTHORIZED.defaultMessage();
+
+        errorResponseWriter.write(
+                request,
+                response,
+                ErrorCode.UNAUTHORIZED,
+                message);
     }
 }

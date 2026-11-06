@@ -7,15 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
-import edu.eci.dosw.campusseguro.alertas.client.catalog.StubCatalogClient.CatalogData;
-import edu.eci.dosw.campusseguro.alertas.client.catalog.StubCatalogClient.Entry;
-import edu.eci.dosw.campusseguro.alertas.client.catalog.StubCatalogClient.UserEntry;
+import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.CatalogData;
+import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.Entry;
+import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.UserEntry;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -44,7 +45,7 @@ class StubCatalogClientTest {
         assertFalse(data.roles().isEmpty(), "catalog-stub.json must define at least one role");
         assertFalse(data.users().isEmpty(), "catalog-stub.json must define at least one user");
 
-        client = new StubCatalogClient(objectMapper);
+        client = new StubCatalogClient(new CatalogStubData(objectMapper));
     }
 
     // helpers 
@@ -195,7 +196,12 @@ class StubCatalogClientTest {
         String role = userWithRoles().roles().get(0);
         List<ResolvedUser> expected = data.users().stream()
                 .filter(user -> user.roles().contains(role))
-                .map(user -> new ResolvedUser(user.id(), user.email(), user.name()))
+                .map(user -> new ResolvedUser(
+                        user.id(),
+                        user.email(),
+                        user.name(),
+                        Set.copyOf(user.roles()),
+                        user.estado() == null ? "ACTIVO" : user.estado()))
                 .toList();
 
         List<ResolvedUser> result = client.getUsersByRole(role);

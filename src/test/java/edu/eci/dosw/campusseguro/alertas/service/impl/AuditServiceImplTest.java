@@ -3,11 +3,13 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import java.lang.reflect.Method;
 import java.time.Clock;
@@ -68,8 +70,8 @@ class AuditServiceImplTest {
         assertEquals(ALERT_ID, event.getAlertId());
         assertEquals(AuditAction.SCHEDULE, event.getAction());
         assertEquals("admin", event.getActor());
-        assertEquals(AlertStatus.DRAFT, event.getFromStatus());
-        assertEquals(AlertStatus.SCHEDULED, event.getToStatus());
+        assertEquals(AuditStatus.DRAFT, event.getFromStatus());
+        assertEquals(AuditStatus.SCHEDULED, event.getToStatus());
         assertEquals("detalle", event.getDetails());
         assertEquals(NOW, event.getCreatedAt());
         assertEquals(NOW, event.getUpdatedAt());
@@ -88,8 +90,21 @@ class AuditServiceImplTest {
         AuditEventEntity event = captureSaved();
 
         assertNull(event.getFromStatus());
-        assertEquals(AlertStatus.DRAFT, event.getToStatus());
+        assertEquals(AuditStatus.DRAFT, event.getToStatus());
         assertNull(event.getDetails());
+    }
+
+    @Test
+    void record_shouldRejectLegacyEndAction() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.record(
+                        ALERT_ID,
+                        AuditAction.END,
+                        "admin",
+                        AlertStatus.ACTIVE,
+                        AlertStatus.ARCHIVED,
+                        "legacy"));
     }
 
     @Test

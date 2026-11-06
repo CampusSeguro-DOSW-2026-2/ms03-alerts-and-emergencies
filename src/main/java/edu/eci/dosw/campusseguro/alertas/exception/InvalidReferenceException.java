@@ -9,7 +9,7 @@ public class InvalidReferenceException extends RuntimeException {
     private final List<String> invalidIds;
 
     public InvalidReferenceException(String field, List<String> invalidIds) {
-        super("Invalid references in " + field + ": "
+        super("Referencias inválidas en " + field + ": "
                 + String.join(", ", invalidIds));
         this.field = field;
         this.invalidIds = List.copyOf(invalidIds);

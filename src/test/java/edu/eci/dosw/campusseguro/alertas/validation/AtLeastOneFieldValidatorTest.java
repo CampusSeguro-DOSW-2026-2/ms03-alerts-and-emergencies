@@ -33,7 +33,9 @@ class AtLeastOneFieldValidatorTest {
 
     @Test
     void shouldAcceptRequestWithAtLeastOneField() {
-        assertTrue(validator.isValid(new AlertUpdateRequest(AlertType.FIRE, null, null, null, null), context));
+        assertTrue(validator.isValid(
+                new AlertUpdateRequest(List.of(AlertType.FIRE), null, null, null, null),
+                context));
         assertTrue(validator.isValid(
                 new AlertUpdateRequest(null, null, new ScopeRequest(ScopeType.CAMPUS, null), null, null), context));
         assertTrue(validator.isValid(new AlertUpdateRequest(null, null, null, "Evacuar", null), context));

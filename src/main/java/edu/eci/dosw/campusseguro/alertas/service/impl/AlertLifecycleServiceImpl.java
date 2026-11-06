@@ -1,33 +1,32 @@
-
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
-import edu.eci.dosw.campusseguro.alertas.dto.request.AlertEndRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
-import edu.eci.dosw.campusseguro.alertas.exception.SimulationMismatchException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
-import edu.eci.dosw.campusseguro.alertas.security.Role;
+import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -72,9 +71,10 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     public AlertResponse schedule(
             UUID id,
             AlertScheduleRequest request,
-            String actor) {
+            RequesterContext requester) {
 
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
         Instant now = clock.instant();
         Instant activationAt = request.activationAt();
@@ -98,7 +98,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 alert.getId(),
                 AuditAction.SCHEDULE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),
                 "Alert scheduled for " + activationAt);
@@ -108,8 +108,19 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
     @Override
     @Transactional
-    public AlertResponse activate(UUID id, String actor) {
+    public AlertResponse activate(UUID id, RequesterContext requester) {
+        return activate(id, requester, CorrelationIds.current());
+    }
+
+    @Override
+    @Transactional
+    public AlertResponse activate(
+            UUID id,
+            RequesterContext requester,
+            String correlationId) {
+
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
         if (alert.getStatus() == AlertStatus.ACTIVE) {
             return toResponse(alert);
@@ -145,7 +156,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 activated.getId(),
                 AuditAction.ACTIVATE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 activated.getStatus(),
                 "Alert activated from " + previousStatus);
@@ -154,7 +165,8 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
                 new AlertActivatedEvent(
                         activated.getId(),
                         previousStatus,
-                        now));
+                        now,
+                        correlationId));
 
         return toResponse(activated);
     }
@@ -172,64 +184,16 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
     @Override
     @Transactional
-    public AlertResponse end(
-            UUID id,
-            AlertEndRequest request,
-            String actor) {
-
+    public AlertResponse archive(UUID id, RequesterContext requester) {
         AlertEntity alert = findAlertForUpdate(id);
+        assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (Role.SERVICE_MS06.name().equals(actor)) {
-            if (request == null || request.simulationId() == null) {
-                throw new InvalidAlertRequestException(
-                        "simulationId",
-                        "simulationId is required for SERVICE_MS06");
-            }
-
-            if (!Objects.equals(
-                    request.simulationId(),
-                    alert.getSimulationId())) {
-                throw new SimulationMismatchException(
-                        alert.getId(),
-                        request.simulationId());
-            }
-        }
-
-        if (alert.getStatus() == AlertStatus.ENDED) {
+        if (alert.getStatus() == AlertStatus.ARCHIVED) {
             return toResponse(alert);
         }
 
         AlertStatus previousStatus = alert.getStatus();
-        Instant now = clock.instant();
-
-        alertStateMachine.assertTransition(
-                previousStatus,
-                AlertStatus.ENDED);
-
-        alert.setStatus(AlertStatus.ENDED);
-        alert.setEndedAt(now);
-        alert.setUpdatedAt(now);
-
-        alertRepository.saveAndFlush(alert);
-
-        auditService.record(
-                alert.getId(),
-                AuditAction.END,
-                actor,
-                previousStatus,
-                alert.getStatus(),
-                "Alert ended");
-
-        return toResponse(alert);
-    }
-
-    @Override
-    @Transactional
-    public AlertResponse archive(UUID id, String actor) {
-        AlertEntity alert = findAlertForUpdate(id);
-
-        AlertStatus previousStatus = alert.getStatus();
-        Instant now = clock.instant();
+        Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
 
         alertStateMachine.assertTransition(
                 previousStatus,
@@ -244,7 +208,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         auditService.record(
                 alert.getId(),
                 AuditAction.ARCHIVE,
-                actor,
+                requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),
                 "Alert archived");
@@ -255,6 +219,18 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     private AlertEntity findAlertForUpdate(UUID id) {
         return alertRepository.findForUpdate(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
+    }
+
+    private void assertManageDrillAllowed(
+            RequesterContext requester,
+            AlertOrigin origin) {
+
+        if (requester.isSimulationOnly()
+                && origin != AlertOrigin.SIMULATION) {
+            throw new ForbiddenOperationException(
+                    "El rol ORGANIZADOR solo puede operar alertas "
+                            + "asociadas a un simulacro");
+        }
     }
 
     private AlertResponse toResponse(AlertEntity alert) {

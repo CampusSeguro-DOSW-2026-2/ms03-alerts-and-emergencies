@@ -1,5 +1,7 @@
 # Propuesta: confirmación de recepción por destinatarios
 
+> **Documento histórico (2026-10-25).** Describe la verificación con el JWT local y los roles `STUDENT`/`TEACHER`, que ya no existen. El contrato vigente usa cabeceras `X-User-*` inyectadas por el Gateway, roles oficiales en español y `ms03:alert:receive`; ver `docs/api/openapi.yaml` y `docs/design/catalogo-errores.md`.
+
 **Estado:** propuesta, pendiente de decisión del squad. No hay código implementado.
 **Pantalla afectada:** "Simulacro activo" (`#/simulacro`), botón *Confirmar Recepción de Alerta*. Hoy guarda la confirmación solo en el navegador.
 

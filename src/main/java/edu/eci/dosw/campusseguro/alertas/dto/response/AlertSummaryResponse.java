@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public record AlertSummaryResponse(
         UUID id,
-        AlertType type,
+        List<AlertType> types,
         String title,
         ScopeRequest scope,
         AlertStatus status,

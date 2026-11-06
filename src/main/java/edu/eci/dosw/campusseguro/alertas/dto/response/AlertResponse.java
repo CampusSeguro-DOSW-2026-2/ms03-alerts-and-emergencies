@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public record AlertResponse(
         UUID id,
-        AlertType type,
+        List<AlertType> types,
         String title,
         AlertStatus status,
         AlertOrigin origin,
@@ -24,7 +24,6 @@ public record AlertResponse(
         Instant updatedAt,
         Instant activationAt,
         Instant activatedAt,
-        Instant endedAt,
         Instant archivedAt
 ) {
 }

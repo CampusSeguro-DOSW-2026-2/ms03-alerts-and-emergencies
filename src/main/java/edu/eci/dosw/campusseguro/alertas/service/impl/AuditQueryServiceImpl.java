@@ -6,7 +6,6 @@ import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
-import edu.eci.dosw.campusseguro.alertas.security.Role;
 import edu.eci.dosw.campusseguro.alertas.service.AuditQueryService;
 import java.util.List;
 import java.util.UUID;
@@ -51,10 +50,11 @@ public class AuditQueryServiceImpl implements AuditQueryService {
     }
 
     private String actorType(String actor) {
-        if (ActorResolver.SYSTEM_SCHEDULER.equals(actor)) {
+        if (ActorResolver.SYSTEM_SCHEDULER.equals(actor)
+                || ActorResolver.SYSTEM_NOTIFIER.equals(actor)) {
             return "SYSTEM";
         }
-        if (Role.SERVICE_MS06.name().equals(actor)) {
+        if (actor != null && actor.contains(":")) {
             return "SERVICE";
         }
         return "USER";

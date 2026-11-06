@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -19,7 +20,8 @@ class EmailTemplateBuilderTest {
     private AlertEntity alert(AlertType type, String instructions) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
-        alert.setType(type);
+        alert.setTypes(Set.of(type));
+        alert.setTitle("Titulo de prueba");
         alert.setInstructions(instructions);
         return alert;
     }
@@ -35,9 +37,11 @@ class EmailTemplateBuilderTest {
         assertEquals("Ana", message.toName());
         assertTrue(message.subject().contains("Incendio"));
         assertTrue(message.html().contains("Salir por la escalera"));
-        assertTrue(message.html().contains("https://campus.example/alertas/" + ID + "/ver"));
+        assertTrue(message.html().contains(
+                "https://campus.example/bandeja?alerta=" + ID));
         assertTrue(message.text().contains("Salir por la escalera"));
-        assertTrue(message.text().contains("https://campus.example/alertas/" + ID + "/ver"));
+        assertTrue(message.text().contains(
+                "https://campus.example/bandeja?alerta=" + ID));
     }
 
     @Test
@@ -52,7 +56,8 @@ class EmailTemplateBuilderTest {
         assertFalse(message.html().contains("<script>"));
         assertTrue(message.html().contains("&lt;script&gt;"));
         assertTrue(message.html().contains("&quot;instrucción&quot;"));
-        assertTrue(message.html().contains("&lt;Ana &amp; &quot;Luis&quot;&gt;"));
+        assertEquals("<Ana & \"Luis\">", message.toName());
+        assertFalse(message.html().contains("<Ana"));
     }
 
     @Test
@@ -68,14 +73,43 @@ class EmailTemplateBuilderTest {
     }
 
     @Test
-    void build_shouldTranslateEveryAlertType() {
+    void build_shouldTranslateEveryEmergencyTypeInCanonicalOrder() {
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
+        ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
+        AlertEntity alert = alert(AlertType.OTHER, "x");
+        alert.setTypes(Set.of(AlertType.OTHER, AlertType.FIRE, AlertType.EARTHQUAKE));
+
+        assertEquals("Terremoto", subjectType(builder.build(alert(AlertType.EARTHQUAKE, "x"), user)));
+        assertEquals("Incendio", subjectType(builder.build(alert(AlertType.FIRE, "x"), user)));
+        assertEquals("Otra emergencia", subjectType(builder.build(alert(AlertType.OTHER, "x"), user)));
+        assertEquals(
+                "Terremoto, Incendio, Otra emergencia",
+                subjectType(builder.build(alert, user)));
+    }
+
+    @Test
+    void build_shouldUseOperationalSubjectAndOmitBaseMessage() {
         EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
-        assertEquals("Terremoto", subjectType(builder.build(alert(AlertType.EARTHQUAKE, "x"), user)));
-        assertEquals("Simulacro", subjectType(builder.build(alert(AlertType.SIMULATION, "x"), user)));
-        assertEquals("Incendio", subjectType(builder.build(alert(AlertType.FIRE, "x"), user)));
-        assertEquals("Otra emergencia", subjectType(builder.build(alert(AlertType.OTHER, "x"), user)));
+        EmailMessage message = builder.build(alert(AlertType.OPERATIVA, "Cierre de cafetería"), user);
+
+        assertEquals("[Operativa] Titulo de prueba", message.subject());
+        assertFalse(message.text().contains("Has recibido una alerta oficial"));
+        assertFalse(message.html().contains("Has recibido una alerta oficial"));
+        assertTrue(message.text().contains("Cierre de cafetería"));
+        assertTrue(message.html().contains("Cierre de cafetería"));
+    }
+
+    @Test
+    void build_shouldOmitLink_whenBaseUrlIsBlank() {
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("  ");
+        ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
+
+        EmailMessage message = builder.build(alert(AlertType.EARTHQUAKE, "Evacuar"), user);
+
+        assertFalse(message.html().contains("href="));
+        assertFalse(message.text().contains("/bandeja?alerta="));
     }
 
     private String subjectType(EmailMessage message) {

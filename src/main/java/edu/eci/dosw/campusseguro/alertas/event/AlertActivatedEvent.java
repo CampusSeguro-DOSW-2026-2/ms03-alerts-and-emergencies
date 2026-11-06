@@ -7,5 +7,6 @@ import java.util.UUID;
 public record AlertActivatedEvent(
         UUID alertId,
         AlertStatus previousStatus,
-        Instant activatedAt) {
+        Instant activatedAt,
+        String correlationId) {
 }

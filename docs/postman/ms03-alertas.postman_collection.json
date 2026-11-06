@@ -1,778 +1,1472 @@
 {
-  "info": {
-    "name": "MS03 Alertas y Emergencias",
-    "description": "Contrato real de MS03 (rama develop). Requiere el backend con perfil local: los tokens salen de GET /local/tokens.",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:8080"
-    }
-  ],
-  "item": [
-    {
-      "name": "00 Tokens locales",
-      "event": [
+    "info": {
+        "name": "MS03 Alertas y Emergencias",
+        "description": "Contrato de MS03 a traves del API Gateway. Ejecute primero la carpeta 00 Autenticacion: cada login guarda el JWT y el id real del usuario. Las peticiones protegidas envian Authorization: Bearer y NO envian X-User-*; el Gateway valida el JWT e inyecta la identidad. Configure los correos y las contrasenas en variables de entorno locales (no las guarde en la coleccion). MS03 no valida JWT y no debe exponerse directamente.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('status 200', () => pm.response.to.have.status(200));",
-              "const j = pm.response.json();",
-              "['COORDINATOR','AUDITOR','SERVICE_MS06','USER'].forEach(r => pm.collectionVariables.set('token' + r, j[r]));"
+            "listen": "prerequest",
+            "script": {
+                "type": "text/javascript",
+                "exec": [
+                    "if (!pm.collectionVariables.get('correlationId')) {",
+                    "  pm.collectionVariables.set('correlationId', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');",
+                    "}",
+                    "pm.collectionVariables.set('futureAt', new Date(Date.now() + 3600e3).toISOString());"
+                ]
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8080"
+        },
+        {
+            "key": "correlationId",
+            "value": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        },
+        {
+            "key": "coordinatorId",
+            "value": ""
+        },
+        {
+            "key": "organizerId",
+            "value": ""
+        },
+        {
+            "key": "auditorId",
+            "value": ""
+        },
+        {
+            "key": "studentId",
+            "value": ""
+        },
+        {
+            "key": "simulationId",
+            "value": "3c1f8e2a-5d7b-4a90-8c3e-1f2a4b6c8d90"
+        },
+        {
+            "key": "futureAt",
+            "value": ""
+        },
+        {
+            "key": "activeId",
+            "value": ""
+        },
+        {
+            "key": "scheduledId",
+            "value": ""
+        },
+        {
+            "key": "draftId",
+            "value": ""
+        },
+        {
+            "key": "archivedId",
+            "value": ""
+        },
+        {
+            "key": "simulationAlertId",
+            "value": ""
+        },
+        {
+            "key": "coordinatorEmail",
+            "value": "coordinador.integracion@escuelaing.edu.co"
+        },
+        {
+            "key": "coordinatorPassword",
+            "value": ""
+        },
+        {
+            "key": "coordinatorToken",
+            "value": ""
+        },
+        {
+            "key": "organizerEmail",
+            "value": "organizador.integracion@escuelaing.edu.co"
+        },
+        {
+            "key": "organizerPassword",
+            "value": ""
+        },
+        {
+            "key": "organizerToken",
+            "value": ""
+        },
+        {
+            "key": "auditorEmail",
+            "value": "auditor.pruebas@escuelaing.edu.co"
+        },
+        {
+            "key": "auditorPassword",
+            "value": ""
+        },
+        {
+            "key": "auditorToken",
+            "value": ""
+        },
+        {
+            "key": "studentEmail",
+            "value": "estudiante.integracion@escuelaing.edu.co"
+        },
+        {
+            "key": "studentPassword",
+            "value": ""
+        },
+        {
+            "key": "studentToken",
+            "value": ""
+        }
+    ],
+    "item": [
+        {
+            "name": "00 Autenticacion",
+            "description": "Ejecute esta carpeta antes que las demas. Configure coordinatorEmail/Password, organizerEmail/Password, auditorEmail/Password y studentEmail/Password en un environment local.",
+            "item": [
+                {
+                    "name": "Login coordinador (COORDINADOR)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const j = pm.response.json();",
+                                    "pm.test('login exitoso', () => pm.response.to.have.status(200));",
+                                    "pm.test('rol COORDINADOR presente', () => pm.expect(j.usuario.roles).to.include('COORDINADOR'));",
+                                    "pm.collectionVariables.set('coordinatorToken', j.token);",
+                                    "pm.collectionVariables.set('coordinatorId', j.usuario.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"correo\": \"{{coordinatorEmail}}\",\n  \"contrasena\": \"{{coordinatorPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Inicia sesion como COORDINADOR y guarda coordinatorToken y coordinatorId."
+                    }
+                },
+                {
+                    "name": "Login organizador (ORGANIZADOR)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const j = pm.response.json();",
+                                    "pm.test('login exitoso', () => pm.response.to.have.status(200));",
+                                    "pm.test('rol ORGANIZADOR presente', () => pm.expect(j.usuario.roles).to.include('ORGANIZADOR'));",
+                                    "pm.collectionVariables.set('organizerToken', j.token);",
+                                    "pm.collectionVariables.set('organizerId', j.usuario.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"correo\": \"{{organizerEmail}}\",\n  \"contrasena\": \"{{organizerPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Inicia sesion como ORGANIZADOR y guarda organizerToken y organizerId."
+                    }
+                },
+                {
+                    "name": "Login auditor (AUDITOR)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const j = pm.response.json();",
+                                    "pm.test('login exitoso', () => pm.response.to.have.status(200));",
+                                    "pm.test('rol AUDITOR presente', () => pm.expect(j.usuario.roles).to.include('AUDITOR'));",
+                                    "pm.collectionVariables.set('auditorToken', j.token);",
+                                    "pm.collectionVariables.set('auditorId', j.usuario.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"correo\": \"{{auditorEmail}}\",\n  \"contrasena\": \"{{auditorPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Inicia sesion como AUDITOR y guarda auditorToken y auditorId."
+                    }
+                },
+                {
+                    "name": "Login estudiante (ESTUDIANTE)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const j = pm.response.json();",
+                                    "pm.test('login exitoso', () => pm.response.to.have.status(200));",
+                                    "pm.test('rol ESTUDIANTE presente', () => pm.expect(j.usuario.roles).to.include('ESTUDIANTE'));",
+                                    "pm.collectionVariables.set('studentToken', j.token);",
+                                    "pm.collectionVariables.set('studentId', j.usuario.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"correo\": \"{{studentEmail}}\",\n  \"contrasena\": \"{{studentPassword}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/v1/auth/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "v1",
+                                "auth",
+                                "login"
+                            ]
+                        },
+                        "description": "Inicia sesion como ESTUDIANTE y guarda studentToken y studentId."
+                    }
+                }
             ]
-          }
+        },
+        {
+            "name": "01 Ciclo de vida",
+            "item": [
+                {
+                    "name": "Crear y emitir (activateImmediately)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 201', () => pm.response.to.have.status(201));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('ACTIVE', () => pm.expect(j.status).to.eql('ACTIVE'));",
+                                    "pm.test('tipos multiples', () => pm.expect(pm.response.json().types).to.eql(['EARTHQUAKE', 'FIRE']));",
+                                    "pm.test('campos del contrato', () => ['id','types','title','scope','recipients','activatedAt'].forEach(k => pm.expect(j).to.have.property(k)));",
+                                    "pm.test('correlation id', () => pm.expect(pm.response.headers.get('X-Correlation-ID')).to.eql(pm.collectionVariables.get('correlationId')));",
+                                    "pm.collectionVariables.set('activeId', j.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"EARTHQUAKE\",\n    \"FIRE\"\n  ],\n  \"title\": \"Sismo en bloque B\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B y dirigirse al punto de encuentro.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activateImmediately\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Crear programada (activationAt)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 201', () => pm.response.to.have.status(201));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('SCHEDULED', () => pm.expect(j.status).to.eql('SCHEDULED'));",
+                                    "pm.collectionVariables.set('scheduledId', j.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Jornada de prevencion\",\n  \"scope\": {\n    \"type\": \"CAMPUS\"\n  },\n  \"instructions\": \"Seguir las indicaciones de los brigadistas.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"{{futureAt}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Crear borrador",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 201', () => pm.response.to.have.status(201));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('DRAFT', () => pm.expect(j.status).to.eql('DRAFT'));",
+                                    "pm.collectionVariables.set('draftId', j.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Borrador de simulacro\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-002\"\n    ]\n  },\n  \"instructions\": \"Borrador sujeto a revision.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Editar borrador",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('titulo actualizado', () => pm.expect(pm.response.json().title).to.eql('Borrador de simulacro (editado)'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"title\": \"Borrador de simulacro (editado)\",\n  \"types\": [\n    \"OTHER\",\n    \"FIRE\"\n  ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Programar borrador",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('SCHEDULED', () => pm.expect(pm.response.json().status).to.eql('SCHEDULED'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}/programar",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"activationAt\": \"{{futureAt}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Editar programada",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('SCHEDULED', () => pm.expect(pm.response.json().status).to.eql('SCHEDULED'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"instructions\": \"Instrucciones actualizadas para la jornada.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Activar programada",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "pm.test('ACTIVE', () => pm.expect(pm.response.json().status).to.eql('ACTIVE'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}/activar"
+                    }
+                },
+                {
+                    "name": "Confirmar recepcion (ESTUDIANTE)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200 o 201', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('contrato de confirmacion', () => ['id','idAlerta','usuarioId','fechaConfirmacion'].forEach(k => pm.expect(j).to.have.property(k)));",
+                                    "pm.test('usuario confirmado', () => pm.expect(j.usuarioId).to.eql(pm.collectionVariables.get('studentId')));",
+                                    "pm.collectionVariables.set('confirmationId', j.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{studentToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/confirmaciones"
+                    }
+                },
+                {
+                    "name": "Confirmar de nuevo (idempotente)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('misma confirmacion', () => pm.expect(j.id).to.eql(pm.collectionVariables.get('confirmationId')));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{studentToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/confirmaciones"
+                    }
+                },
+                {
+                    "name": "Archivar activa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('ARCHIVED', () => pm.expect(j.status).to.eql('ARCHIVED'));",
+                                    "pm.collectionVariables.set('archivedId', j.id);",
+                                    "pm.collectionVariables.set('archivedAt', j.archivedAt);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/archivar"
+                    }
+                },
+                {
+                    "name": "Archivar de nuevo (idempotente)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('sigue ARCHIVED', () => pm.expect(j.status).to.eql('ARCHIVED'));",
+                                    "pm.test('conserva archivedAt', () => pm.expect(j.archivedAt).to.eql(pm.collectionVariables.get('archivedAt')));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/archivar"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "02 Consultas",
+            "item": [
+                {
+                    "name": "Listar (paginado)",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('paginacion en espanol', () => ['contenido','page','size','total_elementos','total_paginas'].forEach(k => pm.expect(j).to.have.property(k)));",
+                                    "pm.test('sin totalElements', () => pm.expect(j).to.not.have.property('totalElements'));",
+                                    "pm.test('tipos multiples en el listado', () => j.contenido.forEach(a => pm.expect(a.types).to.be.an('array')));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas?page=0&size=20&type=EARTHQUAKE&type=FIRE"
+                    }
+                },
+                {
+                    "name": "Consultar alerta",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('ARCHIVED', () => pm.expect(j.status).to.eql('ARCHIVED'));",
+                                    "pm.test('alcance', () => pm.expect(j.scope).to.have.property('type'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{archivedId}}"
+                    }
+                },
+                {
+                    "name": "Consultar auditoria",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const eventos = pm.response.json();",
+                                    "pm.test('lista de eventos', () => pm.expect(eventos).to.be.an('array'));",
+                                    "const acciones = eventos.map(e => e.action);",
+                                    "['CREATE','ACTIVATE','CONFIRM','ARCHIVE'].forEach(a => pm.test('incluye ' + a, () => pm.expect(acciones).to.include(a)));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auditorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{archivedId}}/auditoria"
+                    }
+                },
+                {
+                    "name": "Consultar bandeja",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('paginacion en espanol', () => ['contenido','page','size','total_elementos','total_paginas'].forEach(k => pm.expect(j).to.have.property(k)));",
+                                    "pm.test('items de bandeja', () => j.contenido.forEach(a => ['id','types','title','status','origin','scope','instructions','activatedAt','archivedAt','confirmedAt'].forEach(k => pm.expect(a).to.have.property(k))));",
+                                    "pm.test('solo alertas recibidas', () => j.contenido.forEach(a => pm.expect(['ACTIVE','ARCHIVED']).to.include(a.status)));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{studentToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/mias?status=ACTIVE&page=0&size=20"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "03 Errores",
+            "item": [
+                {
+                    "name": "400 validacion",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 400', () => pm.response.to.have.status(400));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo VALIDACION', () => pm.expect(j.codigo).to.eql('VALIDACION'));",
+                                    "pm.test('errores es lista', () => pm.expect(j.errores).to.be.an('array'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "400 fecha pasada",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 400', () => pm.response.to.have.status(400));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo FECHA_ACTIVACION_INVALIDA', () => pm.expect(j.codigo).to.eql('FECHA_ACTIVACION_INVALIDA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Fecha invalida\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"2020-01-01T00:00:00Z\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "400 paginacion invalida",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 400', () => pm.response.to.have.status(400));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo PAGINACION_INVALIDA', () => pm.expect(j.codigo).to.eql('PAGINACION_INVALIDA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas?page=0&size=101"
+                    }
+                },
+                {
+                    "name": "401 sin cabeceras de identidad",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 401', () => pm.response.to.have.status(401));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo NO_AUTENTICADO', () => pm.expect(j.codigo).to.eql('NO_AUTENTICADO'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "X-User-Id",
+                                "value": "77777777-7777-4777-8777-777777777777"
+                            },
+                            {
+                                "key": "X-User-Role",
+                                "value": "COORDINADOR"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas"
+                    }
+                },
+                {
+                    "name": "403 auditor no escribe",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 403', () => pm.response.to.have.status(403));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo PROHIBIDO', () => pm.expect(j.codigo).to.eql('PROHIBIDO'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{auditorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"No permitido\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "403 organizador sin simulacro",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 403', () => pm.response.to.have.status(403));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo PROHIBIDO', () => pm.expect(j.codigo).to.eql('PROHIBIDO'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{organizerToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Alerta manual de organizador\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "404 alerta no existe",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 404', () => pm.response.to.have.status(404));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo ALERTA_NO_ENCONTRADA', () => pm.expect(j.codigo).to.eql('ALERTA_NO_ENCONTRADA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/00000000-0000-0000-0000-000000000000"
+                    }
+                },
+                {
+                    "name": "409 editar archivada",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 409', () => pm.response.to.have.status(409));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo ESTADO_ALERTA_INVALIDO', () => pm.expect(j.codigo).to.eql('ESTADO_ALERTA_INVALIDO'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{archivedId}}",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"title\": \"Cambio no permitido\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "409 transicion invalida",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 409', () => pm.response.to.have.status(409));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo TRANSICION_INVALIDA', () => pm.expect(j.codigo).to.eql('TRANSICION_INVALIDA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{archivedId}}/activar"
+                    }
+                },
+                {
+                    "name": "409 confirmar alerta no activa",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 409', () => pm.response.to.have.status(409));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo ALERTA_NO_ACTIVA', () => pm.expect(j.codigo).to.eql('ALERTA_NO_ACTIVA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{studentToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/{{scheduledId}}/confirmaciones"
+                    }
+                },
+                {
+                    "name": "Preparar simulacro activo",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 201', () => pm.response.to.have.status(201));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('ACTIVE', () => pm.expect(j.status).to.eql('ACTIVE'));",
+                                    "pm.collectionVariables.set('simulationAlertId', j.id);"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Simulacro de evacuacion\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "409 simulacion duplicada",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 409', () => pm.response.to.have.status(409));",
+                                    "const j = pm.response.json();",
+                                    "pm.test('error de 5 campos', () => pm.expect(Object.keys(j).sort()).to.eql(['codigo','correlation_id','errores','mensaje','status']));",
+                                    "pm.test('codigo SIMULACION_DUPLICADA', () => pm.expect(j.codigo).to.eql('SIMULACION_DUPLICADA'));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas",
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Simulacro de evacuacion (otra version)\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
         }
-      ],
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/local/tokens"
-      }
-    },
-    {
-      "name": "01 Ciclo de vida",
-      "item": [
-        {
-          "name": "Crear y emitir (activateImmediately)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "const j = pm.response.json();",
-                  "pm.test('ACTIVE', () => pm.expect(j.status).to.eql('ACTIVE'));",
-                  "pm.test('campos en inglés', () => ['title','instructions','scope','recipients','activatedAt'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.collectionVariables.set('activeId', j.id);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"Simulacro de evacuación\",\n  \"instructions\": \"Dirígete al punto de encuentro más cercano.\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"STUDENT\"\n    }\n  ],\n  \"activateImmediately\": true\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Crear programada (activationAt)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "pm.test('SCHEDULED', () => pm.expect(pm.response.json().status).to.eql('SCHEDULED'));"
-                ]
-              }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.collectionVariables.set('futureAt', new Date(Date.now() + 3600e3).toISOString());"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"Simulacro de evacuación\",\n  \"instructions\": \"Dirígete al punto de encuentro más cercano.\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"STUDENT\"\n    }\n  ],\n  \"activationAt\": \"{{futureAt}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Crear borrador",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 201', () => pm.response.to.have.status(201));",
-                  "const j = pm.response.json();",
-                  "pm.test('DRAFT', () => pm.expect(j.status).to.eql('DRAFT'));",
-                  "pm.collectionVariables.set('draftId', j.id);"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"Simulacro de evacuación\",\n  \"instructions\": \"Dirígete al punto de encuentro más cercano.\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"STUDENT\"\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Listar (paginado)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "const j = pm.response.json();",
-                  "pm.test('paginación', () => ['content','page','size','totalElements','totalPages'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('contiene la activa', () => pm.expect(j.content.map(a => a.id)).to.include(pm.collectionVariables.get('activeId')));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas?status=ACTIVE&page=0&size=100"
-          }
-        },
-        {
-          "name": "Consultar borrador",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}"
-          }
-        },
-        {
-          "name": "Editar borrador",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('título actualizado', () => pm.expect(pm.response.json().title).to.eql('Simulacro de evacuación (editado)'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PUT",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"Simulacro de evacuación (editado)\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Programar borrador",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('SCHEDULED', () => pm.expect(pm.response.json().status).to.eql('SCHEDULED'));"
-                ]
-              }
-            },
-            {
-              "listen": "prerequest",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.collectionVariables.set('futureAt', new Date(Date.now() + 3600e3).toISOString());"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}/programar",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"activationAt\": \"{{futureAt}}\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Editar programada",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PUT",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"instructions\": \"Instrucciones actualizadas.\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "Finalizar activa",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('ENDED', () => pm.expect(pm.response.json().status).to.eql('ENDED'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/finalizar"
-          }
-        },
-        {
-          "name": "Archivar finalizada",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('ARCHIVED', () => pm.expect(pm.response.json().status).to.eql('ARCHIVED'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/archivar"
-          }
-        },
-        {
-          "name": "Auditoría",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 200', () => pm.response.to.have.status(200));",
-                  "pm.test('incluye CREATE y ARCHIVE', () => { const a = pm.response.json().map(e => e.action); pm.expect(a).to.include('CREATE'); pm.expect(a).to.include('ARCHIVE'); });"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAUDITOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/auditoria"
-          }
-        }
-      ]
-    },
-    {
-      "name": "02 Errores",
-      "item": [
-        {
-          "name": "400 validación",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "const j = pm.response.json();",
-                  "pm.test('formato de error estándar', () => ['timestamp','status','code','message','path','details'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('code VALIDATION_ERROR', () => pm.expect(j.code).to.eql('VALIDATION_ERROR'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "400 fecha pasada",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 400', () => pm.response.to.have.status(400));",
-                  "const j = pm.response.json();",
-                  "pm.test('formato de error estándar', () => ['timestamp','status','code','message','path','details'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('code INVALID_ACTIVATION_DATE', () => pm.expect(j.code).to.eql('INVALID_ACTIVATION_DATE'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"Simulacro de evacuación\",\n  \"instructions\": \"Dirígete al punto de encuentro más cercano.\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"STUDENT\"\n    }\n  ],\n  \"activationAt\": \"2020-01-01T00:00:00Z\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "409 editar archivada",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 409', () => pm.response.to.have.status(409));",
-                  "const j = pm.response.json();",
-                  "pm.test('formato de error estándar', () => ['timestamp','status','code','message','path','details'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('code INVALID_ALERT_STATE', () => pm.expect(j.code).to.eql('INVALID_ALERT_STATE'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PUT",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"title\": \"x\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "409 transición inválida",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 409', () => pm.response.to.have.status(409));",
-                  "const j = pm.response.json();",
-                  "pm.test('formato de error estándar', () => ['timestamp','status','code','message','path','details'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('code INVALID_TRANSITION', () => pm.expect(j.code).to.eql('INVALID_TRANSITION'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "PATCH",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{activeId}}/finalizar"
-          }
-        },
-        {
-          "name": "401 sin token",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 401', () => pm.response.to.have.status(401));",
-                  "const j = pm.response.json();",
-                  "pm.test('formato de error estándar', () => ['timestamp','status','code','message','path','details'].forEach(k => pm.expect(j).to.have.property(k)));",
-                  "pm.test('code UNAUTHORIZED', () => pm.expect(j.code).to.eql('UNAUTHORIZED'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "noauth"
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas"
-          }
-        },
-        {
-          "name": "403 auditor no escribe",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 403', () => pm.response.to.have.status(403));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenAUDITOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": "{{baseUrl}}/api/v1/alertas",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"OTHER\",\n  \"title\": \"Simulacro de evacuación\",\n  \"instructions\": \"Dirígete al punto de encuentro más cercano.\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"STUDENT\"\n    }\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "409 confirmar alerta no activa",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 409', () => pm.response.to.have.status(409));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}/confirmaciones"
-          }
-        },
-        {
-          "name": "404 no existe",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status 404', () => pm.response.to.have.status(404));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{tokenCOORDINATOR}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "header": [],
-            "url": "{{baseUrl}}/api/v1/alertas/00000000-0000-0000-0000-000000000000"
-          }
-        }
-      ]
-    }
-  ]
+    ]
 }

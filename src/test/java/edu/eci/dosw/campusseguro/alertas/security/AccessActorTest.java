@@ -26,13 +26,13 @@ class AccessActorTest {
         Authentication authentication = mock(Authentication.class);
         when(authentication.getName()).thenReturn("usr-001");
         when(authentication.getAuthorities()).thenAnswer(invocation -> List.of(
-                new SimpleGrantedAuthority("ROLE_COORDINATOR"),
-                new SimpleGrantedAuthority("student"),
+                new SimpleGrantedAuthority("ROLE_COORDINADOR"),
+                new SimpleGrantedAuthority("estudiante"),
                 (org.springframework.security.core.GrantedAuthority) () -> " "));
 
         AccessActor actor = AccessActor.from(authentication);
 
         assertEquals("usr-001", actor.userId());
-        assertEquals(Set.of("COORDINATOR", "STUDENT"), actor.roles());
+        assertEquals(Set.of("COORDINADOR", "ESTUDIANTE"), actor.roles());
     }
 }

@@ -6,6 +6,6 @@ import java.util.UUID;
 public class AlertNotFoundException extends RuntimeException {
 
     public AlertNotFoundException(UUID id) {
-        super("Alert not found with ID: " + id);
+        super("No se encontró la alerta con ID: " + id);
     }
 }

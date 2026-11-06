@@ -15,10 +15,12 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
+import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
+import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidActivationDateException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
@@ -29,6 +31,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
@@ -39,6 +42,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -104,7 +108,10 @@ public class AlertServiceImpl implements AlertService {
     @Transactional
     public AlertCreationResult create(
             AlertCreateRequest request,
-            String actor) {
+            RequesterContext requester) {
+
+        String actor = requester.actor();
+        String auditActor = requester.auditActor();
 
         AlertOriginRequest origin = request.origin();
         AlertOrigin originType = origin == null || origin.type() == null
@@ -115,6 +122,8 @@ public class AlertServiceImpl implements AlertService {
                 : origin.simulationId();
 
         validateOrigin(originType, simulationId);
+        validateTypes(request.types(), originType);
+        assertManageDrillAllowed(requester, originType);
 
         ScopeRequest scope =
                 alertMapper.normalizeScope(request.scope());
@@ -182,7 +191,7 @@ public class AlertServiceImpl implements AlertService {
                                 alert.getId(), recipients, now));
 
         String details = "Alert created: title=" + alert.getTitle()
-                + ", type=" + alert.getType()
+                + ", types=" + alertMapper.sortedTypes(alert.getTypes())
                 + ", origin=" + alert.getOrigin()
                 + ", simulationId=" + alert.getSimulationId()
                 + ", scope=" + scope.type()
@@ -191,14 +200,14 @@ public class AlertServiceImpl implements AlertService {
         auditService.record(
                 alert.getId(),
                 AuditAction.CREATE,
-                actor,
+                auditActor,
                 null,
                 alert.getStatus(),
                 details);
 
         if (Boolean.TRUE.equals(request.activateImmediately())) {
             return new AlertCreationResult(
-                    lifecycleService.activate(alert.getId(), actor),
+                    lifecycleService.activate(alert.getId(), requester),
                     true);
         }
 
@@ -215,11 +224,12 @@ public class AlertServiceImpl implements AlertService {
     public AlertResponse update(
             UUID id,
             AlertUpdateRequest request,
-            String actor) {
+            RequesterContext requester) {
 
         AlertEntity alert = alertRepository.findForUpdate(id)
                 .orElseThrow(() -> new AlertNotFoundException(id));
 
+        assertManageDrillAllowed(requester, alert.getOrigin());
         stateRules.assertEditable(alert);
 
         List<AlertScopeItemEntity> currentScope =
@@ -258,6 +268,14 @@ public class AlertServiceImpl implements AlertService {
                 && !keys(desiredRecipients, this::recipientKey)
                         .equals(keys(currentRecipients, this::recipientKey));
 
+        List<AlertType> desiredTypes = request.types() == null
+                ? null
+                : normalizeTypes(request.types(), alert.getOrigin());
+
+        boolean typesChanged = desiredTypes != null
+                && !new LinkedHashSet<>(desiredTypes)
+                        .equals(new LinkedHashSet<>(alert.getTypes()));
+
         if (scopeChanged) {
             validateScope(newScope);
         }
@@ -268,10 +286,9 @@ public class AlertServiceImpl implements AlertService {
 
         List<String> changedFields = new ArrayList<>();
 
-        if (request.type() != null
-                && request.type() != alert.getType()) {
-            alert.setType(request.type());
-            changedFields.add("type");
+        if (typesChanged) {
+            alert.setTypes(new LinkedHashSet<>(desiredTypes));
+            changedFields.add("types");
         }
 
         if (request.title() != null
@@ -322,7 +339,7 @@ public class AlertServiceImpl implements AlertService {
         auditService.record(
                 id,
                 AuditAction.UPDATE,
-                actor,
+                requester.auditActor(),
                 alert.getStatus(),
                 alert.getStatus(),
                 "Modified fields: "
@@ -434,6 +451,65 @@ public class AlertServiceImpl implements AlertService {
         }
     }
 
+    private List<AlertType> normalizeTypes(
+            List<AlertType> types,
+            AlertOrigin origin) {
+
+        validateTypes(types, origin);
+        return alertMapper.sortedTypes(alertMapper.toTypeSet(types));
+    }
+
+    private void validateTypes(
+            List<AlertType> types,
+            AlertOrigin origin) {
+
+        if (types == null || types.isEmpty()) {
+            throw new InvalidAlertRequestException(
+                    "types",
+                    "At least one alert type is required");
+        }
+
+        Set<AlertType> uniqueTypes = new HashSet<>();
+        for (AlertType type : types) {
+            if (type == null) {
+                throw new InvalidAlertRequestException(
+                        "types",
+                        "Alert types cannot contain null values");
+            }
+            if (!uniqueTypes.add(type)) {
+                throw new InvalidAlertRequestException(
+                        "types",
+                        "Alert types cannot contain duplicates");
+            }
+        }
+
+        if (uniqueTypes.contains(AlertType.OPERATIVA)
+                && uniqueTypes.size() > 1) {
+            throw new InvalidAlertRequestException(
+                    "types",
+                    "OPERATIVA cannot be combined with other alert types");
+        }
+
+        if (uniqueTypes.contains(AlertType.OPERATIVA)
+                && origin == AlertOrigin.SIMULATION) {
+            throw new InvalidAlertRequestException(
+                    "types",
+                    "OPERATIVA cannot be used for a simulation");
+        }
+    }
+
+    private void assertManageDrillAllowed(
+            RequesterContext requester,
+            AlertOrigin origin) {
+
+        if (requester.isSimulationOnly()
+                && origin != AlertOrigin.SIMULATION) {
+            throw new ForbiddenOperationException(
+                    "El rol ORGANIZADOR solo puede operar alertas "
+                            + "asociadas a un simulacro");
+        }
+    }
+
     private AlertResponse toResponse(AlertEntity alert) {
         return alertMapper.toResponse(
                 alert,
@@ -476,7 +552,8 @@ public class AlertServiceImpl implements AlertService {
 
         AlertResponse current = toResponse(existing);
 
-        return existing.getType() == request.type()
+        return new LinkedHashSet<>(existing.getTypes())
+                .equals(new LinkedHashSet<>(request.types()))
                 && Objects.equals(
                         existing.getTitle(),
                         normalizeText(request.title()))

@@ -22,6 +22,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +64,7 @@ class AlertMapperTest {
     private AlertEntity fullAlert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setType(AlertType.EARTHQUAKE);
+        alert.setTypes(Set.of(AlertType.EARTHQUAKE, AlertType.FIRE));
         alert.setTitle(TITLE);
         alert.setStatus(AlertStatus.ACTIVE);
         alert.setOrigin(AlertOrigin.SIMULATION);
@@ -74,7 +75,6 @@ class AlertMapperTest {
         alert.setUpdatedAt(NOW.minusSeconds(200));
         alert.setActivationAt(NOW.minusSeconds(100));
         alert.setActivatedAt(NOW.minusSeconds(90));
-        alert.setEndedAt(NOW.minusSeconds(80));
         alert.setArchivedAt(NOW.minusSeconds(70));
         return alert;
     }
@@ -141,13 +141,15 @@ class AlertMapperTest {
     @Test
     void toEntity_shouldBuildDraftManualAlert_whenRequestIsValid() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.type()).thenReturn(AlertType.EARTHQUAKE);
+        when(request.types()).thenReturn(List.of(AlertType.FIRE, AlertType.EARTHQUAKE));
         when(request.title()).thenReturn("  " + TITLE + "  ");
         when(request.instructions()).thenReturn("  Evacuar el edificio  ");
 
         AlertEntity result = mapper.toEntity(request, ACTOR, NOW);
 
-        assertEquals(AlertType.EARTHQUAKE, result.getType());
+        assertEquals(
+                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                mapper.sortedTypes(result.getTypes()));
         assertEquals(TITLE, result.getTitle());
         assertEquals(AlertStatus.DRAFT, result.getStatus());
         assertEquals(AlertOrigin.MANUAL, result.getOrigin());
@@ -196,14 +198,14 @@ class AlertMapperTest {
     void toRecipients_shouldMapEachRecipientToEntity_whenListIsNotEmpty() {
         List<AlertRecipientEntity> result = mapper.toRecipients(ALERT_ID, List.of(
                 new RecipientRequest(RecipientType.USER, "u1"),
-                new RecipientRequest(RecipientType.ROLE, "STUDENT")), NOW);
+                new RecipientRequest(RecipientType.ROLE, "ESTUDIANTE")), NOW);
 
         assertEquals(2, result.size());
         assertEquals(ALERT_ID, result.get(0).getAlertId());
         assertEquals(RecipientType.USER, result.get(0).getRecipientType());
         assertEquals("u1", result.get(0).getRecipientRefId());
         assertEquals(RecipientType.ROLE, result.get(1).getRecipientType());
-        assertEquals("STUDENT", result.get(1).getRecipientRefId());
+        assertEquals("ESTUDIANTE", result.get(1).getRecipientRefId());
         assertEquals(NOW, result.get(0).getCreatedAt());
         assertEquals(NOW, result.get(1).getUpdatedAt());
     }
@@ -275,7 +277,7 @@ class AlertMapperTest {
 
         AlertResponse expected = new AlertResponse(
                 ALERT_ID,
-                AlertType.EARTHQUAKE,
+                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
                 TITLE,
                 AlertStatus.ACTIVE,
                 AlertOrigin.SIMULATION,
@@ -288,7 +290,6 @@ class AlertMapperTest {
                 NOW.minusSeconds(200),
                 NOW.minusSeconds(100),
                 NOW.minusSeconds(90),
-                NOW.minusSeconds(80),
                 NOW.minusSeconds(70));
         assertEquals(expected, result);
     }
@@ -306,7 +307,7 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                AlertType.EARTHQUAKE,
+                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
                 TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
                 AlertStatus.ACTIVE,
@@ -328,7 +329,7 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                AlertType.EARTHQUAKE,
+                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
                 TITLE,
                 null,
                 AlertStatus.ACTIVE,

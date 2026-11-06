@@ -8,8 +8,8 @@ public class InvalidAlertStateException extends RuntimeException {
     private final AlertStatus currentStatus;
 
     public InvalidAlertStateException(AlertStatus currentStatus) {
-        super("The alert is in status " + currentStatus
-                + " and does not allow this operation");
+        super("La alerta está en estado " + currentStatus
+                + " y no permite esta operación");
         this.currentStatus = currentStatus;
     }
 

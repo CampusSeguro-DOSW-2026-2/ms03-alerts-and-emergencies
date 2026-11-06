@@ -29,7 +29,7 @@ public class AuditController {
     }
 
     @GetMapping("/{id}/auditoria")
-    @PreAuthorize("hasAnyRole('AUDITOR', 'COORDINATOR')")
+    @PreAuthorize("hasAuthority('ms03:alert:read_history')")
     @Operation(summary = "Consultar auditoria", description = "Eventos de auditoria de la alerta.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Eventos de auditoria"),

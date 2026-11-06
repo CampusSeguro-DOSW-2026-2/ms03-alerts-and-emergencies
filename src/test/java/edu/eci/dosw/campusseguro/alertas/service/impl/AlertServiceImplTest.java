@@ -38,6 +38,8 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
+import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
@@ -45,6 +47,8 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
@@ -53,6 +57,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -78,6 +83,16 @@ class AlertServiceImplTest {
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final String ACTOR = "admin";
+
+    private static final RequesterContext REQUESTER = new RequesterContext(
+            ACTOR,
+            Set.of(UserRole.COORDINADOR),
+            null);
+
+    private static final RequesterContext ORGANIZER = new RequesterContext(
+            "organizer",
+            Set.of(UserRole.ORGANIZADOR),
+            null);
 
     @Mock
     private AlertRepository alertRepository;
@@ -127,7 +142,7 @@ class AlertServiceImplTest {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
-        alert.setType(AlertType.EARTHQUAKE);
+        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
         alert.setTitle("Simulacro");
         alert.setInstructions(instructions);
         return alert;
@@ -160,12 +175,17 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
+        saved.setTypes(new LinkedHashSet<>(List.of(
+                AlertType.EARTHQUAKE, AlertType.FIRE)));
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
+        when(request.types()).thenReturn(List.of(AlertType.FIRE, AlertType.EARTHQUAKE));
         List<AlertRecipientEntity> recipientEntities = List.of(new AlertRecipientEntity());
         AlertResponse expected = mock(AlertResponse.class);
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
+        when(alertMapper.sortedTypes(saved.getTypes()))
+                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
         when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
         when(alertMapper.toScopeItems(ID, scope, NOW)).thenReturn(scopeItems);
@@ -174,7 +194,7 @@ class AlertServiceImplTest {
         when(recipientRepository.saveAll(recipientEntities)).thenReturn(recipientEntities);
         when(alertMapper.toResponse(saved, scopeItems, recipientEntities)).thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertTrue(result.created());
@@ -186,7 +206,7 @@ class AlertServiceImplTest {
                 ACTOR,
                 null,
                 AlertStatus.DRAFT,
-                "Alert created: title=Simulacro, type=EARTHQUAKE, origin=null, "
+                "Alert created: title=Simulacro, types=[EARTHQUAKE, FIRE], origin=null, "
                         + "simulationId=null, scope=CAMPUS, recipients=1");
     }
 
@@ -214,7 +234,7 @@ class AlertServiceImplTest {
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertFalse(result.created());
@@ -246,7 +266,7 @@ class AlertServiceImplTest {
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
 
-        AlertCreationResult result = service.create(request, ACTOR);
+        AlertCreationResult result = service.create(request, REQUESTER);
 
         assertSame(expected, result.alert());
         assertFalse(result.created());
@@ -276,7 +296,7 @@ class AlertServiceImplTest {
 
         assertThrows(
                 DuplicateSimulationAlertException.class,
-                () -> service.create(request, ACTOR));
+                () -> service.create(request, REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
     }
@@ -290,7 +310,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.origin()).thenReturn(
                 new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
-        when(request.type()).thenReturn(AlertType.EARTHQUAKE);
+        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
         when(request.title()).thenReturn(title);
         when(request.instructions()).thenReturn(instructions);
         lenient().when(request.activationAt()).thenReturn(activationAt);
@@ -303,13 +323,14 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.BUILDING);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
+        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
         when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
 
-        service.create(request, ACTOR);
+        service.create(request, REQUESTER);
 
         verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any());
         verify(catalogClient).validateRecipients(recipients);
@@ -319,13 +340,14 @@ class AlertServiceImplTest {
     void create_shouldNotPersistAnything_whenCatalogRejectsScope() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.ZONE);
+        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         doThrow(new RuntimeException("invalid scope"))
                 .when(catalogClient)
                 .validateBuildingsZones(eq(ScopeType.ZONE), any());
 
-        assertThrows(RuntimeException.class, () -> service.create(request, ACTOR));
+        assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
@@ -336,14 +358,77 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
+        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         doThrow(new RuntimeException("invalid recipients"))
                 .when(catalogClient)
                 .validateRecipients(recipients);
 
-        assertThrows(RuntimeException.class, () -> service.create(request, ACTOR));
+        assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
+        verify(alertRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void create_shouldRejectDuplicateTypes() {
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.types()).thenReturn(
+                List.of(AlertType.FIRE, AlertType.FIRE));
+
+        InvalidAlertRequestException exception = assertThrows(
+                InvalidAlertRequestException.class,
+                () -> service.create(request, REQUESTER));
+
+        assertEquals("types", exception.getField());
+        verify(alertRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void create_shouldRejectOperativaCombinedWithOtherTypes() {
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.types()).thenReturn(
+                List.of(AlertType.OPERATIVA, AlertType.EARTHQUAKE));
+
+        InvalidAlertRequestException exception = assertThrows(
+                InvalidAlertRequestException.class,
+                () -> service.create(request, REQUESTER));
+
+        assertEquals("types", exception.getField());
+        verify(alertRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void create_shouldRejectOperativaForSimulation() {
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.origin()).thenReturn(new AlertOriginRequest(
+                AlertOrigin.SIMULATION, UUID.randomUUID()));
+        when(request.types()).thenReturn(List.of(AlertType.OPERATIVA));
+
+        InvalidAlertRequestException exception = assertThrows(
+                InvalidAlertRequestException.class,
+                () -> service.create(request, REQUESTER));
+
+        assertEquals("types", exception.getField());
+        verify(alertRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(auditService);
+    }
+
+    @Test
+    void create_shouldForbidOrganizer_whenAlertIsNotASimulation() {
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+
+        ForbiddenOperationException exception = assertThrows(
+                ForbiddenOperationException.class,
+                () -> service.create(request, ORGANIZER));
+
+        assertEquals(
+                "El rol ORGANIZADOR solo puede operar alertas asociadas a un simulacro",
+                exception.getMessage());
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
     }
@@ -354,7 +439,7 @@ class AlertServiceImplTest {
 
         assertThrows(
                 AlertNotFoundException.class,
-                () -> service.update(ID, mock(AlertUpdateRequest.class), ACTOR));
+                () -> service.update(ID, mock(AlertUpdateRequest.class), REQUESTER));
 
         verifyNoInteractions(stateRules, auditService);
     }
@@ -367,7 +452,7 @@ class AlertServiceImplTest {
 
         assertThrows(
                 IllegalStateException.class,
-                () -> service.update(ID, mock(AlertUpdateRequest.class), ACTOR));
+                () -> service.update(ID, mock(AlertUpdateRequest.class), REQUESTER));
 
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
@@ -378,10 +463,11 @@ class AlertServiceImplTest {
         AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
+        when(request.types()).thenReturn(null);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
-        AlertResponse result = service.update(ID, request, ACTOR);
+        AlertResponse result = service.update(ID, request, REQUESTER);
 
         assertSame(expected, result);
         verify(alertRepository, never()).saveAndFlush(any());
@@ -392,10 +478,11 @@ class AlertServiceImplTest {
     void update_shouldNotCountAsChange_whenInstructionsAreEqual() {
         AlertEntity alert = alert(AlertStatus.DRAFT, "text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
+        when(request.types()).thenReturn(null);
         when(request.instructions()).thenReturn("  text  ");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
-        service.update(ID, request, ACTOR);
+        service.update(ID, request, REQUESTER);
 
         verify(alertRepository, never()).saveAndFlush(any());
         verifyNoInteractions(auditService);
@@ -406,11 +493,12 @@ class AlertServiceImplTest {
         AlertEntity alert = alert(AlertStatus.DRAFT, "old text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
+        when(request.types()).thenReturn(null);
         when(request.instructions()).thenReturn("  new text  ");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
-        AlertResponse result = service.update(ID, request, ACTOR);
+        AlertResponse result = service.update(ID, request, REQUESTER);
 
         assertSame(expected, result);
         assertEquals("new text", alert.getInstructions());
@@ -432,13 +520,14 @@ class AlertServiceImplTest {
         List<AlertScopeItemEntity> current = List.of(scopeItem(ScopeType.CAMPUS, null));
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         ScopeRequest newScope = mock(ScopeRequest.class);
+        when(request.types()).thenReturn(null);
         when(request.scope()).thenReturn(newScope);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(scopeItemRepository.findByAlertId(ID)).thenReturn(current);
         when(alertMapper.normalizeScope(newScope)).thenReturn(newScope);
         when(alertMapper.toScopeItems(ID, newScope, NOW)).thenReturn(List.of(scopeItem(ScopeType.CAMPUS, null)));
 
-        service.update(ID, request, ACTOR);
+        service.update(ID, request, REQUESTER);
 
         verify(catalogClient, never()).validateBuildingsZones(any(), any());
         verify(scopeItemRepository, never()).deleteAll(ArgumentMatchers.<List<AlertScopeItemEntity>>any());
@@ -452,13 +541,14 @@ class AlertServiceImplTest {
         AlertScopeItemEntity newItem = scopeItem(ScopeType.BUILDING, "B1");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         ScopeRequest newScope = scopeRequest(ScopeType.BUILDING);
+        when(request.types()).thenReturn(null);
         when(request.scope()).thenReturn(newScope);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(scopeItemRepository.findByAlertId(ID)).thenReturn(List.of(oldItem));
         when(alertMapper.normalizeScope(newScope)).thenReturn(newScope);
         when(alertMapper.toScopeItems(ID, newScope, NOW)).thenReturn(List.of(newItem));
 
-        service.update(ID, request, ACTOR);
+        service.update(ID, request, REQUESTER);
 
         verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any());
         verify(scopeItemRepository).deleteAll(List.of(oldItem));
@@ -543,7 +633,7 @@ class AlertServiceImplTest {
 
         PageResponse<AlertSummaryResponse> result = service.search(filter);
 
-        assertEquals(0, result.content().size());
+        assertEquals(0, result.contenido().size());
         verify(scopeItemRepository, never()).findByAlertIdIn(any());
         verify(recipientRepository, never()).findByAlertIdIn(any());
     }
@@ -601,7 +691,7 @@ class AlertServiceImplTest {
 
         PageResponse<AlertSummaryResponse> result = service.search(filter);
 
-        assertEquals(1, result.content().size());
-        assertSame(summary, result.content().get(0));
+        assertEquals(1, result.contenido().size());
+        assertSame(summary, result.contenido().get(0));
     }
 }

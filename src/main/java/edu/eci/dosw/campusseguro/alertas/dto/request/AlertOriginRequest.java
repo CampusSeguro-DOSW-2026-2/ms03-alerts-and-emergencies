@@ -10,6 +10,5 @@ public record AlertOriginRequest(
         @JsonAlias("tipo")
         AlertOrigin type,
 
-        @JsonAlias("eventId")
         UUID simulationId) {
 }

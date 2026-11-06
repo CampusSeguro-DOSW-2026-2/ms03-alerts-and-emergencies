@@ -1,4 +1,3 @@
-
 package edu.eci.dosw.campusseguro.alertas.service;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
@@ -20,18 +19,17 @@ public class AlertStateMachine {
                 AlertStatus.DRAFT,
                 EnumSet.of(
                         AlertStatus.SCHEDULED,
-                        AlertStatus.ACTIVE));
+                        AlertStatus.ACTIVE,
+                        AlertStatus.ARCHIVED));
 
         transitions.put(
                 AlertStatus.SCHEDULED,
-                EnumSet.of(AlertStatus.ACTIVE));
+                EnumSet.of(
+                        AlertStatus.ACTIVE,
+                        AlertStatus.ARCHIVED));
 
         transitions.put(
                 AlertStatus.ACTIVE,
-                EnumSet.of(AlertStatus.ENDED));
-
-        transitions.put(
-                AlertStatus.ENDED,
                 EnumSet.of(AlertStatus.ARCHIVED));
 
         transitions.put(
