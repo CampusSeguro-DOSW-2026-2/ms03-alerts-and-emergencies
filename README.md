@@ -105,7 +105,7 @@ The microservice is intended to support the following responsibilities:
 - **Security:** Spring Security with Gateway-injected identity headers
 - **Email:** Brevo (simulated in the `local` profile)
 - **Testing:** JUnit 5, Mockito, MockMvc, WireMock, Testcontainers and JaCoCo
-- **Static analysis:** SonarQube
+- **Static analysis:** SonarQube and SpotBugs
 - **API Contract:** OpenAPI 3.1 (`docs/api/openapi.yaml`)
 - **Version Control:** Git
 
@@ -254,6 +254,15 @@ mvn clean verify
 
 `mvn clean verify` runs unit and integration tests and generates the JaCoCo report at `target/site/jacoco/index.html`. The integration test uses PostgreSQL 17 with Testcontainers and applies `001` through `005`; Docker must be running.
 
+### Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push to `main`/`develop` and on every pull request targeting `main` or `develop`:
+
+- `backend-quality` runs `mvn -B -ntp clean verify` on Java 21: unit tests, the Testcontainers integration tests, the JaCoCo report with its 80 % line-coverage gate, and the SpotBugs analysis. The JaCoCo HTML report and the SpotBugs XML report are uploaded as workflow artifacts.
+- `publish-api-image` builds the root `Dockerfile` and publishes `ghcr.io/<owner>/<repo>-api:sha-<commit>` to GHCR. It only runs for pushes to `main`.
+
+SpotBugs runs with `effort=max` and fails the build on medium and high priority findings. Its filters live in `config/spotbugs-exclude.xml`.
+
 ### Postman Collection
 
 `docs/postman/ms03-alertas.postman_collection.json` runs against the Gateway. The `00 Autenticacion` folder logs in as coordinator, organizer, auditor and student, stores the JWT and real user id in collection variables, and every protected request sends `Authorization: Bearer`. Emails default to local integration users; passwords must come from a local environment or `--env-var` values and must not be committed.
@@ -285,7 +294,16 @@ The project is analyzed with SonarQube, using the JaCoCo XML report (`target/sit
 
    Never commit the token; pass it on the command line or through the `SONAR_TOKEN` environment variable.
 
-**Continuous integration:** `.github/workflows/sonarqube.yml` runs the analysis on every push to `main`/`develop` and on pull requests, and fails if the Quality Gate is not met. It requires the repository secrets `SONAR_TOKEN` and `SONAR_HOST_URL`.
+**Continuous integration:** `.github/workflows/sonarqube.yml` runs the analysis on every push to `main`/`develop` and on pull requests, and fails when the Quality Gate is not met. Configure the repository:
+
+| Name | Kind | Required | Purpose |
+| --- | --- | --- | --- |
+| `SONAR_TOKEN` | secret | yes | Token of the project in SonarQube or SonarCloud |
+| `SONAR_HOST_URL` | variable or secret | no | Self-hosted server URL; defaults to `https://sonarcloud.io` |
+| `SONAR_ORGANIZATION` | variable | on SonarCloud | Organization key that owns the project |
+| `SONAR_PROJECT_KEY` | variable | no | Overrides the pom key; SonarCloud projects normally use `<org>_<repo>` |
+
+A self-hosted server must be reachable from GitHub-hosted runners. Without `SONAR_TOKEN` the analysis step is skipped with a warning instead of failing the build.
 
 ## 8. Diagrams
 

@@ -23,7 +23,9 @@
         <!-- Análisis estático con SonarQube (mvn verify sonar:sonar) -->
         <sonar.projectKey>ms03-alerts-and-emergencies</sonar.projectKey>
         <sonar.projectName>MS03 - Alerts and Emergencies</sonar.projectName>
-        <sonar.host.url>http://localhost:9000</sonar.host.url>
+        <!-- The server URL is not pinned here: the scanner defaults to
+             http://localhost:9000 locally and CI passes -Dsonar.host.url
+             from the SONAR_HOST_URL variable or secret. -->
         <sonar.coverage.jacoco.xmlReportPaths>${project.build.directory}/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
         <sonar.coverage.exclusions>**/AlertsApplication.java</sonar.coverage.exclusions>
     </properties>
@@ -152,6 +154,26 @@
                 </execution>
             </executions>
         </plugin>
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <version>4.10.5.0</version>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <excludeFilterFile>${project.basedir}/config/spotbugs-exclude.xml</excludeFilterFile>
+                    <failOnError>true</failOnError>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-check</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.sonarsource.scanner.maven</groupId>
                 <artifactId>sonar-maven-plugin</artifactId>

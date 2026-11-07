@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!--
+        SpotBugs filters for this project.
+
+        EI_EXPOSE_REP / EI_EXPOSE_REP2: Spring components, DTOs and records
+        expose their collections and collaborators by design. No consumer
+        mutates state through those references.
+
+        CT_CONSTRUCTOR_THROW: Spring components validate their configuration
+        in the constructor and fail fast. None of these classes defines a
+        finalizer, so the finalizer-attack vector reported by SpotBugs does
+        not apply.
+    -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+    </Match>
+    <Match>
+        <Bug pattern="CT_CONSTRUCTOR_THROW"/>
+    </Match>
+</FindBugsFilter>
