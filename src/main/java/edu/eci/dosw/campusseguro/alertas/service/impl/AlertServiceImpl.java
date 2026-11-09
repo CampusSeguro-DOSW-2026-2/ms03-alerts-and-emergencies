@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -603,8 +604,16 @@ public class AlertServiceImpl implements AlertService {
             currentScopes = List.of(current.scope());
         }
 
-        return new HashSet<>(safeList(currentScopes))
-                .equals(new HashSet<>(safeList(requested)));
+        return scopeKeys(currentScopes).equals(scopeKeys(requested));
+    }
+
+    private Set<String> scopeKeys(List<ScopeRequest> scopes) {
+        return safeList(scopes).stream()
+                .flatMap(scope -> scope.type() == ScopeType.CAMPUS
+                        ? Stream.of("CAMPUS")
+                        : safeList(scope.ids()).stream()
+                                .map(id -> scope.type() + ":" + id))
+                .collect(Collectors.toSet());
     }
 
     /**
