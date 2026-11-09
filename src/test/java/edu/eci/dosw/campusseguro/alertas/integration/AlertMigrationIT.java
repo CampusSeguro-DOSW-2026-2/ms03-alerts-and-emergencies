@@ -64,6 +64,7 @@ class AlertMigrationIT {
         }
         seedLegacyRows();
         applyScript("005_business_logic_update.sql");
+        applyScript("007_alert_purpose.sql");
     }
 
     @AfterAll
@@ -126,6 +127,14 @@ class AlertMigrationIT {
         assertTrue(indexExists("idx_deliveries_user_alert"));
         assertTrue(indexExists("idx_confirmations_user_alert"));
         assertTrue(indexExists("idx_alerts_status_activated_at"));
+        assertTrue(indexExists("idx_alerts_simulation_purpose"));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'alerts'
+                  AND column_name = 'purpose'
+                """));
 
         assertTrue(constraintDefinition("ck_alerts_status").contains("ARCHIVED"));
         assertTrue(constraintDefinition("ck_alerts_status").contains("DRAFT"));

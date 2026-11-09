@@ -14,10 +14,29 @@ public record InboxAlertResponse(
         String title,
         AlertStatus status,
         AlertOrigin origin,
+        String purpose,
         ScopeRequest scope,
+        List<ScopeRequest> scopes,
         String instructions,
         Instant activatedAt,
         Instant archivedAt,
         Instant confirmedAt
 ) {
+
+    /** Keeps the previous constructor for callers that do not use purpose or scopes. */
+    public InboxAlertResponse(
+            UUID id,
+            List<AlertType> types,
+            String title,
+            AlertStatus status,
+            AlertOrigin origin,
+            ScopeRequest scope,
+            String instructions,
+            Instant activatedAt,
+            Instant archivedAt,
+            Instant confirmedAt) {
+        this(id, types, title, status, origin, null, scope,
+                scope == null ? List.of() : List.of(scope),
+                instructions, activatedAt, archivedAt, confirmedAt);
+    }
 }

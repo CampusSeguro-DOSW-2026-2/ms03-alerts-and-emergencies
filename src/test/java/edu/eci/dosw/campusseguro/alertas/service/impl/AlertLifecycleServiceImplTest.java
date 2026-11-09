@@ -147,6 +147,23 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
+    void schedule_shouldReschedule_whenAlertIsAlreadyScheduled() {
+        AlertEntity alert = alert(AlertStatus.SCHEDULED);
+        alert.setActivationAt(NOW.plusSeconds(600));
+        AlertResponse expected = responseFor(alert);
+        Instant newActivation = NOW.plusSeconds(7200);
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
+
+        AlertResponse result = service.schedule(ID, scheduleRequest(newActivation), REQUESTER);
+
+        assertSame(expected, result);
+        assertEquals(AlertStatus.SCHEDULED, alert.getStatus());
+        assertEquals(newActivation, alert.getActivationAt());
+        verify(stateMachine, never()).assertTransition(any(), any());
+        verify(alertRepository).saveAndFlush(alert);
+    }
+
+    @Test
     void schedule_shouldThrowNotFound_whenAlertDoesNotExist() {
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.empty());
 

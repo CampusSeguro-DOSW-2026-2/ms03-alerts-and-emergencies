@@ -56,6 +56,13 @@ public class AlertEntity extends BaseEntity {
     @Column(name = "simulation_id")
     private UUID simulationId;
 
+    /**
+     * Purpose of the alert inside its simulation/event. It allows several live alerts
+     * (brigadiers, general, edit, finish) to share the same {@code simulationId}.
+     */
+    @Column(name = "purpose", length = 32)
+    private String purpose;
+
     @Column(name = "created_by", nullable = false, length = 64)
     private String createdBy;
 
@@ -116,6 +123,14 @@ public class AlertEntity extends BaseEntity {
 
     public void setSimulationId(UUID simulationId) {
         this.simulationId = simulationId;
+    }
+
+    public String getPurpose() {
+        return purpose;
+    }
+
+    public void setPurpose(String purpose) {
+        this.purpose = purpose;
     }
 
     public String getCreatedBy() {

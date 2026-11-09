@@ -13,7 +13,9 @@ public record AlertSummaryResponse(
         UUID id,
         List<AlertType> types,
         String title,
+        String purpose,
         ScopeRequest scope,
+        List<ScopeRequest> scopes,
         AlertStatus status,
         AlertOrigin origin,
         UUID simulationId,
@@ -21,4 +23,20 @@ public record AlertSummaryResponse(
         String instructions,
         List<RecipientRequest> recipients
 ) {
+
+    /** Keeps the previous constructor for callers that do not use purpose or scopes. */
+    public AlertSummaryResponse(
+            UUID id,
+            List<AlertType> types,
+            String title,
+            ScopeRequest scope,
+            AlertStatus status,
+            AlertOrigin origin,
+            UUID simulationId,
+            Instant createdAt,
+            String instructions,
+            List<RecipientRequest> recipients) {
+        this(id, types, title, null, scope, scope == null ? List.of() : List.of(scope),
+                status, origin, simulationId, createdAt, instructions, recipients);
+    }
 }

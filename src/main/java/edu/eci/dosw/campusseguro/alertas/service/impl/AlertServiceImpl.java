@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -125,25 +126,37 @@ public class AlertServiceImpl implements AlertService {
         validateTypes(request.types(), originType);
         assertManageDrillAllowed(requester, originType);
 
-        ScopeRequest scope =
-                alertMapper.normalizeScope(request.scope());
+        String purpose = normalizePurpose(request.purpose());
+
+        List<ScopeRequest> scopes = resolveScopes(request);
+
+        if (scopes.isEmpty()) {
+            throw new InvalidAlertRequestException(
+                    "scope",
+                    "At least one scope is required");
+        }
 
         List<RecipientRequest> recipients =
                 alertMapper.normalizeRecipients(request.recipients());
 
         if (simulationId != null) {
-            AlertEntity existing = alertRepository
-                    .findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
+            AlertEntity existing = (purpose == null
+                    ? alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                             simulationId,
                             REUSABLE_SIMULATION_STATUSES)
+                    : alertRepository.findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
+                            simulationId,
+                            purpose,
+                            REUSABLE_SIMULATION_STATUSES))
                     .orElse(null);
 
             if (existing != null) {
                 if (!sameCreationData(
                         existing,
                         request,
-                        scope,
-                        recipients)) {
+                        scopes,
+                        recipients,
+                        purpose)) {
                     throw new DuplicateSimulationAlertException(
                             simulationId,
                             existing.getId());
@@ -169,7 +182,7 @@ public class AlertServiceImpl implements AlertService {
             throw new InvalidActivationDateException();
         }
 
-        validateScope(scope);
+        validateScopes(scopes);
         validateRecipients(recipients);
 
         AlertEntity alert = alertMapper.toEntity(request, actor, now);
@@ -182,8 +195,9 @@ public class AlertServiceImpl implements AlertService {
         alert = alertRepository.saveAndFlush(alert);
 
         List<AlertScopeItemEntity> scopeItems =
-                scopeItemRepository.saveAll(
-                        alertMapper.toScopeItems(alert.getId(), scope, now));
+                scopeItemRepository.saveAll(scopes.size() == 1
+                        ? alertMapper.toScopeItems(alert.getId(), scopes.get(0), now)
+                        : alertMapper.toScopeItems(alert.getId(), scopes, now));
 
         List<AlertRecipientEntity> recipientEntities =
                 recipientRepository.saveAll(
@@ -194,7 +208,10 @@ public class AlertServiceImpl implements AlertService {
                 + ", types=" + alertMapper.sortedTypes(alert.getTypes())
                 + ", origin=" + alert.getOrigin()
                 + ", simulationId=" + alert.getSimulationId()
-                + ", scope=" + scope.type()
+                + (purpose == null ? "" : ", purpose=" + purpose)
+                + ", scope=" + (scopes.size() == 1
+                        ? scopes.get(0).type()
+                        : scopes.size() + " scopes")
                 + ", recipients=" + recipients.size();
 
         auditService.record(
@@ -547,20 +564,22 @@ public class AlertServiceImpl implements AlertService {
     private boolean sameCreationData(
             AlertEntity existing,
             AlertCreateRequest request,
-            ScopeRequest scope,
-            List<RecipientRequest> recipients) {
+            List<ScopeRequest> scopes,
+            List<RecipientRequest> recipients,
+            String purpose) {
 
         AlertResponse current = toResponse(existing);
 
-        return new LinkedHashSet<>(existing.getTypes())
-                .equals(new LinkedHashSet<>(request.types()))
+        return Objects.equals(existing.getPurpose(), purpose)
+                && new LinkedHashSet<>(existing.getTypes())
+                        .equals(new LinkedHashSet<>(request.types()))
                 && Objects.equals(
                         existing.getTitle(),
                         normalizeText(request.title()))
                 && Objects.equals(
                         existing.getInstructions(),
                         normalizeText(request.instructions()))
-                && sameScope(current.scope(), scope)
+                && sameScopes(current, scopes)
                 && sameRecipients(current.recipients(), recipients)
                 && Objects.equals(
                         existing.getActivationAt(),
@@ -571,14 +590,45 @@ public class AlertServiceImpl implements AlertService {
         return value == null ? null : value.strip();
     }
 
-    private boolean sameScope(ScopeRequest current, ScopeRequest requested) {
-        if (current == null || requested == null) {
-            return current == requested;
+    private String normalizePurpose(String value) {
+        return value == null || value.isBlank() ? null : value.strip();
+    }
+
+    private boolean sameScopes(
+            AlertResponse current,
+            List<ScopeRequest> requested) {
+
+        List<ScopeRequest> currentScopes = current.scopes();
+        if ((currentScopes == null || currentScopes.isEmpty())
+                && current.scope() != null) {
+            currentScopes = List.of(current.scope());
         }
 
-        return current.type() == requested.type()
-                && new HashSet<>(safeList(current.ids()))
-                        .equals(new HashSet<>(safeList(requested.ids())));
+        return scopeKeys(currentScopes).equals(scopeKeys(requested));
+    }
+
+    private Set<String> scopeKeys(List<ScopeRequest> scopes) {
+        return safeList(scopes).stream()
+                .flatMap(scope -> scope.type() == ScopeType.CAMPUS
+                        ? Stream.of("CAMPUS")
+                        : safeList(scope.ids()).stream()
+                                .map(id -> scope.type() + ":" + id))
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Resolves the scope of a create request. The new {@code scopes} list wins;
+     * otherwise the legacy single {@code scope} is used.
+     */
+    private List<ScopeRequest> resolveScopes(AlertCreateRequest request) {
+        if (request.scopes() != null && !request.scopes().isEmpty()) {
+            return alertMapper.normalizeScopes(null, request.scopes());
+        }
+        ScopeRequest scope = request.scope();
+        if (scope == null) {
+            return List.of();
+        }
+        return List.of(alertMapper.normalizeScope(scope));
     }
 
     private boolean sameRecipients(
@@ -591,6 +641,10 @@ public class AlertServiceImpl implements AlertService {
 
     private <T> List<T> safeList(List<T> values) {
         return values == null ? List.of() : values;
+    }
+
+    private void validateScopes(List<ScopeRequest> scopes) {
+        scopes.forEach(this::validateScope);
     }
 
     private void validateScope(ScopeRequest scope) {

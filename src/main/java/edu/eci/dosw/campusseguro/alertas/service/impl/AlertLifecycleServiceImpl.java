@@ -85,9 +85,13 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         AlertStatus previousStatus = alert.getStatus();
 
-        alertStateMachine.assertTransition(
-                previousStatus,
-                AlertStatus.SCHEDULED);
+        // A SCHEDULED alert can be rescheduled in place; any other state must
+        // follow the normal transition rules.
+        if (previousStatus != AlertStatus.SCHEDULED) {
+            alertStateMachine.assertTransition(
+                    previousStatus,
+                    AlertStatus.SCHEDULED);
+        }
 
         alert.setActivationAt(activationAt);
         alert.setStatus(AlertStatus.SCHEDULED);

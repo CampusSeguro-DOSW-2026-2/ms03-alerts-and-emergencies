@@ -1035,7 +1035,6 @@ components:
       required:
         - types
         - title
-        - scope
         - instructions
         - recipients
       properties:
@@ -1055,6 +1054,17 @@ components:
           example: Simulacro nacional de evacuacion
         scope:
           $ref: '#/components/schemas/ScopeRequest'
+          description: |
+            Alcance unico. Alternativa a scopes; se debe enviar exactamente uno
+            de los dos.
+        scopes:
+          type: array
+          minItems: 1
+          description: |
+            Alternativa a scope para alertas que cubren varios tipos de alcance
+            (por ejemplo edificios y zonas). Si viene, tiene prioridad sobre scope.
+          items:
+            $ref: '#/components/schemas/ScopeRequest'
         instructions:
           type: string
           maxLength: 1000
@@ -1079,6 +1089,13 @@ components:
           description: |
             Si es true, crea la alerta y la activa en la misma operacion.
             Mutuamente excluyente con activationAt.
+        purpose:
+          type: string
+          maxLength: 32
+          description: |
+            Proposito de la alerta dentro de su simulacro/evento (BRIGADISTS,
+            GENERAL, EDIT, FINISH). Permite varias alertas vivas con el mismo
+            simulationId y forma parte de la clave de idempotencia.
     AlertUpdateRequest:
       type: object
       minProperties: 1
@@ -1145,8 +1162,19 @@ components:
             - string
             - 'null'
           format: uuid
+        purpose:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
+          description: Proposito de la alerta dentro de su simulacro/evento.
         scope:
           $ref: '#/components/schemas/ScopeRequest'
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeRequest'
+          description: Alcance agrupado por tipo; puede tener varios elementos.
         instructions:
           type: string
         recipients:
@@ -1200,8 +1228,17 @@ components:
             $ref: '#/components/schemas/AlertType'
         title:
           type: string
+        purpose:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
         scope:
           $ref: '#/components/schemas/ScopeRequest'
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeRequest'
         status:
           $ref: '#/components/schemas/AlertStatus'
         origin:
@@ -1247,8 +1284,17 @@ components:
           $ref: '#/components/schemas/AlertStatus'
         origin:
           $ref: '#/components/schemas/AlertOrigin'
+        purpose:
+          type:
+            - string
+            - 'null'
+          maxLength: 32
         scope:
           $ref: '#/components/schemas/ScopeRequest'
+        scopes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScopeRequest'
         instructions:
           type: string
         activatedAt:
