@@ -173,6 +173,7 @@ class AlertServiceImplTest {
     void create_shouldSaveAndAudit_whenScopeIsCampus() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
+        when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
         saved.setTypes(new LinkedHashSet<>(List.of(
@@ -349,6 +350,7 @@ class AlertServiceImplTest {
         when(request.title()).thenReturn(title);
         when(request.instructions()).thenReturn(instructions);
         lenient().when(request.activationAt()).thenReturn(activationAt);
+        when(request.scope()).thenReturn(new ScopeRequest(ScopeType.CAMPUS, List.of()));
         return request;
     }
 
@@ -356,6 +358,7 @@ class AlertServiceImplTest {
     void create_shouldValidateAgainstCatalog_whenScopeIsBuilding() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.BUILDING);
+        when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
         when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
@@ -375,6 +378,7 @@ class AlertServiceImplTest {
     void create_shouldNotPersistAnything_whenCatalogRejectsScope() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.ZONE);
+        when(request.scope()).thenReturn(scope);
         when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
@@ -392,6 +396,7 @@ class AlertServiceImplTest {
     void create_shouldNotPersistAnything_whenCatalogRejectsRecipients() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
+        when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);

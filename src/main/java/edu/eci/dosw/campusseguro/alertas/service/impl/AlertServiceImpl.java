@@ -624,8 +624,11 @@ public class AlertServiceImpl implements AlertService {
         if (request.scopes() != null && !request.scopes().isEmpty()) {
             return alertMapper.normalizeScopes(null, request.scopes());
         }
-        ScopeRequest scope = alertMapper.normalizeScope(request.scope());
-        return scope == null ? List.of() : List.of(scope);
+        ScopeRequest scope = request.scope();
+        if (scope == null) {
+            return List.of();
+        }
+        return List.of(alertMapper.normalizeScope(scope));
     }
 
     private boolean sameRecipients(
