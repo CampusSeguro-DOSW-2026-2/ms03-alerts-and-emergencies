@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.integration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -65,6 +66,7 @@ class AlertMigrationIT {
         seedLegacyRows();
         applyScript("005_business_logic_update.sql");
         applyScript("007_alert_purpose.sql");
+        applyScript("008_alert_purpose_unique.sql");
     }
 
     @AfterAll
@@ -128,6 +130,8 @@ class AlertMigrationIT {
         assertTrue(indexExists("idx_confirmations_user_alert"));
         assertTrue(indexExists("idx_alerts_status_activated_at"));
         assertTrue(indexExists("idx_alerts_simulation_purpose"));
+        assertTrue(indexExists("uq_alerts_simulation_purpose_live"));
+        assertFalse(indexExists("uq_alerts_simulation_live"));
         assertEquals(1, count("""
                 SELECT count(*)
                 FROM information_schema.columns
@@ -139,6 +143,26 @@ class AlertMigrationIT {
         assertTrue(constraintDefinition("ck_alerts_status").contains("ARCHIVED"));
         assertTrue(constraintDefinition("ck_alerts_status").contains("DRAFT"));
         assertTrue(constraintDefinition("ck_audit_action").contains("END"));
+    }
+
+    @Test
+    void migration_shouldAllowOneLiveAlertPerPurposeOfTheSameEvent() throws Exception {
+        String insert = """
+                INSERT INTO alerts (id, title, status, instructions, origin, created_by, activated_at,
+                                    simulation_id, purpose)
+                VALUES ('%s', 'Alerta del evento', 'ACTIVE', 'x', 'SIMULATION', 'ms06', now(),
+                        '40000000-0000-4000-8000-000000000001', '%s')
+                """;
+        try {
+            execute(insert.formatted("40000000-0000-4000-8000-000000000011", "BRIGADISTS"));
+            execute(insert.formatted("40000000-0000-4000-8000-000000000012", "GENERAL"));
+
+            assertThrows(SQLException.class,
+                    () -> execute(insert.formatted("40000000-0000-4000-8000-000000000013", "GENERAL")));
+        } finally {
+            // Las otras pruebas cuentan las filas de esta base compartida
+            execute("DELETE FROM alerts WHERE simulation_id = '40000000-0000-4000-8000-000000000001'");
+        }
     }
 
     private static void applyScript(String script) throws Exception {

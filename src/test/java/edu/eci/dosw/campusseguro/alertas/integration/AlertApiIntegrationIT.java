@@ -108,7 +108,8 @@ class AlertApiIntegrationIT {
                     "003_phase2_contract.sql",
                     "004_align_simulation_contract.sql",
                     "005_business_logic_update.sql",
-                    "007_alert_purpose.sql")) {
+                    "007_alert_purpose.sql",
+                    "008_alert_purpose_unique.sql")) {
                 Path path = Path.of("database", script);
                 String containerPath = "/tmp/" + script;
                 POSTGRES.copyFileToContainer(MountableFile.forHostPath(path), containerPath);
