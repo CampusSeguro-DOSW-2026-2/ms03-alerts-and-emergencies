@@ -239,12 +239,43 @@ class AlertMapperTest {
     }
 
     @Test
-    void toScope_shouldThrowIllegalState_whenItemsHaveMixedTypes() {
+    void toScopes_shouldGroupItemsByType_whenAlertHasMixedTypes() {
         List<AlertScopeItemEntity> mixed = List.of(
-                scopeItem(ScopeType.ZONE, "Z1"),
-                scopeItem(ScopeType.BUILDING, "B1"));
+                scopeItem(ScopeType.ZONE, "Z2"),
+                scopeItem(ScopeType.BUILDING, "B1"),
+                scopeItem(ScopeType.ZONE, "Z1"));
 
-        assertThrows(IllegalStateException.class, () -> mapper.toScope(mixed));
+        assertEquals(List.of(
+                new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
+                new ScopeRequest(ScopeType.ZONE, List.of("Z1", "Z2"))),
+                mapper.toScopes(mixed));
+        assertNull(mapper.toScope(mixed));
+    }
+
+    @Test
+    void normalizeScopes_shouldMergeSameTypeAndKeepBothTypes() {
+        List<ScopeRequest> result = mapper.normalizeScopes(null, List.of(
+                new ScopeRequest(ScopeType.ZONE, List.of("Z2", "Z1")),
+                new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
+                new ScopeRequest(ScopeType.ZONE, List.of("Z2"))));
+
+        assertEquals(List.of(
+                new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
+                new ScopeRequest(ScopeType.ZONE, List.of("Z2", "Z1"))), result);
+    }
+
+    @Test
+    void toScopeItems_shouldFlattenMultipleScopes() {
+        List<AlertScopeItemEntity> items = mapper.toScopeItems(
+                ALERT_ID,
+                List.of(
+                        new ScopeRequest(ScopeType.BUILDING, List.of("B1", "B2")),
+                        new ScopeRequest(ScopeType.ZONE, List.of("Z1"))),
+                NOW);
+
+        assertEquals(
+                List.of("B1", "B2", "Z1"),
+                items.stream().map(AlertScopeItemEntity::getScopeRefId).toList());
     }
 
     // toRecipientRequests

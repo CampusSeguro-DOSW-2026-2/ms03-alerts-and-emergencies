@@ -211,6 +211,41 @@ class AlertServiceImplTest {
     }
 
     @Test
+    void create_withPurpose_shouldUseThePurposeSpecificFinder() {
+        UUID simulationId = UUID.randomUUID();
+        ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
+        AlertCreateRequest request = mock(AlertCreateRequest.class);
+        when(request.scopes()).thenReturn(List.of(scope));
+        when(request.origin()).thenReturn(
+                new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
+        when(request.types()).thenReturn(List.of(AlertType.OTHER));
+        when(request.purpose()).thenReturn("GENERAL");
+        when(alertMapper.normalizeScopes(any(), any())).thenReturn(List.of(scope));
+        when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
+        when(alertRepository.findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
+                eq(simulationId), eq("GENERAL"), any())).thenReturn(Optional.empty());
+
+        AlertEntity saved = alert(AlertStatus.DRAFT, "x");
+        saved.setSimulationId(simulationId);
+        saved.setPurpose("GENERAL");
+        when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
+        when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
+        when(alertMapper.toScopeItems(ID, scope, NOW)).thenReturn(List.of());
+        when(alertMapper.toRecipients(ID, List.of(), NOW)).thenReturn(List.of());
+        when(scopeItemRepository.saveAll(List.of())).thenReturn(List.of());
+        when(recipientRepository.saveAll(List.of())).thenReturn(List.of());
+        when(alertMapper.toResponse(saved, List.of(), List.of()))
+                .thenReturn(mock(AlertResponse.class));
+
+        service.create(request, REQUESTER);
+
+        verify(alertRepository)
+                .findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
+                        eq(simulationId), eq("GENERAL"), any());
+        verify(alertRepository).saveAndFlush(saved);
+    }
+
+    @Test
     void create_withSameSimulationIdAndSameData_shouldReturnExistingAlert() {
         UUID simulationId = UUID.randomUUID();
         ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());

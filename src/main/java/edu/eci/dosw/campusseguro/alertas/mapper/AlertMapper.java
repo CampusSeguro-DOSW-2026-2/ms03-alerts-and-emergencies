@@ -14,10 +14,13 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -45,6 +48,35 @@ public class AlertMapper {
                 .toList();
 
         return new ScopeRequest(scope.type(), normalizedIds);
+    }
+
+    /**
+     * Normalizes the scope of an alert. A request may send the legacy single
+     * {@code scope} or the new {@code scopes} list; the list wins when both are
+     * present. Items of the same type are merged and every type is returned once.
+     */
+    public List<ScopeRequest> normalizeScopes(
+            ScopeRequest scope,
+            List<ScopeRequest> scopes) {
+
+        if (scopes != null && !scopes.isEmpty()) {
+            Map<ScopeType, LinkedHashSet<String>> grouped = new LinkedHashMap<>();
+            for (ScopeRequest item : scopes) {
+                ScopeRequest normalized = normalizeScope(item);
+                if (normalized.type() == ScopeType.CAMPUS) {
+                    grouped.computeIfAbsent(ScopeType.CAMPUS, type -> new LinkedHashSet<>());
+                    continue;
+                }
+                grouped.computeIfAbsent(normalized.type(), type -> new LinkedHashSet<>())
+                        .addAll(normalized.ids());
+            }
+            return grouped.entrySet().stream()
+                    .map(entry -> new ScopeRequest(entry.getKey(), List.copyOf(entry.getValue())))
+                    .sorted(Comparator.comparingInt(item -> item.type().ordinal()))
+                    .toList();
+        }
+
+        return scope == null ? List.of() : List.of(normalizeScope(scope));
     }
 
     public List<RecipientRequest> normalizeRecipients(
@@ -96,6 +128,10 @@ public class AlertMapper {
             alert.setSimulationId(origin.simulationId());
         }
 
+        alert.setPurpose(request.purpose() == null || request.purpose().isBlank()
+                ? null
+                : request.purpose().strip());
+
         return alert;
     }
 
@@ -119,6 +155,18 @@ public class AlertMapper {
 
         return scopeIds.stream()
                 .map(id -> newScopeItem(alertId, scope.type(), id, now))
+                .toList();
+    }
+
+    public List<AlertScopeItemEntity> toScopeItems(
+            UUID alertId,
+            List<ScopeRequest> scopes,
+            Instant now) {
+
+        Objects.requireNonNull(scopes, "Scopes cannot be null");
+
+        return scopes.stream()
+                .flatMap(scope -> toScopeItems(alertId, scope, now).stream())
                 .toList();
     }
 
@@ -149,36 +197,45 @@ public class AlertMapper {
                 .toList();
     }
 
-    public ScopeRequest toScope(List<AlertScopeItemEntity> items) {
+    /**
+     * Groups the stored scope items by type. An alert may cover buildings and
+     * zones at the same time, so the result can have more than one element.
+     */
+    public List<ScopeRequest> toScopes(List<AlertScopeItemEntity> items) {
         Objects.requireNonNull(items, "Scope items cannot be null");
 
         if (items.isEmpty()) {
-            return null;
+            return List.of();
         }
 
-        ScopeType type = Objects.requireNonNull(
-                items.get(0).getScopeType(),
-                "Scope type cannot be null");
-
-        boolean hasDifferentTypes = items.stream()
-                .anyMatch(item -> item.getScopeType() != type);
-
-        if (hasDifferentTypes) {
-            throw new IllegalStateException(
-                    "All scope items must have the same scope type");
+        Map<ScopeType, List<String>> grouped = new LinkedHashMap<>();
+        for (AlertScopeItemEntity item : items) {
+            ScopeType type = Objects.requireNonNull(
+                    item.getScopeType(),
+                    "Scope type cannot be null");
+            if (type == ScopeType.CAMPUS) {
+                grouped.computeIfAbsent(ScopeType.CAMPUS, key -> new ArrayList<>());
+                continue;
+            }
+            grouped.computeIfAbsent(type, key -> new ArrayList<>())
+                    .add(item.getScopeRefId());
         }
 
-        if (type == ScopeType.CAMPUS) {
-            return new ScopeRequest(ScopeType.CAMPUS, List.of());
-        }
-
-        List<String> ids = items.stream()
-                .map(AlertScopeItemEntity::getScopeRefId)
-                .filter(Objects::nonNull)
-                .sorted()
+        return grouped.entrySet().stream()
+                .map(entry -> new ScopeRequest(
+                        entry.getKey(),
+                        entry.getValue().stream()
+                                .filter(Objects::nonNull)
+                                .sorted()
+                                .toList()))
+                .sorted(Comparator.comparingInt(item -> item.type().ordinal()))
                 .toList();
+    }
 
-        return new ScopeRequest(type, ids);
+    /** Legacy single-scope view: the only scope, or {@code null} when there are several. */
+    public ScopeRequest toScope(List<AlertScopeItemEntity> items) {
+        List<ScopeRequest> scopes = toScopes(items);
+        return scopes.size() == 1 ? scopes.get(0) : null;
     }
 
     public List<RecipientRequest> toRecipientRequests(
@@ -218,7 +275,9 @@ public class AlertMapper {
                 alert.getStatus(),
                 alert.getOrigin(),
                 alert.getSimulationId(),
+                alert.getPurpose(),
                 toScope(scopeItems),
+                toScopes(scopeItems),
                 alert.getInstructions(),
                 toRecipientRequests(recipients),
                 alert.getCreatedBy(),
@@ -242,7 +301,9 @@ public class AlertMapper {
                 alert.getId(),
                 sortedTypes(alert.getTypes()),
                 alert.getTitle(),
+                alert.getPurpose(),
                 toScope(scopeItems),
+                toScopes(scopeItems),
                 alert.getStatus(),
                 alert.getOrigin(),
                 alert.getSimulationId(),

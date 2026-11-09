@@ -119,7 +119,12 @@ public class InboxServiceImpl implements InboxService {
                         alert.getTitle(),
                         alert.getStatus(),
                         alert.getOrigin(),
+                        alert.getPurpose(),
                         alertMapper.toScope(
+                                scopeByAlert.getOrDefault(
+                                        alert.getId(),
+                                        List.of())),
+                        alertMapper.toScopes(
                                 scopeByAlert.getOrDefault(
                                         alert.getId(),
                                         List.of())),

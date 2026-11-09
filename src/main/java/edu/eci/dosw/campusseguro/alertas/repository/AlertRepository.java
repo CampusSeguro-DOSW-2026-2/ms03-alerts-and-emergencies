@@ -35,6 +35,11 @@ public interface AlertRepository
             UUID simulationId,
             Collection<AlertStatus> statuses);
 
+    Optional<AlertEntity> findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
+            UUID simulationId,
+            String purpose,
+            Collection<AlertStatus> statuses);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
             update AlertEntity a

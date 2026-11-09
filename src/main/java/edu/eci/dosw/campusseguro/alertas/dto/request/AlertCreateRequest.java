@@ -20,7 +20,6 @@ public record AlertCreateRequest(
         @Size(max = 150, message = "Title cannot exceed 150 characters")
         String title,
 
-        @NotNull(message = "Alert scope is required")
         @Valid
         ScopeRequest scope,
 
@@ -39,6 +38,35 @@ public record AlertCreateRequest(
 
         Instant activationAt,
 
-        Boolean activateImmediately
+        Boolean activateImmediately,
+
+        /**
+         * Alternative to {@link #scope} for alerts that cover more than one kind of scope
+         * (for example buildings and zones in the same event). Exactly one of
+         * {@code scope} or {@code scopes} must be present.
+         */
+        @Valid
+        List<ScopeRequest> scopes,
+
+        /**
+         * Purpose of the alert inside its simulation/event (for example BRIGADISTS,
+         * GENERAL, EDIT or FINISH). It lets several live alerts share the same
+         * {@code simulationId}.
+         */
+        @Size(max = 32, message = "Purpose cannot exceed 32 characters")
+        String purpose
 ) {
+
+    /** Keeps the previous constructor for callers that do not use scopes or purpose. */
+    public AlertCreateRequest(
+            List<AlertType> types,
+            String title,
+            ScopeRequest scope,
+            String instructions,
+            List<RecipientRequest> recipients,
+            AlertOriginRequest origin,
+            Instant activationAt,
+            Boolean activateImmediately) {
+        this(types, title, scope, instructions, recipients, origin, activationAt, activateImmediately, null, null);
+    }
 }
