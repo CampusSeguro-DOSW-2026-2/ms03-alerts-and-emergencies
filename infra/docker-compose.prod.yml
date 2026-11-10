@@ -1,0 +1,69 @@
+# Stack de MS03 en la nube: uno por entorno en la misma VM (ms03-prod y ms03-test), cada uno con su BD.
+# No publica puertos: solo el Caddy de borde de la VM (red campus-edge) llega a MS03, con el alias ms03-<entorno>,
+# y la BD solo es visible dentro del stack. Lo usa infra/deploy.sh con el .env que escribe en DEPLOY_DIR/<entorno>;
+# no se ejecuta a mano.
+name: ms03-${ENTORNO:?ENTORNO es obligatoria (test o prod)}
+
+services:
+  db:
+    image: postgres:17.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: campusseguro_alerts
+      POSTGRES_USER: campusseguro
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
+    volumes:
+      - datos:/var/lib/postgresql/data
+      # Esquema inicial (database/*.sql): Postgres solo lo ejecuta la primera vez, con el volumen vacío.
+      # deploy.sh NO copia 006_sample_data.sql: son datos de ejemplo y no van a producción.
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U campusseguro -d campusseguro_alerts"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks:
+      - interna
+
+  ms03:
+    image: ${IMAGE:?IMAGE es obligatoria}:${TAG:?TAG es obligatoria (sha-xxxxxxx)}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Nunca `local` ni `test`: esos perfiles usan el catálogo de ejemplo y no validan contra MS02.
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: "8083"
+      DB_URL: jdbc:postgresql://db:5432/campusseguro_alerts
+      DB_USER: campusseguro
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
+      # MS01 y MS02 se alcanzan SIEMPRE por el Gateway: las rutas internas de MS01 se autorizan con
+      # X-Service-Name, que solo inyecta el GW, y MS02 exige la identidad del usuario.
+      MS01_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
+      MS02_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
+      MS_SERVICE_KEY: ${GATEWAY_SERVICE_KEY:?GATEWAY_SERVICE_KEY es obligatoria}
+      SPRINGDOC_ENABLED: "false"
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-log}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@campusseguro.local}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-CampusSeguro}
+      APP_BASE_URL: ${APP_BASE_URL:-https://localhost}
+    # Variables opcionales del entorno (p. ej. INTERNAL_ALLOWED_SERVICES, MS04_REENVIO_SOLICITUDES_MS).
+    env_file:
+      - path: extra.env
+        required: false
+    networks:
+      interna:
+      edge:
+        aliases:
+          - ms03-${ENTORNO}
+
+volumes:
+  datos:
+
+networks:
+  interna:
+  edge:
+    name: campus-edge
+    external: true
