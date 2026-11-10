@@ -64,7 +64,7 @@ public class RestCampusScopeClient implements CampusScopeClient {
     }
 
     @Override
-    public void validate(ScopeType type, List<String> ids) {
+    public void validate(ScopeType type, List<String> ids, String userId, String rolesCsv) {
         if (type == null || type == ScopeType.CAMPUS || ids == null || ids.isEmpty()) {
             return;
         }
@@ -73,7 +73,7 @@ public class RestCampusScopeClient implements CampusScopeClient {
         List<String> invalid = new ArrayList<>();
 
         for (String id : ids) {
-            if (id == null || id.isBlank() || !exists(path, id)) {
+            if (id == null || id.isBlank() || !exists(path, id, userId, rolesCsv)) {
                 invalid.add(id);
             }
         }
@@ -83,16 +83,27 @@ public class RestCampusScopeClient implements CampusScopeClient {
         }
     }
 
-    private boolean exists(String path, String id) {
+    private boolean exists(String path, String id, String userId, String rolesCsv) {
         try {
             ms02.get()
                     .uri(path, id)
-                    .header(CorrelationIds.HEADER, CorrelationIds.current())
+                    .headers(headers -> {
+                        // MS02 autoriza por identidad de usuario (X-User-Id + X-User-Role), no por
+                        // clave de servicio: se propaga la identidad de quien crea o edita la alerta.
+                        if (userId != null && !userId.isBlank()) {
+                            headers.set("X-User-Id", userId);
+                        }
+                        if (rolesCsv != null && !rolesCsv.isBlank()) {
+                            headers.set("X-User-Role", rolesCsv);
+                        }
+                        headers.set(CorrelationIds.HEADER, CorrelationIds.current());
+                    })
                     .retrieve()
                     .toBodilessEntity();
             return true;
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
+            // 404: el id no existe. 400: MS02 no puede interpretar el id (formato inválido).
             if (status == 400 || status == 404) {
                 return false;
             }

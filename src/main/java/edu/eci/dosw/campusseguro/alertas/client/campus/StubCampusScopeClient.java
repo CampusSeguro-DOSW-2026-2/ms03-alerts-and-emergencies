@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Versión local y de pruebas: valida el alcance contra el catálogo de ejemplo
- * ({@code catalog-stub.json}), sin llamar a MS02.
+ * ({@code catalog-stub.json}), sin llamar a MS02 y sin necesitar identidad.
  */
 @Component
 @Profile({"local", "test"})
@@ -21,7 +21,7 @@ public class StubCampusScopeClient implements CampusScopeClient {
     }
 
     @Override
-    public void validate(ScopeType type, List<String> ids) {
+    public void validate(ScopeType type, List<String> ids, String userId, String rolesCsv) {
         stubData.validateScope(type, ids);
     }
 }

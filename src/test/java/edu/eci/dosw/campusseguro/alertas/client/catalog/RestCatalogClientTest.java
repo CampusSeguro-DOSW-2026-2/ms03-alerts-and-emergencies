@@ -53,7 +53,7 @@ class RestCatalogClientTest {
         server.start();
         client = new RestCatalogClient(
                 RestClient.builder(),
-                (type, ids) -> {
+                (type, ids, userId, roles) -> {
                     // La validación del alcance se prueba en RestCampusScopeClientTest.
                 },
                 server.baseUrl(),
@@ -271,5 +271,27 @@ class RestCatalogClientTest {
         assertThrows(
                 ExternalServiceUnavailableException.class,
                 () -> client.getUsersByRole("ESTUDIANTE"));
+    }
+
+    @Test
+    void validateRecipients_shouldNotCallMs01_whenListIsEmpty() {
+        client.validateRecipients(List.of());
+
+        server.verify(0, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
+    }
+
+    @Test
+    void validateRecipients_shouldChunkMoreThanOneHundredUsers() {
+        List<RecipientRequest> recipients = java.util.stream.IntStream.range(0, 101)
+                .mapToObj(index -> new RecipientRequest(
+                        RecipientType.USER, UUID.randomUUID().toString()))
+                .toList();
+        stubBatch(batchJson("", ""));
+
+        assertThrows(
+                InvalidReferenceException.class,
+                () -> client.validateRecipients(recipients));
+
+        server.verify(2, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
     }
 }

@@ -80,8 +80,8 @@ public class RestCatalogClient implements CatalogClient {
     }
 
     @Override
-    public void validateBuildingsZones(ScopeType type, List<String> ids) {
-        campusScopeClient.validate(type, ids);
+    public void validateBuildingsZones(ScopeType type, List<String> ids, String userId, String rolesCsv) {
+        campusScopeClient.validate(type, ids, userId, rolesCsv);
     }
 
     @Override
