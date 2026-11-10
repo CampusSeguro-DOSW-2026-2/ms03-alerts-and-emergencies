@@ -1,5 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.client.catalog;
 
+import edu.eci.dosw.campusseguro.alertas.client.campus.CampusScopeClient;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.UserEntry;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
@@ -19,10 +20,12 @@ public class StubCatalogClient implements CatalogClient {
     private static final String RECIPIENTS_FIELD = "destinatarios";
 
     private final CatalogStubData stubData;
+    private final CampusScopeClient campusScopeClient;
     private final Set<String> activeUserIds;
 
-    public StubCatalogClient(CatalogStubData stubData) {
+    public StubCatalogClient(CatalogStubData stubData, CampusScopeClient campusScopeClient) {
         this.stubData = stubData;
+        this.campusScopeClient = campusScopeClient;
         this.activeUserIds = stubData.users().stream()
                 .filter(this::isActive)
                 .map(UserEntry::id)
@@ -30,8 +33,8 @@ public class StubCatalogClient implements CatalogClient {
     }
 
     @Override
-    public void validateBuildingsZones(ScopeType type, List<String> ids) {
-        stubData.validateScope(type, ids);
+    public void validateBuildingsZones(ScopeType type, List<String> ids, String userId, String rolesCsv) {
+        campusScopeClient.validate(type, ids, userId, rolesCsv);
     }
 
     @Override

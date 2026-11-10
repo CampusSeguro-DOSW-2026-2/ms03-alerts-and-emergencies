@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
+import edu.eci.dosw.campusseguro.alertas.client.campus.StubCampusScopeClient;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.CatalogData;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.Entry;
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData.UserEntry;
@@ -30,6 +31,8 @@ import tools.jackson.databind.json.JsonMapper;
 class StubCatalogClientTest {
 
     private static final String UNKNOWN_ID = "NO-SUCH-ID";
+    private static final String USER_ID = "11111111-1111-4111-8111-111111111111";
+    private static final String ROLES = "COORDINADOR";
 
     private CatalogData data;
     private StubCatalogClient client;
@@ -45,7 +48,12 @@ class StubCatalogClientTest {
         assertFalse(data.roles().isEmpty(), "catalog-stub.json must define at least one role");
         assertFalse(data.users().isEmpty(), "catalog-stub.json must define at least one user");
 
-        client = new StubCatalogClient(new CatalogStubData(objectMapper));
+        CatalogStubData stubData = new CatalogStubData(objectMapper);
+        client = new StubCatalogClient(stubData, new StubCampusScopeClient(stubData));
+    }
+
+    private void validateScope(ScopeType type, List<String> ids) {
+        client.validateBuildingsZones(type, ids, USER_ID, ROLES);
     }
 
     // helpers 
@@ -65,29 +73,29 @@ class StubCatalogClientTest {
 
     @Test
     void validateBuildingsZones_shouldNotThrow_whenScopeIsCampus() {
-        assertDoesNotThrow(() -> client.validateBuildingsZones(ScopeType.CAMPUS, List.of(UNKNOWN_ID)));
+        assertDoesNotThrow(() -> validateScope(ScopeType.CAMPUS, List.of(UNKNOWN_ID)));
     }
 
     @Test
     void validateBuildingsZones_shouldNotThrow_whenBuildingIdsExist() {
-        assertDoesNotThrow(() -> client.validateBuildingsZones(ScopeType.BUILDING, idsOf(data.buildings())));
+        assertDoesNotThrow(() -> validateScope(ScopeType.BUILDING, idsOf(data.buildings())));
     }
 
     @Test
     void validateBuildingsZones_shouldNotThrow_whenZoneIdsExist() {
-        assertDoesNotThrow(() -> client.validateBuildingsZones(ScopeType.ZONE, idsOf(data.zones())));
+        assertDoesNotThrow(() -> validateScope(ScopeType.ZONE, idsOf(data.zones())));
     }
 
     @Test
     void validateBuildingsZones_shouldNotThrow_whenIdsListIsEmpty() {
-        assertDoesNotThrow(() -> client.validateBuildingsZones(ScopeType.BUILDING, List.of()));
+        assertDoesNotThrow(() -> validateScope(ScopeType.BUILDING, List.of()));
     }
 
     @Test
     void validateBuildingsZones_shouldThrowInvalidReference_whenBuildingDoesNotExist() {
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of(UNKNOWN_ID)));
+                () -> validateScope(ScopeType.BUILDING, List.of(UNKNOWN_ID)));
 
         assertEquals("alcance.ids", ex.getField());
         assertEquals(List.of(UNKNOWN_ID), ex.getInvalidIds());
@@ -97,7 +105,7 @@ class StubCatalogClientTest {
     void validateBuildingsZones_shouldThrowInvalidReference_whenZoneDoesNotExist() {
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.ZONE, List.of(UNKNOWN_ID)));
+                () -> validateScope(ScopeType.ZONE, List.of(UNKNOWN_ID)));
 
         assertEquals("alcance.ids", ex.getField());
         assertEquals(List.of(UNKNOWN_ID), ex.getInvalidIds());
@@ -109,7 +117,7 @@ class StubCatalogClientTest {
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of(validBuilding, UNKNOWN_ID)));
+                () -> validateScope(ScopeType.BUILDING, List.of(validBuilding, UNKNOWN_ID)));
 
         assertEquals(List.of(UNKNOWN_ID), ex.getInvalidIds());
     }
@@ -121,7 +129,7 @@ class StubCatalogClientTest {
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(ScopeType.BUILDING, List.of(zoneId)));
+                () -> validateScope(ScopeType.BUILDING, List.of(zoneId)));
 
         assertEquals(List.of(zoneId), ex.getInvalidIds());
     }

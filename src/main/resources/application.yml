@@ -39,14 +39,25 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health
+  # El correo es opcional (el proveedor `log` no envía nada): su disponibilidad no debe
+  # marcar el servicio como DOWN.
+  health:
+    mail:
+      enabled: false
+  endpoint:
+    health:
+      show-details: never
+      show-components: never
+      probes:
+        enabled: false
 
 springdoc:
   paths-to-match: /api/**
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
-    enabled: ${SPRINGDOC_ENABLED:true}
+    enabled: ${SPRINGDOC_ENABLED:false}
     path: /swagger-ui.html
 
 logging:
@@ -56,12 +67,19 @@ logging:
 app:
   timezone: ${APP_TIMEZONE:America/Bogota}
   catalog:
-    base-url: ${MS01_URL:http://localhost:8081}
+    # Las llamadas a MS01 pasan por el API Gateway: las rutas internas se autorizan por X-Service-Name.
+    base-url: ${MS01_URL:http://localhost:8080}
     service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
-    technical-user-id: ${MS01_TECHNICAL_USER_ID:}
-    technical-user-role: ${MS01_TECHNICAL_USER_ROLE:AUDITOR}
     connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
+  campus:
+    # Validación del alcance (edificios y zonas) contra MS02 a través del API Gateway.
+    base-url: ${MS02_URL:http://localhost:8080}
+    service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+    buildings-path: ${MS02_BUILDINGS_PATH:/api/v1/buildings/{id}}
+    safe-zones-path: ${MS02_SAFE_ZONES_PATH:/api/v1/safe-zones/{id}}
+    connect-timeout-ms: ${CAMPUS_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${CAMPUS_READ_TIMEOUT_MS:2000}
   mail:
     # brevo (correo real) o log (simulado, solo registra en el log)
     provider: ${MAIL_PROVIDER:brevo}

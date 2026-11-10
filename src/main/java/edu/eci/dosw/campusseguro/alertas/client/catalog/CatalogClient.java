@@ -7,7 +7,11 @@ import java.util.Optional;
 
 public interface CatalogClient {
 
-    void validateBuildingsZones(ScopeType type, List<String> ids);
+    /**
+     * @param userId   usuario que origina la operación (UUID), se propaga a MS02
+     * @param rolesCsv roles separados por coma, se propagan a MS02
+     */
+    void validateBuildingsZones(ScopeType type, List<String> ids, String userId, String rolesCsv);
 
     void validateRecipients(List<RecipientRequest> recipients);
 

@@ -185,6 +185,15 @@ class AlertApiIntegrationIT {
     }
 
     @Test
+    void health_shouldReportUpWithoutDetails() throws Exception {
+        mockMvc.perform(get("/actuator/health"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"))
+                .andExpect(jsonPath("$.components").doesNotExist())
+                .andExpect(jsonPath("$.groups").doesNotExist());
+    }
+
+    @Test
     void search_shouldFilterByStatusTypeAndDateRange() {
         alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.parse("2026-10-01T10:00:00Z"), null));
         alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.parse("2026-10-05T10:00:00Z"), null));

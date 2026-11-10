@@ -182,7 +182,7 @@ public class AlertServiceImpl implements AlertService {
             throw new InvalidActivationDateException();
         }
 
-        validateScopes(scopes);
+        validateScopes(scopes, requester);
         validateRecipients(recipients);
 
         AlertEntity alert = alertMapper.toEntity(request, actor, now);
@@ -294,7 +294,7 @@ public class AlertServiceImpl implements AlertService {
                         .equals(new LinkedHashSet<>(alert.getTypes()));
 
         if (scopeChanged) {
-            validateScope(newScope);
+            validateScope(newScope, requester);
         }
 
         if (recipientsChanged) {
@@ -643,14 +643,19 @@ public class AlertServiceImpl implements AlertService {
         return values == null ? List.of() : values;
     }
 
-    private void validateScopes(List<ScopeRequest> scopes) {
-        scopes.forEach(this::validateScope);
+    private void validateScopes(List<ScopeRequest> scopes, RequesterContext requester) {
+        scopes.forEach(scope -> validateScope(scope, requester));
     }
 
-    private void validateScope(ScopeRequest scope) {
+    private void validateScope(ScopeRequest scope, RequesterContext requester) {
         if (scope.type() != ScopeType.CAMPUS) {
             catalogClient.validateBuildingsZones(
-                    scope.type(), scope.ids());
+                    scope.type(),
+                    scope.ids(),
+                    requester.actor(),
+                    String.join(",", requester.roles().stream()
+                            .map(role -> role.name())
+                            .toList()));
         }
     }
 

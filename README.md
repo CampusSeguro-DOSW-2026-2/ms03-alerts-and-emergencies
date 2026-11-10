@@ -175,13 +175,15 @@ The `local` profile is active by default and reads `.env` when present. Start Po
 docker compose up -d postgres
 ```
 
-Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS_SERVICE_KEY`, `MS01_TECHNICAL_USER_ID`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
+Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS_SERVICE_KEY`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
+
+Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch` and `GET /api/v1/users/by-role`), authorized by `X-Service-Name`, so no technical user identity is needed. Scope (buildings and zones) is validated against MS02 through `GET /api/v1/buildings/{id}` and `GET /api/v1/safe-zones/{id}`. Both services are reached through the API Gateway, so `MS01_URL` and `MS02_URL` must point to the Gateway and `MS_SERVICE_KEY` must match the Gateway's `GW_SERVICE_KEY_MS03`.
 
 Profiles:
 
 - `local`: stub catalog (`catalog-stub.json`), debug logging, Swagger enabled. Email is simulated: each notification is written to the log and recorded as sent. To send real email set `MAIL_PROVIDER=brevo` and `BREVO_API_KEY` in `.env`. On a new Docker volume, `database/006_sample_data.sql` loads one alert in each lifecycle state (`DRAFT`, `SCHEDULED`, `ACTIVE`, `ARCHIVED`); to reload it run `docker compose down -v && docker compose up -d postgres`.
 - `test`: stub catalog, used by the automated tests.
-- `integration`: real MS01 through `MS01_URL`, Swagger disabled, technical user required for recipient resolution.
+- `integration`: real MS01 and MS02 through the API Gateway, Swagger disabled. No technical user is required: MS01 authorizes the internal routes by `X-Service-Name`.
 
 ### Database migrations
 
@@ -192,6 +194,9 @@ MS03 does not use Flyway or Liquibase. The scripts in `database/` are applied ma
 3. `003_phase2_contract.sql`
 4. `004_align_simulation_contract.sql`
 5. `005_business_logic_update.sql`
+6. `006_sample_data.sql` (sample data, development only)
+7. `007_alert_purpose.sql`
+8. `008_alert_purpose_unique.sql` (one live alert per `simulation_id` and `purpose`)
 
 `spring.jpa.hibernate.ddl-auto=validate` means the service will not start if `005` has not been applied. On a fresh Docker volume, the scripts run automatically in alphabetical order. To upgrade an existing local volume:
 
@@ -239,7 +244,7 @@ The integration compose runs the Gateway, MS01, MS03 and both PostgreSQL databas
 docker compose --env-file .env.gw -f docker-compose.gw.yml up -d --build
 ```
 
-Create `.env.gw` locally with the variables referenced by `docker-compose.gw.yml`; never commit it. On a fresh `ms01-db` volume, `integration/ms01-seed.sql` creates the technical `AUDITOR` user required for catalog reads. If the volume already exists, apply the seed manually or recreate the volume.
+Create `.env.gw` locally with the variables referenced by `docker-compose.gw.yml`; never commit it. MS01 must include `ms03` in `INTERNAL_ALLOWED_SERVICES` (it is the default) so the internal routes accept MS03's service key. The `AUDITOR` user created by `integration/ms01-seed.sql` is no longer required to resolve recipients.
 
 The compose sets `GATEWAY_DOWNSTREAM_TIMEOUT_MS=15000`. The Gateway default of 3 seconds caused `504` responses because MS01 login and recipient resolution can take longer. See `docs/plan-integracion-ms01-api-gateway.md` for the verified E2E flow and external blockers.
 

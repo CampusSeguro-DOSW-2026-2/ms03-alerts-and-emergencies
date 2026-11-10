@@ -199,7 +199,7 @@ class AlertServiceImplTest {
 
         assertSame(expected, result.alert());
         assertTrue(result.created());
-        verify(catalogClient, never()).validateBuildingsZones(any(), any());
+        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any(), any());
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
                 ID,
@@ -370,7 +370,7 @@ class AlertServiceImplTest {
 
         service.create(request, REQUESTER);
 
-        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any());
+        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any(), any());
         verify(catalogClient).validateRecipients(recipients);
     }
 
@@ -384,7 +384,7 @@ class AlertServiceImplTest {
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         doThrow(new RuntimeException("invalid scope"))
                 .when(catalogClient)
-                .validateBuildingsZones(eq(ScopeType.ZONE), any());
+                .validateBuildingsZones(eq(ScopeType.ZONE), any(), any(), any());
 
         assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
@@ -569,7 +569,7 @@ class AlertServiceImplTest {
 
         service.update(ID, request, REQUESTER);
 
-        verify(catalogClient, never()).validateBuildingsZones(any(), any());
+        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any(), any());
         verify(scopeItemRepository, never()).deleteAll(ArgumentMatchers.<List<AlertScopeItemEntity>>any());
         verifyNoInteractions(auditService);
     }
@@ -590,7 +590,7 @@ class AlertServiceImplTest {
 
         service.update(ID, request, REQUESTER);
 
-        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any());
+        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any(), any());
         verify(scopeItemRepository).deleteAll(List.of(oldItem));
         verify(scopeItemRepository).flush();
         verify(scopeItemRepository).saveAll(List.of(newItem));

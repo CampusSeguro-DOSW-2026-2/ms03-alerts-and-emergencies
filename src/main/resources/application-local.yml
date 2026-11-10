@@ -11,6 +11,13 @@ app:
     # En local los correos se simulan; usar MAIL_PROVIDER=brevo y BREVO_API_KEY para envíos reales.
     provider: ${MAIL_PROVIDER:log}
 
+# La documentación OpenAPI solo se publica en desarrollo local.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+
 logging:
   level:
     edu.eci.dosw.campusseguro.alertas: DEBUG
