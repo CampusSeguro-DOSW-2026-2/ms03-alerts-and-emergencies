@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.client.catalog;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import edu.eci.dosw.campusseguro.alertas.client.campus.CampusScopeClient;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
@@ -10,9 +11,12 @@ import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import edu.eci.dosw.campusseguro.alertas.security.UserRole;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -25,43 +29,47 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
+/**
+ * Cliente real del catálogo.
+ *
+ * <p>Los usuarios se resuelven con las rutas internas de MS01
+ * ({@code POST /api/v1/users/batch} y {@code GET /api/v1/users/by-role}), que se autorizan por el
+ * servicio llamante ({@code X-Service-Name}) y no por la matriz Rol-Permiso. Por eso ya no se envía
+ * identidad de usuario ni se necesita una cuenta técnica.
+ *
+ * <p>El alcance (edificios y zonas) se valida contra MS02 a través de {@link CampusScopeClient}.
+ */
 @Component
 @Profile("!local & !test")
 public class RestCatalogClient implements CatalogClient {
 
     private static final String RECIPIENTS_FIELD = "destinatarios";
+
     private static final String MS01 = "MS01";
+
+    /** Tamaño máximo de una página de MS01 y de una consulta por lotes. */
     private static final int PAGE_SIZE = 100;
 
     private final RestClient ms01;
-    private final CatalogStubData scopeCatalog;
+
+    private final CampusScopeClient campusScopeClient;
 
     public RestCatalogClient(
             RestClient.Builder builder,
-            CatalogStubData scopeCatalog,
-            @Value("${app.catalog.base-url:http://localhost:8081}") String baseUrl,
-            @Value("${app.catalog.technical-user-id:}") String technicalUserId,
-            @Value("${app.catalog.technical-user-role:AUDITOR}") String technicalUserRole,
+            CampusScopeClient campusScopeClient,
+            @Value("${app.catalog.base-url:http://localhost:8080}") String baseUrl,
             @Value("${app.catalog.service-key:}") String serviceKey,
             @Value("${app.catalog.connect-timeout-ms:2000}") long connectTimeoutMs,
             @Value("${app.catalog.read-timeout-ms:2000}") long readTimeoutMs) {
 
-        this.scopeCatalog = scopeCatalog;
+        this.campusScopeClient = campusScopeClient;
 
-        String userId = requireTechnicalUserId(technicalUserId);
-        String role = technicalUserRole == null || technicalUserRole.isBlank()
-                ? UserRole.AUDITOR.name()
-                : technicalUserRole.strip().toUpperCase();
-
-        SimpleClientHttpRequestFactory requestFactory =
-                new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
         requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
 
         RestClient.Builder configured = builder.clone()
                 .requestFactory(requestFactory)
-                .defaultHeader("X-User-Id", userId)
-                .defaultHeader("X-User-Role", role)
                 .defaultHeader("X-Service-Name", "ms03");
 
         if (serviceKey != null && !serviceKey.isBlank()) {
@@ -73,7 +81,7 @@ public class RestCatalogClient implements CatalogClient {
 
     @Override
     public void validateBuildingsZones(ScopeType type, List<String> ids) {
-        scopeCatalog.validateScope(type, ids);
+        campusScopeClient.validate(type, ids);
     }
 
     @Override
@@ -83,7 +91,7 @@ public class RestCatalogClient implements CatalogClient {
         }
 
         Set<String> invalid = new LinkedHashSet<>();
-        Set<String> checkedUsers = new HashSet<>();
+        Set<String> requestedUsers = new LinkedHashSet<>();
 
         for (RecipientRequest recipient : recipients) {
             if (recipient == null
@@ -97,11 +105,8 @@ public class RestCatalogClient implements CatalogClient {
             if (recipient.type() == RecipientType.USER) {
                 if (!isUuid(recipient.id())) {
                     invalid.add(recipient.id());
-                    continue;
-                }
-                if (checkedUsers.add(recipient.id())
-                        && findUserById(recipient.id()).isEmpty()) {
-                    invalid.add(recipient.id());
+                } else {
+                    requestedUsers.add(recipient.id());
                 }
                 continue;
             }
@@ -111,28 +116,61 @@ public class RestCatalogClient implements CatalogClient {
             }
         }
 
+        Map<String, ResolvedUser> found = findUsersByIds(requestedUsers);
+        for (String userId : requestedUsers) {
+            if (!found.containsKey(userId)) {
+                invalid.add(userId);
+            }
+        }
+
         if (!invalid.isEmpty()) {
-            throw new InvalidReferenceException(
-                    RECIPIENTS_FIELD,
-                    List.copyOf(invalid));
+            throw new InvalidReferenceException(RECIPIENTS_FIELD, List.copyOf(invalid));
         }
     }
 
     @Override
     public Optional<ResolvedUser> findUserById(String userId) {
-        try {
-            Ms01User user = ms01.get()
-                    .uri("/api/v1/users/{id}", userId)
-                    .header(CorrelationIds.HEADER, CorrelationIds.current())
-                    .retrieve()
-                    .body(Ms01User.class);
-            return Optional.ofNullable(user)
+        if (userId == null || userId.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(findUsersByIds(List.of(userId)).get(userId));
+    }
+
+    /**
+     * Consulta por lotes los usuarios activos. Los ids inexistentes o inactivos no aparecen en el
+     * mapa resultante.
+     */
+    private Map<String, ResolvedUser> findUsersByIds(Collection<String> userIds) {
+        Map<String, ResolvedUser> found = new LinkedHashMap<>();
+        List<String> ids = new ArrayList<>(userIds);
+
+        for (int from = 0; from < ids.size(); from += PAGE_SIZE) {
+            List<String> chunk = ids.subList(from, Math.min(from + PAGE_SIZE, ids.size()));
+            BatchUsersResponse response = callBatch(chunk);
+            if (response == null || response.usuarios() == null) {
+                continue;
+            }
+            response.usuarios().stream()
                     .filter(this::isActive)
-                    .map(this::toResolvedUser);
+                    .map(this::toResolvedUser)
+                    .forEach(user -> found.put(user.id(), user));
+        }
+
+        return found;
+    }
+
+    private BatchUsersResponse callBatch(List<String> ids) {
+        try {
+            return ms01.post()
+                    .uri("/api/v1/users/batch")
+                    .header(CorrelationIds.HEADER, CorrelationIds.current())
+                    .body(new BatchUsersRequest(ids))
+                    .retrieve()
+                    .body(BatchUsersResponse.class);
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
-            if (status == 400 || status == 404) {
-                return Optional.empty();
+            if (status == 400) {
+                throw new InvalidReferenceException(RECIPIENTS_FIELD, ids);
             }
             throw unavailable(ex);
         } catch (RestClientException ex) {
@@ -146,32 +184,7 @@ public class RestCatalogClient implements CatalogClient {
         int page = 0;
 
         while (true) {
-            Ms01Page<Ms01User> response;
-            int currentPage = page;
-            try {
-                response = ms01.get()
-                        .uri(uriBuilder -> uriBuilder
-                                .path("/api/v1/users")
-                                .queryParam("rol", role)
-                                .queryParam("estado", "ACTIVO")
-                                .queryParam("page", currentPage)
-                                .queryParam("size", PAGE_SIZE)
-                                .build())
-                        .header(CorrelationIds.HEADER, CorrelationIds.current())
-                        .retrieve()
-                        .body(new ParameterizedTypeReference<Ms01Page<Ms01User>>() {
-                        });
-            } catch (RestClientResponseException ex) {
-                if (ex.getStatusCode().value() == 400) {
-                    throw new InvalidReferenceException(
-                            RECIPIENTS_FIELD,
-                            List.of(role));
-                }
-                throw unavailable(ex);
-            } catch (RestClientException ex) {
-                throw unavailable(ex);
-            }
-
+            Ms01Page<Ms01User> response = callByRole(role, page);
             if (response == null
                     || response.contenido() == null
                     || response.contenido().isEmpty()) {
@@ -190,6 +203,29 @@ public class RestCatalogClient implements CatalogClient {
         }
 
         return users;
+    }
+
+    private Ms01Page<Ms01User> callByRole(String role, int page) {
+        try {
+            return ms01.get()
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/v1/users/by-role")
+                            .queryParam("rol", role)
+                            .queryParam("page", page)
+                            .queryParam("size", PAGE_SIZE)
+                            .build())
+                    .header(CorrelationIds.HEADER, CorrelationIds.current())
+                    .retrieve()
+                    .body(new ParameterizedTypeReference<Ms01Page<Ms01User>>() {
+                    });
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 400) {
+                throw new InvalidReferenceException(RECIPIENTS_FIELD, List.of(role));
+            }
+            throw unavailable(ex);
+        } catch (RestClientException ex) {
+            throw unavailable(ex);
+        }
     }
 
     private boolean isActive(Ms01User user) {
@@ -229,22 +265,16 @@ public class RestCatalogClient implements CatalogClient {
         }
     }
 
-    private String requireTechnicalUserId(String value) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalStateException(
-                    "Configura app.catalog.technical-user-id con el UUID "
-                            + "de la cuenta técnica de MS01");
-        }
-        String userId = value.strip();
-        if (!isUuid(userId)) {
-            throw new IllegalStateException(
-                    "app.catalog.technical-user-id debe ser un UUID válido");
-        }
-        return userId;
-    }
-
     private ExternalServiceUnavailableException unavailable(Throwable cause) {
         return new ExternalServiceUnavailableException(MS01, cause);
+    }
+
+    record BatchUsersRequest(List<String> ids) {
+    }
+
+    record BatchUsersResponse(
+            List<Ms01User> usuarios,
+            @JsonProperty("no_encontrados") List<String> noEncontrados) {
     }
 
     public record Ms01User(

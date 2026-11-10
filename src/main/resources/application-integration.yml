@@ -10,12 +10,17 @@ springdoc:
 
 app:
   catalog:
-    base-url: ${MS01_URL:http://localhost:8081}
+    base-url: ${MS01_URL:http://localhost:8080}
     service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
-    technical-user-id: ${MS01_TECHNICAL_USER_ID:}
-    technical-user-role: ${MS01_TECHNICAL_USER_ROLE:AUDITOR}
     connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
+  campus:
+    base-url: ${MS02_URL:http://localhost:8080}
+    service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+    buildings-path: ${MS02_BUILDINGS_PATH:/api/v1/buildings/{id}}
+    safe-zones-path: ${MS02_SAFE_ZONES_PATH:/api/v1/safe-zones/{id}}
+    connect-timeout-ms: ${CAMPUS_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${CAMPUS_READ_TIMEOUT_MS:2000}
 
 logging:
   level:

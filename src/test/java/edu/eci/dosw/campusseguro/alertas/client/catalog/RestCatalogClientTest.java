@@ -4,6 +4,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.post;
+import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,7 +15,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
@@ -25,12 +26,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.ObjectMapper;
 
+/**
+ * El cliente usa las rutas internas de MS01 ({@code /users/batch} y {@code /users/by-role}), que se
+ * autorizan por {@code X-Service-Name}: no se envía identidad de usuario.
+ */
 class RestCatalogClientTest {
-
-    private static final String TECHNICAL_USER_ID =
-            "88888888-8888-4888-8888-888888888888";
 
     private static final String USER_ID =
             "11111111-1111-4111-8111-111111111111";
@@ -38,7 +39,12 @@ class RestCatalogClientTest {
     private static final String CORRELATION_ID =
             "22222222-2222-4222-8222-222222222222";
 
+    private static final String BATCH_PATH = "/api/v1/users/batch";
+
+    private static final String BY_ROLE_PATH = "/api/v1/users/by-role";
+
     private WireMockServer server;
+
     private RestCatalogClient client;
 
     @BeforeEach
@@ -47,10 +53,10 @@ class RestCatalogClientTest {
         server.start();
         client = new RestCatalogClient(
                 RestClient.builder(),
-                new CatalogStubData(new ObjectMapper()),
+                (type, ids) -> {
+                    // La validación del alcance se prueba en RestCampusScopeClientTest.
+                },
                 server.baseUrl(),
-                TECHNICAL_USER_ID,
-                "AUDITOR",
                 "service-key",
                 2000,
                 2000);
@@ -76,7 +82,16 @@ class RestCatalogClientTest {
                 """.formatted(id, estado);
     }
 
-    private String pageJson(int page, int totalPages) {
+    private String batchJson(String usuarios, String noEncontrados) {
+        return """
+                {
+                  "usuarios": [%s],
+                  "no_encontrados": [%s]
+                }
+                """.formatted(usuarios, noEncontrados);
+    }
+
+    private String pageJson(int page, int totalPages, String estado) {
         return """
                 {
                   "contenido": [
@@ -88,44 +103,22 @@ class RestCatalogClientTest {
                   "total_paginas": %d
                 }
                 """.formatted(
-                userJson(USER_ID, "ACTIVO"),
+                userJson(USER_ID, estado),
                 page,
                 totalPages,
                 totalPages);
     }
 
-    @Test
-    void validateBuildingsZones_shouldDoNothing_whenScopeIsCampus() {
-        client.validateBuildingsZones(ScopeType.CAMPUS, List.of("NO-EXISTE"));
-
-        server.verify(0, getRequestedFor(urlPathEqualTo("/api/v1/users")));
-    }
-
-    @Test
-    void validateBuildingsZones_shouldValidateLocally_whenScopeIsBuilding() {
-        client.validateBuildingsZones(ScopeType.BUILDING, List.of("BLD-001"));
-
-        server.verify(0, getRequestedFor(urlPathEqualTo("/api/v1/users")));
-    }
-
-    @Test
-    void validateBuildingsZones_shouldThrowInvalidReference_whenBuildingDoesNotExist() {
-        InvalidReferenceException ex = assertThrows(
-                InvalidReferenceException.class,
-                () -> client.validateBuildingsZones(
-                        ScopeType.BUILDING,
-                        List.of("BLD-001", "NO-EXISTE")));
-
-        assertEquals("alcance.ids", ex.getField());
-        assertEquals(List.of("NO-EXISTE"), ex.getInvalidIds());
+    private void stubBatch(String body) {
+        server.stubFor(post(urlPathEqualTo(BATCH_PATH))
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(body)));
     }
 
     @Test
     void validateRecipients_shouldAcceptExistingUserAndKnownRole() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(userJson(USER_ID, "ACTIVO"))));
+        stubBatch(batchJson(userJson(USER_ID, "ACTIVO"), ""));
 
         MDC.put(CorrelationIds.MDC_KEY, CORRELATION_ID);
         try {
@@ -136,19 +129,18 @@ class RestCatalogClientTest {
             MDC.remove(CorrelationIds.MDC_KEY);
         }
 
-        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users/" + USER_ID))
-                .withHeader("X-User-Id", equalTo(TECHNICAL_USER_ID))
-                .withHeader("X-User-Role", equalTo("AUDITOR"))
+        server.verify(postRequestedFor(urlPathEqualTo(BATCH_PATH))
                 .withHeader("X-Service-Name", equalTo("ms03"))
                 .withHeader("X-Service-Key", equalTo("service-key"))
-                .withHeader(CorrelationIds.HEADER, equalTo(CORRELATION_ID)));
+                .withHeader(CorrelationIds.HEADER, equalTo(CORRELATION_ID))
+                .withoutHeader("X-User-Id")
+                .withoutHeader("X-User-Role"));
     }
 
     @Test
-    void validateRecipients_shouldRejectUnknownUser_whenMs01Returns404() {
+    void validateRecipients_shouldRejectUnknownUser_whenBatchDoesNotReturnIt() {
         String unknown = UUID.randomUUID().toString();
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + unknown))
-                .willReturn(aResponse().withStatus(404)));
+        stubBatch(batchJson("", "\"" + unknown + "\""));
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
@@ -160,10 +152,7 @@ class RestCatalogClientTest {
 
     @Test
     void validateRecipients_shouldRejectInactiveUser() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(userJson(USER_ID, "INACTIVO"))));
+        stubBatch(batchJson(userJson(USER_ID, "INACTIVO"), ""));
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
@@ -181,6 +170,7 @@ class RestCatalogClientTest {
                         new RecipientRequest(RecipientType.ROLE, "ROL_INEXISTENTE"))));
 
         assertEquals(List.of("ROL_INEXISTENTE"), ex.getInvalidIds());
+        server.verify(0, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
     }
 
     @Test
@@ -191,11 +181,12 @@ class RestCatalogClientTest {
                         new RecipientRequest(RecipientType.USER, "usr-001"))));
 
         assertEquals(List.of("usr-001"), ex.getInvalidIds());
+        server.verify(0, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
     }
 
     @Test
     void validateRecipients_shouldThrowExternalServiceUnavailable_whenMs01Fails() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+        server.stubFor(post(urlPathEqualTo(BATCH_PATH))
                 .willReturn(aResponse().withStatus(503)));
 
         assertThrows(
@@ -205,11 +196,8 @@ class RestCatalogClientTest {
     }
 
     @Test
-    void findUserById_shouldMapMs01Profile_whenUpstreamResponds200() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
-                .willReturn(aResponse().withStatus(200)
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(userJson(USER_ID, "ACTIVO"))));
+    void findUserById_shouldMapMs01Profile_whenBatchReturnsIt() {
+        stubBatch(batchJson(userJson(USER_ID, "ACTIVO"), ""));
 
         Optional<ResolvedUser> user = client.findUserById(USER_ID);
 
@@ -222,17 +210,16 @@ class RestCatalogClientTest {
     }
 
     @Test
-    void findUserById_shouldReturnEmpty_whenUpstreamResponds404() {
+    void findUserById_shouldReturnEmpty_whenBatchDoesNotReturnIt() {
         String unknown = UUID.randomUUID().toString();
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + unknown))
-                .willReturn(aResponse().withStatus(404)));
+        stubBatch(batchJson("", "\"" + unknown + "\""));
 
         assertTrue(client.findUserById(unknown).isEmpty());
     }
 
     @Test
     void findUserById_shouldThrowExternalServiceUnavailable_whenUpstreamFails() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users/" + USER_ID))
+        server.stubFor(post(urlPathEqualTo(BATCH_PATH))
                 .willReturn(aResponse().withStatus(503)));
 
         assertThrows(
@@ -242,32 +229,31 @@ class RestCatalogClientTest {
 
     @Test
     void getUsersByRole_shouldReadAllPagesAndFilterActiveUsers() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+        server.stubFor(get(urlPathEqualTo(BY_ROLE_PATH))
                 .withQueryParam("page", equalTo("0"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(pageJson(0, 2))));
-        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+                        .withBody(pageJson(0, 2, "ACTIVO"))));
+        server.stubFor(get(urlPathEqualTo(BY_ROLE_PATH))
                 .withQueryParam("page", equalTo("1"))
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody(pageJson(1, 2))));
+                        .withBody(pageJson(1, 2, "INACTIVO"))));
 
         List<ResolvedUser> users = client.getUsersByRole("COORDINADOR");
 
-        assertEquals(2, users.size());
-        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users"))
+        assertEquals(1, users.size());
+        server.verify(getRequestedFor(urlPathEqualTo(BY_ROLE_PATH))
                 .withQueryParam("rol", equalTo("COORDINADOR"))
-                .withQueryParam("estado", equalTo("ACTIVO"))
                 .withQueryParam("page", equalTo("0"))
                 .withQueryParam("size", equalTo("100")));
-        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/users"))
+        server.verify(getRequestedFor(urlPathEqualTo(BY_ROLE_PATH))
                 .withQueryParam("page", equalTo("1")));
     }
 
     @Test
     void getUsersByRole_shouldThrowInvalidReference_whenMs01RejectsRole() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+        server.stubFor(get(urlPathEqualTo(BY_ROLE_PATH))
                 .willReturn(aResponse().withStatus(400)));
 
         InvalidReferenceException ex = assertThrows(
@@ -279,7 +265,7 @@ class RestCatalogClientTest {
 
     @Test
     void getUsersByRole_shouldThrowExternalServiceUnavailable_whenUpstreamFails() {
-        server.stubFor(get(urlPathEqualTo("/api/v1/users"))
+        server.stubFor(get(urlPathEqualTo(BY_ROLE_PATH))
                 .willReturn(aResponse().withStatus(500)));
 
         assertThrows(
