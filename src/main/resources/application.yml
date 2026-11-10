@@ -40,6 +40,11 @@ management:
     web:
       exposure:
         include: health
+  # El correo es opcional (el proveedor `log` no envía nada): su disponibilidad no debe
+  # marcar el servicio como DOWN.
+  health:
+    mail:
+      enabled: false
   endpoint:
     health:
       show-details: never
