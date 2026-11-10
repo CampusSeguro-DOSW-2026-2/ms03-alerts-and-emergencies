@@ -47,8 +47,10 @@ services:
       DB_PASSWORD: ${MS03_DB_PASSWORD:?MS03_DB_PASSWORD es obligatoria}
       MS01_URL: http://api-gateway:8080
       MS_SERVICE_KEY: ${SQUAD_SERVICE_KEY:?SQUAD_SERVICE_KEY es obligatoria}
-      MS01_TECHNICAL_USER_ID: ${MS01_TECHNICAL_USER_ID:?MS01_TECHNICAL_USER_ID es obligatoria}
-      MS01_TECHNICAL_USER_ROLE: AUDITOR
+      # Los usuarios se resuelven por las rutas internas de MS01 (X-Service-Name): no hay cuenta técnica.
+      # La validación del alcance necesita MS02 en ejecución y enrutado por el Gateway; sin él
+      # las alertas con edificio o zona responden 503. Descomentar cuando el stack incluya MS02:
+      # MS02_URL: http://api-gateway:8080
       SPRINGDOC_ENABLED: "false"
       BREVO_API_KEY: ""
       MAIL_HOST: 127.0.0.1
