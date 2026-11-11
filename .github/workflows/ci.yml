@@ -90,3 +90,18 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  # Despliegue automático a prueba. Se activa con la variable de repositorio CD_ENABLED=true
+  # (Settings -> Secrets and variables -> Actions -> Variables). Requiere el runner "ms03".
+  deploy-test:
+    name: Desplegar en prueba
+    needs: publish-api-image
+    if: vars.CD_ENABLED == 'true' && github.ref == 'refs/heads/develop'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      entorno: test
+      ref: ${{ github.sha }}
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit

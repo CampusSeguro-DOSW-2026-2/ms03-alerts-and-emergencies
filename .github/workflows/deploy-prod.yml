@@ -1,0 +1,23 @@
+name: Desplegar a producción
+
+# Despliegue manual a producción. Usa la imagen publicada desde main y el Environment ms03-prod
+# (con revisores obligatorios). Para prueba, el despliegue es automático desde ci.yml.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "sha-xxxxxxx (vacío = la imagen del HEAD de main)"
+        required: false
+        type: string
+
+jobs:
+  prod:
+    uses: ./.github/workflows/deploy.yml
+    with:
+      entorno: prod
+      ref: main
+      tag: ${{ inputs.tag }}
+    permissions:
+      contents: read
+      packages: read
+    secrets: inherit
