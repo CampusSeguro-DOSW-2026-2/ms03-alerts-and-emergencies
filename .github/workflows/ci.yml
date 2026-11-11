@@ -51,8 +51,8 @@ jobs:
           if-no-files-found: warn
 
   publish-api-image:
-    name: Publicar imagen API en GHCR (solo main)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    name: Publicar imagen API en GHCR (main y develop)
+    if: github.event_name == 'push' && contains(fromJSON('["refs/heads/main", "refs/heads/develop"]'), github.ref)
     needs: backend-quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -76,7 +76,7 @@ jobs:
         shell: bash
         run: |
           echo "image=ghcr.io/${GITHUB_REPOSITORY,,}-api" >> "$GITHUB_OUTPUT"
-          echo "tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tag=sha-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - name: Publicar imagen Spring Boot
         uses: docker/build-push-action@v7
