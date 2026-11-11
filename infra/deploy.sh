@@ -54,6 +54,7 @@ chmod 644 "$STACK_DIR"/database/*.sql
     linea_env GATEWAY_URL "$GATEWAY_URL"
     linea_env GATEWAY_SERVICE_KEY "$GATEWAY_SERVICE_KEY"
     linea_env MAIL_PROVIDER "${MAIL_PROVIDER:-log}"
+    linea_env BREVO_API_KEY "${BREVO_API_KEY:-}"
     linea_env MAIL_FROM "${MAIL_FROM:-no-reply@campusseguro.local}"
     linea_env MAIL_FROM_NAME "${MAIL_FROM_NAME:-CampusSeguro}"
     linea_env APP_BASE_URL "${APP_BASE_URL:-https://localhost}"

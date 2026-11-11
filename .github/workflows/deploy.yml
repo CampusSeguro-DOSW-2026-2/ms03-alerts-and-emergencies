@@ -46,5 +46,9 @@ jobs:
           DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
           GATEWAY_URL: ${{ vars.GATEWAY_URL }}
           MAIL_PROVIDER: ${{ vars.MAIL_PROVIDER }}
+          MAIL_FROM: ${{ vars.MAIL_FROM }}
+          MAIL_FROM_NAME: ${{ vars.MAIL_FROM_NAME }}
+          APP_BASE_URL: ${{ vars.APP_BASE_URL }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           GATEWAY_SERVICE_KEY: ${{ secrets.GATEWAY_SERVICE_KEY }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
