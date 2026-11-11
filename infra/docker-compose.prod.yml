@@ -48,7 +48,7 @@ services:
       BREVO_API_KEY: ${BREVO_API_KEY:-}
       MAIL_FROM: ${MAIL_FROM:-no-reply@campusseguro.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-CampusSeguro}
-      APP_BASE_URL: ${APP_BASE_URL:-https://localhost}
+      APP_BASE_URL: ${APP_BASE_URL:-}
     # Variables opcionales del entorno (p. ej. INTERNAL_ALLOWED_SERVICES, MS04_REENVIO_SOLICITUDES_MS).
     env_file:
       - path: extra.env
