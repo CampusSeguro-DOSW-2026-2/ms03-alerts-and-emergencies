@@ -7,17 +7,19 @@ import edu.eci.dosw.campusseguro.alertas.exception.NotARecipientException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.NotificationDeliveryRepository;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
+/**
+ * Política de acceso a una alerta concreta.
+ *
+ * <p>Quien tiene el permiso de consultar el historial puede ver cualquier alerta, sin importar con qué
+ * rol lo obtuvo. Sin ese permiso solo la ve si es destinatario directo o si la alerta se le entregó, y
+ * esa comprobación sí compara nombres de rol porque es lo que identifica a un destinatario dirigido a
+ * un rol.
+ */
 @Component
 public class AlertAccessPolicy {
-
-    private static final Set<String> PRIVILEGED_ROLES = Set.of(
-            UserRole.COORDINADOR.name(),
-            UserRole.ORGANIZADOR.name(),
-            UserRole.AUDITOR.name());
 
     private final AlertRecipientRepository recipientRepository;
     private final NotificationDeliveryRepository deliveryRepository;
@@ -41,7 +43,7 @@ public class AlertAccessPolicy {
             AccessActor actor,
             List<AlertRecipientEntity> recipients) {
 
-        if (actor.roles().stream().anyMatch(PRIVILEGED_ROLES::contains)) {
+        if (actor.hasPermission(Permission.ALERT_READ_HISTORY)) {
             return;
         }
         if (isRecipient(recipients, actor) || isDelivered(alert.getId(), actor)) {

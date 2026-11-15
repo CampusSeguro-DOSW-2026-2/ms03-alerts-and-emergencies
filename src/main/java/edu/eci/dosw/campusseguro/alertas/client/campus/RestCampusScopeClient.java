@@ -3,6 +3,7 @@ package edu.eci.dosw.campusseguro.alertas.client.campus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -64,7 +65,7 @@ public class RestCampusScopeClient implements CampusScopeClient {
     }
 
     @Override
-    public void validate(ScopeType type, List<String> ids, String userId, String rolesCsv) {
+    public void validate(ScopeType type, List<String> ids, CallerIdentity caller) {
         if (type == null || type == ScopeType.CAMPUS || ids == null || ids.isEmpty()) {
             return;
         }
@@ -73,7 +74,7 @@ public class RestCampusScopeClient implements CampusScopeClient {
         List<String> invalid = new ArrayList<>();
 
         for (String id : ids) {
-            if (id == null || id.isBlank() || !exists(path, id, userId, rolesCsv)) {
+            if (id == null || id.isBlank() || !exists(path, id, caller)) {
                 invalid.add(id);
             }
         }
@@ -83,18 +84,24 @@ public class RestCampusScopeClient implements CampusScopeClient {
         }
     }
 
-    private boolean exists(String path, String id, String userId, String rolesCsv) {
+    private boolean exists(String path, String id, CallerIdentity caller) {
         try {
             ms02.get()
                     .uri(path, id)
                     .headers(headers -> {
-                        // MS02 autoriza por identidad de usuario (X-User-Id + X-User-Role), no por
-                        // clave de servicio: se propaga la identidad de quien crea o edita la alerta.
-                        if (userId != null && !userId.isBlank()) {
-                            headers.set("X-User-Id", userId);
+                        // MS02 autoriza por identidad de usuario, no por clave de servicio: se
+                        // propaga la identidad completa de quien crea o edita la alerta. El API
+                        // Gateway exige las tres cabeceras juntas y responde 400 si falta alguna.
+                        if (caller != null && caller.isPresent()) {
+                            headers.set("X-User-Id", caller.userId());
                         }
-                        if (rolesCsv != null && !rolesCsv.isBlank()) {
-                            headers.set("X-User-Role", rolesCsv);
+                        if (caller != null && caller.rolesCsv() != null && !caller.rolesCsv().isBlank()) {
+                            headers.set("X-User-Role", caller.rolesCsv());
+                        }
+                        if (caller != null
+                                && caller.permissionsCsv() != null
+                                && !caller.permissionsCsv().isBlank()) {
+                            headers.set("X-User-Permission", caller.permissionsCsv());
                         }
                         headers.set(CorrelationIds.HEADER, CorrelationIds.current());
                     })

@@ -55,7 +55,7 @@ class InboxServiceImplTest {
     private static final UUID ALERT_ID =
             UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final AccessActor ACTOR =
-            new AccessActor("usr-001", Set.of("ESTUDIANTE", "PROFESOR"));
+            new AccessActor("usr-001", Set.of("ESTUDIANTE", "PROFESOR"), Set.of("ms03:alert:receive"));
 
     @Mock
     private AlertRepository alertRepository;
@@ -215,7 +215,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldUseSentinelRole_whenActorHasNoRoles() {
-        AccessActor actor = new AccessActor("usr-002", Set.of());
+        AccessActor actor = new AccessActor("usr-002", Set.of(), Set.of());
         AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.MANUAL, NOW);
         when(alertRepository.findInbox(
                 eq(actor.userId()),

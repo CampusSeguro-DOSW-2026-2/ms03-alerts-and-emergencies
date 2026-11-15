@@ -25,6 +25,9 @@ class AlertAccessPolicyTest {
 
     private static final UUID ALERT_ID = UUID.fromString("55555555-5555-5555-5555-555555555555");
 
+    private static final Set<String> CAN_READ_HISTORY =
+            Set.of(Permission.ALERT_READ_HISTORY.authority());
+
     @Mock
     private AlertRecipientRepository recipientRepository;
 
@@ -50,16 +53,35 @@ class AlertAccessPolicyTest {
     }
 
     @Test
-    void assertCanView_shouldAllowPrivilegedRoles() {
+    void assertCanView_shouldAllowAnyRoleThatHasReadHistory() {
         for (String role : List.of("COORDINADOR", "ORGANIZADOR", "AUDITOR")) {
-            AccessActor actor = new AccessActor("usr-x", Set.of(role));
+            AccessActor actor = new AccessActor("usr-x", Set.of(role), CAN_READ_HISTORY);
             assertDoesNotThrow(() -> policy.assertCanView(alert, actor, List.of()));
         }
     }
 
     @Test
+    void assertCanView_shouldAllowARoleOutsideTheFormerCatalog() {
+        AccessActor actor = new AccessActor(
+                "usr-x", Set.of("DIRECTOR_DE_BIENESTAR"), CAN_READ_HISTORY);
+
+        assertDoesNotThrow(() -> policy.assertCanView(alert, actor, List.of()));
+    }
+
+    @Test
+    void assertCanView_shouldNotGrantAnythingByRoleName() {
+        AccessActor coordinator = new AccessActor(
+                "usr-x", Set.of("COORDINADOR"), Set.of(Permission.ALERT_RECEIVE.authority()));
+        when(deliveryRepository.existsByAlertIdAndUserId(ALERT_ID, "usr-x")).thenReturn(false);
+
+        assertThrows(NotARecipientException.class,
+                () -> policy.assertCanView(alert, coordinator, List.of()));
+    }
+
+    @Test
     void assertCanView_shouldAllowDirectRecipient() {
-        AccessActor actor = new AccessActor("usr-001", Set.of("ESTUDIANTE"));
+        AccessActor actor = new AccessActor(
+                "usr-001", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
         List<AlertRecipientEntity> recipients = List.of(recipient(RecipientType.USER, "usr-001"));
 
         assertDoesNotThrow(() -> policy.assertCanView(alert, actor, recipients));
@@ -67,7 +89,8 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanView_shouldAllowUserBelongingToRecipientRole() {
-        AccessActor actor = new AccessActor("usr-001", Set.of("ESTUDIANTE"));
+        AccessActor actor = new AccessActor(
+                "usr-001", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
         List<AlertRecipientEntity> recipients = List.of(recipient(RecipientType.ROLE, "ESTUDIANTE"));
 
         assertDoesNotThrow(() -> policy.assertCanView(alert, actor, recipients));
@@ -75,7 +98,8 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanView_shouldAllowUserWithDeliveryRecord() {
-        AccessActor actor = new AccessActor("usr-001", Set.of("ESTUDIANTE"));
+        AccessActor actor = new AccessActor(
+                "usr-001", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
         when(deliveryRepository.existsByAlertIdAndUserId(ALERT_ID, "usr-001")).thenReturn(true);
 
         assertDoesNotThrow(() -> policy.assertCanView(alert, actor, List.of()));
@@ -83,7 +107,8 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanView_shouldRejectGenericUserWithoutRelationship() {
-        AccessActor actor = new AccessActor("usr-999", Set.of("ESTUDIANTE"));
+        AccessActor actor = new AccessActor(
+                "usr-999", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
         when(deliveryRepository.existsByAlertIdAndUserId(ALERT_ID, "usr-999")).thenReturn(false);
 
         assertThrows(NotARecipientException.class, () -> policy.assertCanView(alert, actor, List.of()));
@@ -91,7 +116,8 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanView_shouldLoadRecipients_whenNotProvided() {
-        AccessActor actor = new AccessActor("usr-001", Set.of("ESTUDIANTE"));
+        AccessActor actor = new AccessActor(
+                "usr-001", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
         when(recipientRepository.findByAlertId(ALERT_ID))
                 .thenReturn(List.of(recipient(RecipientType.USER, "usr-001")));
 
@@ -100,8 +126,10 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanConfirm_shouldAllowDirectRecipientAndDeliveredUser() {
-        AccessActor direct = new AccessActor("usr-001", Set.of("ESTUDIANTE"));
-        AccessActor delivered = new AccessActor("usr-002", Set.of("PROFESOR"));
+        AccessActor direct = new AccessActor(
+                "usr-001", Set.of("ESTUDIANTE"), Set.of(Permission.ALERT_RECEIVE.authority()));
+        AccessActor delivered = new AccessActor(
+                "usr-002", Set.of("PROFESOR"), Set.of(Permission.ALERT_RECEIVE.authority()));
         when(deliveryRepository.existsByAlertIdAndUserId(ALERT_ID, "usr-002")).thenReturn(true);
 
         assertDoesNotThrow(() -> policy.assertCanConfirm(
@@ -111,7 +139,8 @@ class AlertAccessPolicyTest {
 
     @Test
     void assertCanConfirm_shouldRejectPrivilegedUserWhoIsNotRecipient() {
-        AccessActor coordinator = new AccessActor("coord-1", Set.of("COORDINADOR"));
+        AccessActor coordinator = new AccessActor(
+                "coord-1", Set.of("COORDINADOR"), CAN_READ_HISTORY);
         when(deliveryRepository.existsByAlertIdAndUserId(ALERT_ID, "coord-1")).thenReturn(false);
 
         assertThrows(NotARecipientException.class,

@@ -29,7 +29,9 @@ import org.springframework.web.client.RestClient;
 
 /**
  * El cliente usa las rutas internas de MS01 ({@code /users/batch} y {@code /users/by-role}), que se
- * autorizan por {@code X-Service-Name}: no se envía identidad de usuario.
+ * autorizan por {@code X-Service-Name}: no se envía identidad de usuario. Los roles dejaron de ser un
+ * catálogo fijo, así que un destinatario dirigido a un rol se valida por formato y es MS01 quien
+ * comprueba que exista.
  */
 class RestCatalogClientTest {
 
@@ -53,7 +55,7 @@ class RestCatalogClientTest {
         server.start();
         client = new RestCatalogClient(
                 RestClient.builder(),
-                (type, ids, userId, roles) -> {
+                (type, ids, caller) -> {
                     // La validación del alcance se prueba en RestCampusScopeClientTest.
                 },
                 server.baseUrl(),
@@ -134,7 +136,8 @@ class RestCatalogClientTest {
                 .withHeader("X-Service-Key", equalTo("service-key"))
                 .withHeader(CorrelationIds.HEADER, equalTo(CORRELATION_ID))
                 .withoutHeader("X-User-Id")
-                .withoutHeader("X-User-Role"));
+                .withoutHeader("X-User-Role")
+                .withoutHeader("X-User-Permission"));
     }
 
     @Test
@@ -163,13 +166,21 @@ class RestCatalogClientTest {
     }
 
     @Test
-    void validateRecipients_shouldRejectInvalidRoleWithoutCallingMs01() {
+    void validateRecipients_shouldAcceptAWellFormedRoleWithoutCallingMs01() {
+        client.validateRecipients(List.of(
+                new RecipientRequest(RecipientType.ROLE, "DIRECTOR_DE_BIENESTAR")));
+
+        server.verify(0, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
+    }
+
+    @Test
+    void validateRecipients_shouldRejectMalformedRoleWithoutCallingMs01() {
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
                 () -> client.validateRecipients(List.of(
-                        new RecipientRequest(RecipientType.ROLE, "ROL_INEXISTENTE"))));
+                        new RecipientRequest(RecipientType.ROLE, "rol-invalido"))));
 
-        assertEquals(List.of("ROL_INEXISTENTE"), ex.getInvalidIds());
+        assertEquals(List.of("rol-invalido"), ex.getInvalidIds());
         server.verify(0, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
     }
 

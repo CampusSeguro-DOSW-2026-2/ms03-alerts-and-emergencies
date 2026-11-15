@@ -1,6 +1,7 @@
 package edu.eci.dosw.campusseguro.alertas.client.campus;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.absent;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.getRequestedFor;
@@ -14,6 +15,7 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import java.util.List;
 import java.util.UUID;
@@ -24,8 +26,9 @@ import org.slf4j.MDC;
 import org.springframework.web.client.RestClient;
 
 /**
- * MS02 autoriza por identidad de usuario (X-User-Id + X-User-Role), no por clave de servicio, así
- * que el cliente propaga la identidad de quien crea o edita la alerta.
+ * MS02 autoriza por identidad de usuario, no por clave de servicio, así que el cliente propaga la
+ * identidad completa de quien crea o edita la alerta. El API Gateway exige las tres cabeceras juntas:
+ * si falta una, responde 400.
  */
 class RestCampusScopeClientTest {
 
@@ -39,6 +42,12 @@ class RestCampusScopeClientTest {
             "11111111-1111-4111-8111-111111111111";
 
     private static final String ROLES = "COORDINADOR,ESTUDIANTE";
+
+    private static final String PERMISSIONS =
+            "ms03:alert:manage,ms03:alert:receive";
+
+    private static final CallerIdentity CALLER =
+            new CallerIdentity(USER_ID, ROLES, PERMISSIONS);
 
     private static final String CORRELATION_ID =
             "33333333-3333-4333-8333-333333333333";
@@ -75,25 +84,25 @@ class RestCampusScopeClientTest {
 
     @Test
     void validate_shouldNotCallMs02_whenScopeIsCampus() {
-        client.validate(ScopeType.CAMPUS, List.of("NO-EXISTE"), USER_ID, ROLES);
+        client.validate(ScopeType.CAMPUS, List.of("NO-EXISTE"), CALLER);
 
         server.verify(0, getRequestedFor(urlMatching("/api/v1/.*")));
     }
 
     @Test
     void validate_shouldNotCallMs02_whenIdsAreEmpty() {
-        client.validate(ScopeType.BUILDING, List.of(), USER_ID, ROLES);
+        client.validate(ScopeType.BUILDING, List.of(), CALLER);
 
         server.verify(0, getRequestedFor(urlMatching("/api/v1/.*")));
     }
 
     @Test
-    void validate_shouldPropagateUserIdentity_whenScopeIsBuilding() {
+    void validate_shouldPropagateTheWholeIdentity_whenScopeIsBuilding() {
         stubFound("/api/v1/buildings/" + BUILDING_ID);
 
         MDC.put(CorrelationIds.MDC_KEY, CORRELATION_ID);
         try {
-            client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), USER_ID, ROLES);
+            client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), CALLER);
         } finally {
             MDC.remove(CorrelationIds.MDC_KEY);
         }
@@ -103,14 +112,30 @@ class RestCampusScopeClientTest {
                 .withHeader("X-Service-Key", equalTo("service-key"))
                 .withHeader("X-User-Id", equalTo(USER_ID))
                 .withHeader("X-User-Role", equalTo(ROLES))
+                .withHeader("X-User-Permission", equalTo(PERMISSIONS))
                 .withHeader(CorrelationIds.HEADER, equalTo(CORRELATION_ID)));
+    }
+
+    @Test
+    void validate_shouldNotSendIdentityHeaders_whenCallerIsAbsent() {
+        stubFound("/api/v1/buildings/" + BUILDING_ID);
+
+        client.validate(
+                ScopeType.BUILDING,
+                List.of(BUILDING_ID),
+                new CallerIdentity(null, null, null));
+
+        server.verify(getRequestedFor(urlPathEqualTo("/api/v1/buildings/" + BUILDING_ID))
+                .withHeader("X-User-Id", absent())
+                .withHeader("X-User-Role", absent())
+                .withHeader("X-User-Permission", absent()));
     }
 
     @Test
     void validate_shouldCallSafeZonesEndpoint_whenScopeIsZone() {
         stubFound("/api/v1/safe-zones/" + ZONE_ID);
 
-        client.validate(ScopeType.ZONE, List.of(ZONE_ID), USER_ID, ROLES);
+        client.validate(ScopeType.ZONE, List.of(ZONE_ID), CALLER);
 
         server.verify(getRequestedFor(urlPathEqualTo("/api/v1/safe-zones/" + ZONE_ID)));
     }
@@ -122,7 +147,7 @@ class RestCampusScopeClientTest {
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), USER_ID, ROLES));
+                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), CALLER));
 
         assertEquals("alcance.ids", ex.getField());
         assertEquals(List.of(BUILDING_ID), ex.getInvalidIds());
@@ -137,7 +162,7 @@ class RestCampusScopeClientTest {
 
         InvalidReferenceException ex = assertThrows(
                 InvalidReferenceException.class,
-                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID, unknown), USER_ID, ROLES));
+                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID, unknown), CALLER));
 
         assertEquals(List.of(unknown), ex.getInvalidIds());
     }
@@ -149,7 +174,7 @@ class RestCampusScopeClientTest {
 
         assertThrows(
                 ExternalServiceUnavailableException.class,
-                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), USER_ID, ROLES));
+                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), CALLER));
     }
 
     @Test
@@ -160,6 +185,6 @@ class RestCampusScopeClientTest {
 
         assertThrows(
                 ExternalServiceUnavailableException.class,
-                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), USER_ID, ROLES));
+                () -> client.validate(ScopeType.BUILDING, List.of(BUILDING_ID), CALLER));
     }
 }

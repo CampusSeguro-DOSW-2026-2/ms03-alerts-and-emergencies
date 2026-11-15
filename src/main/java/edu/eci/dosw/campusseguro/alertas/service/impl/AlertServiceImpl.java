@@ -31,6 +31,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
@@ -652,10 +653,7 @@ public class AlertServiceImpl implements AlertService {
             catalogClient.validateBuildingsZones(
                     scope.type(),
                     scope.ids(),
-                    requester.actor(),
-                    String.join(",", requester.roles().stream()
-                            .map(role -> role.name())
-                            .toList()));
+                    CallerIdentity.from(requester));
         }
     }
 

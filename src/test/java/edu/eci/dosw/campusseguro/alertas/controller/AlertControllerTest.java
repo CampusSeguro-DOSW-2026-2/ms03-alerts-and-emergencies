@@ -35,7 +35,7 @@ import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
-import edu.eci.dosw.campusseguro.alertas.security.UserRole;
+import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
@@ -74,10 +74,7 @@ class AlertControllerTest {
 
     private static final String ACTOR = "coordinator";
 
-    private static final RequesterContext REQUESTER = new RequesterContext(
-            ACTOR,
-            Set.of(UserRole.COORDINADOR),
-            null);
+    private static final RequesterContext REQUESTER = Identities.coordinador(ACTOR);
 
     private static final String VALID_CREATE_JSON = """
             {

@@ -48,7 +48,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
-import edu.eci.dosw.campusseguro.alertas.security.UserRole;
+import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
@@ -84,15 +84,9 @@ class AlertServiceImplTest {
     private static final UUID ID = UUID.fromString("44444444-4444-4444-4444-444444444444");
     private static final String ACTOR = "admin";
 
-    private static final RequesterContext REQUESTER = new RequesterContext(
-            ACTOR,
-            Set.of(UserRole.COORDINADOR),
-            null);
+    private static final RequesterContext REQUESTER = Identities.coordinador(ACTOR);
 
-    private static final RequesterContext ORGANIZER = new RequesterContext(
-            "organizer",
-            Set.of(UserRole.ORGANIZADOR),
-            null);
+    private static final RequesterContext ORGANIZER = Identities.organizador("organizer");
 
     @Mock
     private AlertRepository alertRepository;
@@ -199,7 +193,7 @@ class AlertServiceImplTest {
 
         assertSame(expected, result.alert());
         assertTrue(result.created());
-        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any(), any());
+        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any());
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
                 ID,
@@ -370,7 +364,7 @@ class AlertServiceImplTest {
 
         service.create(request, REQUESTER);
 
-        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any(), any());
+        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any());
         verify(catalogClient).validateRecipients(recipients);
     }
 
@@ -384,7 +378,7 @@ class AlertServiceImplTest {
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         doThrow(new RuntimeException("invalid scope"))
                 .when(catalogClient)
-                .validateBuildingsZones(eq(ScopeType.ZONE), any(), any(), any());
+                .validateBuildingsZones(eq(ScopeType.ZONE), any(), any());
 
         assertThrows(RuntimeException.class, () -> service.create(request, REQUESTER));
 
@@ -569,7 +563,7 @@ class AlertServiceImplTest {
 
         service.update(ID, request, REQUESTER);
 
-        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any(), any());
+        verify(catalogClient, never()).validateBuildingsZones(any(), any(), any());
         verify(scopeItemRepository, never()).deleteAll(ArgumentMatchers.<List<AlertScopeItemEntity>>any());
         verifyNoInteractions(auditService);
     }
@@ -590,7 +584,7 @@ class AlertServiceImplTest {
 
         service.update(ID, request, REQUESTER);
 
-        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any(), any());
+        verify(catalogClient).validateBuildingsZones(eq(ScopeType.BUILDING), any(), any());
         verify(scopeItemRepository).deleteAll(List.of(oldItem));
         verify(scopeItemRepository).flush();
         verify(scopeItemRepository).saveAll(List.of(newItem));
@@ -612,7 +606,7 @@ class AlertServiceImplTest {
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
 
         assertSame(expected,
-                service.findById(ID, new AccessActor("viewer", Set.of())));
+                service.findById(ID, new AccessActor("viewer", Set.of(), Set.of())));
     }
 
     @Test
@@ -620,7 +614,7 @@ class AlertServiceImplTest {
         when(alertRepository.findById(ID)).thenReturn(Optional.empty());
 
         assertThrows(AlertNotFoundException.class,
-                () -> service.findById(ID, new AccessActor("viewer", Set.of())));
+                () -> service.findById(ID, new AccessActor("viewer", Set.of(), Set.of())));
     }
 
     @Test

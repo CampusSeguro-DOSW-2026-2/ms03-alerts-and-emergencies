@@ -15,6 +15,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Set;
@@ -33,6 +34,9 @@ class StubCatalogClientTest {
     private static final String UNKNOWN_ID = "NO-SUCH-ID";
     private static final String USER_ID = "11111111-1111-4111-8111-111111111111";
     private static final String ROLES = "COORDINADOR";
+
+    private static final CallerIdentity CALLER =
+            new CallerIdentity(USER_ID, ROLES, "ms03:alert:manage,ms03:alert:receive");
 
     private CatalogData data;
     private StubCatalogClient client;
@@ -53,7 +57,7 @@ class StubCatalogClientTest {
     }
 
     private void validateScope(ScopeType type, List<String> ids) {
-        client.validateBuildingsZones(type, ids, USER_ID, ROLES);
+        client.validateBuildingsZones(type, ids, CALLER);
     }
 
     // helpers 

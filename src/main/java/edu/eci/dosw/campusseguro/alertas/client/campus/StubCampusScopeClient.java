@@ -2,6 +2,7 @@ package edu.eci.dosw.campusseguro.alertas.client.campus;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.CatalogStubData;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import java.util.List;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ public class StubCampusScopeClient implements CampusScopeClient {
     }
 
     @Override
-    public void validate(ScopeType type, List<String> ids, String userId, String rolesCsv) {
+    public void validate(ScopeType type, List<String> ids, CallerIdentity caller) {
         stubData.validateScope(type, ids);
     }
 }

@@ -33,7 +33,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
-import edu.eci.dosw.campusseguro.alertas.security.UserRole;
+import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.InboxService;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
@@ -45,6 +45,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -311,10 +312,7 @@ class AlertApiIntegrationIT {
 
         AlertResponse response = alertLifecycleService.activate(
                 alert.getId(),
-                new RequesterContext(
-                        "it-coordinator",
-                        Set.of(UserRole.COORDINADOR),
-                        null));
+                Identities.coordinador("it-coordinator"));
 
         assertEquals(AlertStatus.ACTIVE, response.status());
         assertEquals(AlertStatus.ACTIVE, alertRepository.findById(alert.getId()).orElseThrow().getStatus());
@@ -331,10 +329,7 @@ class AlertApiIntegrationIT {
 
         AlertResponse response = alertLifecycleService.activate(
                 saved.getId(),
-                new RequesterContext(
-                        "it-coordinator",
-                        Set.of(UserRole.COORDINADOR),
-                        null));
+                Identities.coordinador("it-coordinator"));
 
         assertEquals(AlertStatus.ACTIVE, response.status());
         assertEquals(AlertStatus.ACTIVE,
@@ -417,7 +412,7 @@ class AlertApiIntegrationIT {
                 InboxStatus.ACTIVE,
                 0,
                 20,
-                new AccessActor(STUB_USER_ID, Set.of("ESTUDIANTE")));
+                new AccessActor(STUB_USER_ID, Set.of("ESTUDIANTE"), Set.of("ms03:alert:receive")));
 
         long statements = statistics.getPrepareStatementCount();
         assertTrue(
@@ -520,13 +515,30 @@ class AlertApiIntegrationIT {
                 .andExpect(jsonPath("$.recipients[0].id").value(STUB_USER_ID));
     }
 
+    /**
+     * Permisos de MS03 que la asignación inicial de MS01 concede a cada rol, según la Matriz Rol-Permiso.
+     * Emula al API Gateway: la autorización viaja en X-User-Permission y el nombre del rol no concede nada.
+     */
+    private static final Map<String, String> PERMISSIONS_BY_ROLE = Map.of(
+            "ESTUDIANTE", "ms03:alert:receive",
+            "PROFESOR", "ms03:alert:receive",
+            "ADMINISTRATIVO", "ms03:alert:receive",
+            "BRIGADISTA", "ms03:alert:receive",
+            "AUDITOR", "ms03:alert:read_history",
+            "ORGANIZADOR", "ms03:alert:manage_drill,ms03:alert:read_history,ms03:alert:receive",
+            "COORDINADOR", "ms03:alert:manage,ms03:alert:read_history,ms03:alert:receive",
+            "ADMIN", "ms03:alert:manage,ms03:alert:read_history,ms03:alert:receive");
+
     private MockHttpServletRequestBuilder as(
             MockHttpServletRequestBuilder builder,
             UUID userId,
             String roles) {
         return builder
                 .header("X-User-Id", userId.toString())
-                .header("X-User-Role", roles);
+                .header("X-User-Role", roles)
+                .header(
+                        "X-User-Permission",
+                        PERMISSIONS_BY_ROLE.getOrDefault(roles, "ms03:alert:receive"));
     }
 
     private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {

@@ -36,6 +36,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ class ConfirmationServiceImplTest {
 
     private static final Instant NOW = Instant.parse("2026-10-15T18:00:00Z");
     private static final UUID ALERT_ID = UUID.fromString("33333333-3333-3333-3333-333333333333");
-    private static final AccessActor ACTOR = new AccessActor("usr-001", java.util.Set.of("ESTUDIANTE"));
+    private static final AccessActor ACTOR = new AccessActor("usr-001", Set.of("ESTUDIANTE"), Set.of("ms03:alert:receive"));
     private static final List<AlertRecipientEntity> RECIPIENTS = List.of(recipient());
 
     @Mock
