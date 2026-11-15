@@ -6,19 +6,23 @@ info:
     auditoria de CampusSeguro.
 
     MS03 no valida JWT: confia en la identidad que inyecta el API Gateway en
-    `X-User-Id`, `X-User-Role`, `X-Service-Name` y `X-Correlation-ID`. El
-    servicio solo debe exponerse a traves del Gateway.
+    `X-User-Id`, `X-User-Role`, `X-User-Permission`, `X-Service-Name` y
+    `X-Correlation-ID`. El servicio solo debe exponerse a traves del Gateway.
 
     `X-Service-Name` es un metadato opcional de auditoria. No altera el origen
     de la alerta, no otorga permisos y no tiene reglas especiales para `ms06`.
 
-    Roles oficiales: ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA,
-    COORDINADOR, ORGANIZADOR, ADMIN y AUDITOR.
+    La autorizacion se decide solo con los permisos de `X-User-Permission`, que
+    el Gateway calcula como la union de los permisos de todos los roles del
+    usuario. `X-User-Role` es informativo: los roles son datos de MS01 y pueden
+    cambiar, asi que el nombre de un rol nunca concede un permiso.
 
     Permisos MS03: ms03:alert:manage, ms03:alert:manage_drill,
-    ms03:alert:read_history y ms03:alert:receive. COORDINADOR administra
-    alertas, ORGANIZADOR solo simulacros, AUDITOR consulta historial y la
-    comunidad recibe alertas.
+    ms03:alert:read_history y ms03:alert:receive. Quien tenga
+    ms03:alert:manage administra alertas de cualquier tipo, quien tenga
+    ms03:alert:manage_drill solo simulacros, quien tenga
+    ms03:alert:read_history consulta el historial y cualquier rol con
+    ms03:alert:receive recibe alertas.
 
     Una alerta usa `types` con uno o varios valores. `OPERATIVA` es exclusiva
     y no puede combinarse con otros tipos ni usarse en simulacros.
@@ -42,6 +46,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
@@ -312,6 +317,7 @@ paths:
     parameters:
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
@@ -402,6 +408,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
@@ -494,6 +501,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
@@ -543,6 +551,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
@@ -585,6 +594,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     patch:
@@ -622,6 +632,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     post:
@@ -677,6 +688,7 @@ paths:
       - $ref: '#/components/parameters/AlertId'
       - $ref: '#/components/parameters/UserIdHeader'
       - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
       - $ref: '#/components/parameters/ServiceNameHeader'
       - $ref: '#/components/parameters/CorrelationIdHeader'
     get:
@@ -753,12 +765,26 @@ components:
       in: header
       required: true
       description: |
-        Uno o varios roles oficiales separados por coma. Valores permitidos:
-        ESTUDIANTE, PROFESOR, ADMINISTRATIVO, BRIGADISTA, COORDINADOR,
-        ORGANIZADOR, ADMIN y AUDITOR.
+        Nombres de los roles del usuario separados por coma. Es informativo: no
+        concede permisos. Los roles son datos de MS01 y el administrador puede
+        crear y renombrar roles en caliente, asi que no hay una lista fija; el
+        nombre solo debe cumplir el formato de los Estandares (2 a 30
+        caracteres, mayusculas, digitos y guion bajo).
       schema:
         type: string
         example: COORDINADOR
+    UserPermissionHeader:
+      name: X-User-Permission
+      in: header
+      required: true
+      description: |
+        Codigos de los permisos efectivos del usuario separados por coma, con la
+        forma `msNN:recurso:accion`. Son la unica fuente de autorizacion: el
+        Gateway los calcula como la union de los permisos de todos los roles del
+        usuario.
+      schema:
+        type: string
+        example: ms03:alert:manage,ms03:alert:read_history,ms03:alert:receive
     ServiceNameHeader:
       name: X-Service-Name
       in: header

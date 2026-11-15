@@ -1114,6 +1114,10 @@
                                 "value": "COORDINADOR"
                             },
                             {
+                                "key": "X-User-Permission",
+                                "value": "ms03:alert:manage,ms03:alert:read_history,ms03:alert:receive"
+                            },
+                            {
                                 "key": "Accept",
                                 "value": "application/json"
                             }

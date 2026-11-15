@@ -4,7 +4,7 @@
 
 ## Estado actual
 
-MS03 ya no valida JWT ni configura CORS. Autentica con `X-User-Id`, `X-User-Role` y `X-Correlation-ID`, usa los 8 roles oficiales y permisos `ms03:*`, devuelve errores de 5 campos, pagina con nombres en espanol y consulta MS01 con el contrato real. El stub de catalogo queda para `local`/`test`; el perfil `integration` usa MS01.
+MS03 ya no valida JWT ni configura CORS. Autentica con `X-User-Id`, `X-User-Role`, `X-User-Permission` y `X-Correlation-ID`, autoriza por permisos `ms03:*`, devuelve errores de 5 campos, pagina con nombres en espanol y consulta MS01 con el contrato real. El stub de catalogo queda para `local`/`test`; el perfil `integration` usa MS01.
 
 La integracion fue verificada de extremo a extremo el 2026-10-27 con la imagen `ghcr.io/campusseguro-dosw-2026-2/api-gateway:integracion` y MS01 `develop` (`40d476e8`). La imagen del Gateway implementa RF-GW-08, elimina las cabeceras de identidad del cliente y enruta MS03; el `develop` local del Gateway todavia no contiene esos cambios.
 
@@ -15,23 +15,21 @@ Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para res
 ### 1. Seguridad y contrato de entrada
 
 - Se elimino la validacion JWT (`oauth2ResourceServer`), `LocalSecurityConfig`, `LocalTokenController`, `LocalTokenService`, `JwtRoleConverter` y la dependencia OAuth2.
-- `IdentityHeaderParser` valida `X-User-Id` (UUID), `X-User-Role` (lista de roles oficiales) y `X-Service-Name`.
+- `IdentityHeaderParser` valida `X-User-Id` (UUID), `X-User-Role` (nombres con el formato de los Estandares), `X-User-Permission` (codigos `msNN:recurso:accion`) y `X-Service-Name`. Las tres cabeceras de identidad son obligatorias.
 - `IdentityHeadersAuthenticationFilter` crea un `RequesterIdentity`; si faltan o son invalidas las cabeceras en un endpoint protegido responde `401 NO_AUTENTICADO`.
-- `Permission` y `UserRole` implementan la matriz oficial:
-  - COORDINADOR: `receive`, `manage`, `read_history`.
-  - ORGANIZADOR: `receive`, `manage_drill`, `read_history`.
-  - AUDITOR: `read_history`.
-  - ESTUDIANTE, PROFESOR, ADMINISTRATIVO y BRIGADISTA: `receive`.
-  - ADMIN: sin permisos MS03.
+- `Permission` declara los permisos `ms03:*` y el formato de un codigo. `RoleNames` valida el formato de un nombre de rol. **No hay enum de roles**: los roles son datos de MS01 y el administrador puede crear y renombrar roles en caliente.
+- La autorizacion se decide solo con los permisos de `X-User-Permission`, que el Gateway calcula como la union de los permisos de todos los roles del usuario. `X-User-Role` es informativo y nunca concede nada.
 - Los controladores usan `hasAuthority`:
   - crear/activar/finalizar: `manage` o `manage_drill`;
   - editar/programar/archivar: `manage`;
   - consultar alerta: `receive` o `read_history`;
   - confirmar: `receive`;
   - auditoria: `read_history`.
-- `AlertAccessPolicy` usa `COORDINADOR`, `ORGANIZADOR` y `AUDITOR` como roles privilegiados y compara destinatarios por UUID.
-- `ORGANIZADOR` solo puede crear alertas con `origin.type = SIMULATION`; si no, `403 PROHIBIDO`.
+- `AlertAccessPolicy` deja ver cualquier alerta a quien tenga `read_history`, sin importar con que rol lo obtuvo, y sigue comparando destinatarios por UUID y por nombre de rol.
+- `ORGANIZADOR` solo puede crear alertas con `origin.type = SIMULATION`; si no, `403 PROHIBIDO`. La regla ya no depende del rol sino de tener `manage_drill` sin `manage`.
 - Se elimino CORS propio; Swagger queda detras de `SPRINGDOC_ENABLED`.
+
+Asignacion inicial de MS01 (solo como referencia; MS03 no la usa para autorizar): COORDINADOR tiene `manage`, `read_history` y `receive`; ORGANIZADOR `manage_drill`, `read_history` y `receive`; AUDITOR `read_history`; ESTUDIANTE, PROFESOR, ADMINISTRATIVO y BRIGADISTA solo `receive`; ADMIN no tiene permisos `ms03:*`.
 
 ### 2. Correlacion, errores y paginacion
 
@@ -45,20 +43,20 @@ Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para res
 
 ### 3. Cliente MS01
 
-- `RestCatalogClient` usa el contrato real de MS01:
-  - `GET /api/v1/users/{id}` para usuarios;
-  - `GET /api/v1/users?rol=&estado=ACTIVO&page=&size=100` paginado para roles.
-- Envia `X-User-Id` tecnico, `X-User-Role`, `X-Service-Name: ms03`, `X-Service-Key` si esta configurada y `X-Correlation-ID`.
+- `RestCatalogClient` usa las rutas internas de MS01:
+  - `POST /api/v1/users/batch` para usuarios;
+  - `GET /api/v1/users/by-role?rol=&page=&size=100` paginado para roles.
+- Envia `X-Service-Name: ms03`, `X-Service-Key` si esta configurada y `X-Correlation-ID`. No envia identidad de usuario: esas rutas se autorizan por el servicio llamante.
 - Timeouts de conexion y lectura de 2000 ms.
-- Valida usuarios activos, roles oficiales y UUIDs antes de llamar.
-- `app.catalog.technical-user-id` es obligatorio en el perfil `integration`; se usa una cuenta `AUDITOR` como workaround mientras MS01 no exponga el endpoint interno.
+- Valida usuarios activos y UUIDs antes de llamar. Un destinatario dirigido a un rol se valida por formato (`^[A-Z][A-Z0-9_]{1,29}$`); que el rol exista lo comprueba MS01 y responde `400` con el campo `rol` si no existe.
 - `StubCatalogClient` y `catalog-stub.json` quedan para `local`/`test`, con UUIDs y roles en espanol.
+- En la validacion de alcance, `RestCampusScopeClient` propaga a MS02 las tres cabeceras de identidad (`X-User-Id`, `X-User-Role` y `X-User-Permission`): el Gateway exige las tres juntas y responde `400` si falta alguna.
 
 ### 4. Roles, MS06 y datos
 
-- `SERVICE_MS06` desaparece como rol. MS06 llama con identidad de usuario `ORGANIZADOR`, `X-Service-Name: ms06` y el permiso `manage_drill`.
+- `SERVICE_MS06` desaparece como rol. MS06 llama con identidad de usuario, `X-Service-Name: ms06` y el permiso `manage_drill`.
 - La finalizacion por MS06 u ORGANIZADOR exige `simulationId` y lo compara con la alerta; si falta responde 400 y si no coincide 409 `CONFLICTO_SIMULACION`.
-- Los destinatarios por rol usan los 8 roles oficiales.
+- Los destinatarios por rol aceptan cualquier nombre con el formato de los Estandares, no solo los ocho iniciales.
 - `NotificationDeliveryEntity` sigue persistiendo el correo; queda pendiente evaluar si se elimina para cumplir la minimizacion de datos de la wiki.
 - La auditoria local sigue siendo la fuente de `/alertas/{id}/auditoria`; la integracion con MS08 no esta implementada.
 
@@ -97,6 +95,7 @@ Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para res
   - fecha de activacion pasada: 400 `FECHA_ACTIVACION_INVALIDA`;
   - paginacion invalida: 400 `PAGINACION_INVALIDA`;
   - sin JWT pero con `X-User-Id`/`X-User-Role`: 401 `NO_AUTENTICADO` (el Gateway elimina esas cabeceras);
+  - falta `X-User-Permission`: 401 `NO_AUTENTICADO`, aunque lleguen las otras dos cabeceras;
   - destinatario por rol `ESTUDIANTE`: la alerta se crea y el estudiante puede confirmar;
   - auditor: puede listar y consultar auditoria, no puede escribir;
   - `X-Correlation-ID` valido se conserva; uno invalido se reemplaza por un UUID v4.
@@ -106,6 +105,7 @@ Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para res
 ## Criterios de aceptacion
 
 - [x] Sin cabeceras de identidad, MS03 responde `401 NO_AUTENTICADO`; con permiso insuficiente, `403 PROHIBIDO`.
+- [x] La autorizacion usa solo los permisos de `X-User-Permission`: cualquier rol que los tenga opera igual, y un nombre de rol sin permiso no concede nada.
 - [x] Todos los errores de MS03 tienen exactamente 5 campos y el mismo `correlation_id`.
 - [x] `ORGANIZADOR` solo crea alertas de simulacro; no existe `SERVICE_MS06`.
 - [x] El OpenAPI no declara `bearerAuth`, declara las cabeceras, los permisos y la paginacion estandar.
