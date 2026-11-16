@@ -40,7 +40,6 @@ import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -66,7 +65,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(properties = {
         "app.alerts.activation-check-ms=3600000",
@@ -98,40 +96,6 @@ class AlertApiIntegrationIT {
 
     static {
         POSTGRES.start();
-        applyMigrations();
-    }
-
-    private static void applyMigrations() {
-        try {
-            for (String script : List.of(
-                    "001_create_schema.sql",
-                    "002_indexes.sql",
-                    "003_phase2_contract.sql",
-                    "004_align_simulation_contract.sql",
-                    "005_business_logic_update.sql",
-                    "007_alert_purpose.sql",
-                    "008_alert_purpose_unique.sql")) {
-                Path path = Path.of("database", script);
-                String containerPath = "/tmp/" + script;
-                POSTGRES.copyFileToContainer(MountableFile.forHostPath(path), containerPath);
-                var result = POSTGRES.execInContainer(
-                        "psql",
-                        "-U",
-                        POSTGRES.getUsername(),
-                        "-d",
-                        POSTGRES.getDatabaseName(),
-                        "-v",
-                        "ON_ERROR_STOP=1",
-                        "-f",
-                        containerPath);
-                if (result.getExitCode() != 0) {
-                    throw new IllegalStateException(
-                            "No se pudo aplicar " + script + ": " + result.getStderr());
-                }
-            }
-        } catch (Exception exception) {
-            throw new IllegalStateException("No se pudieron aplicar las migraciones", exception);
-        }
     }
 
     @DynamicPropertySource

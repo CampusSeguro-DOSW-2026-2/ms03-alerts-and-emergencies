@@ -74,7 +74,7 @@ services:
       POSTGRES_PASSWORD: ${MS03_DB_PASSWORD:?MS03_DB_PASSWORD es obligatoria}
     volumes:
       - ms03-db-data:/var/lib/postgresql/data
-      - ./database:/docker-entrypoint-initdb.d:ro
+      # El esquema lo crea Flyway al arrancar ms03, no el entrypoint de Postgres.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s

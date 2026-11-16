@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -16,11 +15,12 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.UUID;
+import org.flywaydb.core.Flyway;
+import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.MountableFile;
 
 class AlertMigrationIT {
 
@@ -39,11 +39,11 @@ class AlertMigrationIT {
     private static final UUID DRAFT_FIRE =
             UUID.fromString("10000000-0000-4000-8000-000000000005");
 
-    private static final List<String> LEGACY_SCRIPTS = List.of(
-            "001_create_schema.sql",
-            "002_indexes.sql",
-            "003_phase2_contract.sql",
-            "004_align_simulation_contract.sql");
+    /**
+     * Version del esquema en la que todavia existian alerts.type y alerts.ended_at. Se migra hasta
+     * aqui, se siembran las filas legadas y despues se completa la migracion a la ultima version.
+     */
+    private static final String LEGACY_TARGET_VERSION = "4";
 
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine")
             .withDatabaseName("campusseguro_alerts_migration")
@@ -60,13 +60,9 @@ class AlertMigrationIT {
     static void prepareLegacyDatabase() throws Exception {
         connection = DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-        for (String script : LEGACY_SCRIPTS) {
-            applyScript(script);
-        }
+        migrateTo(LEGACY_TARGET_VERSION);
         seedLegacyRows();
-        applyScript("005_business_logic_update.sql");
-        applyScript("007_alert_purpose.sql");
-        applyScript("008_alert_purpose_unique.sql");
+        migrateTo(null);
     }
 
     @AfterAll
@@ -165,21 +161,22 @@ class AlertMigrationIT {
         }
     }
 
-    private static void applyScript(String script) throws Exception {
-        Path path = Path.of("database", script);
-        String containerPath = "/tmp/" + script;
-        POSTGRES.copyFileToContainer(MountableFile.forHostPath(path), containerPath);
-        var result = POSTGRES.execInContainer(
-                "psql",
-                "-U",
-                POSTGRES.getUsername(),
-                "-d",
-                POSTGRES.getDatabaseName(),
-                "-v",
-                "ON_ERROR_STOP=1",
-                "-f",
-                containerPath);
-        assertEquals(0, result.getExitCode(), result.getStderr() + result.getStdout());
+    /**
+     * Aplica las migraciones de Flyway hasta la version indicada, o hasta la ultima si es null.
+     *
+     * @param version version objetivo, null para la ultima
+     */
+    private static void migrateTo(String version) {
+        var configuration = Flyway.configure()
+                .dataSource(
+                        POSTGRES.getJdbcUrl(),
+                        POSTGRES.getUsername(),
+                        POSTGRES.getPassword())
+                .locations("classpath:db/migration");
+        if (version != null) {
+            configuration = configuration.target(MigrationVersion.fromVersion(version));
+        }
+        configuration.load().migrate();
     }
 
     private static void seedLegacyRows() throws SQLException {

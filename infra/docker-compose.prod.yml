@@ -14,9 +14,10 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
     volumes:
       - datos:/var/lib/postgresql/data
-      # Esquema inicial (database/*.sql): Postgres solo lo ejecuta la primera vez, con el volumen vacío.
-      # deploy.sh NO copia 006_sample_data.sql: son datos de ejemplo y no van a producción.
-      - ./database:/docker-entrypoint-initdb.d:ro
+      # El esquema lo crea Flyway cuando arranca ms03, con las migraciones de
+      # src/main/resources/db/migration. Los datos de ejemplo no son una migracion y
+      # nunca llegan a un entorno desplegado.
+
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U campusseguro -d campusseguro_alerts"]
       interval: 5s

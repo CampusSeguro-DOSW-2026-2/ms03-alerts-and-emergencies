@@ -6,7 +6,6 @@
 --
 -- This script is idempotent: it can be applied more than once without failing.
 
-BEGIN;
 
 ALTER TABLE alerts
     ADD COLUMN IF NOT EXISTS purpose VARCHAR(32);
@@ -14,4 +13,3 @@ ALTER TABLE alerts
 CREATE INDEX IF NOT EXISTS idx_alerts_simulation_purpose
     ON alerts (simulation_id, purpose);
 
-COMMIT;

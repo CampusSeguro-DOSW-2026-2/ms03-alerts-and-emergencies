@@ -181,42 +181,35 @@ Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch
 
 Profiles:
 
-- `local`: stub catalog (`catalog-stub.json`), debug logging, Swagger enabled. Email is simulated: each notification is written to the log and recorded as sent. To send real email set `MAIL_PROVIDER=brevo` and `BREVO_API_KEY` in `.env`. On a new Docker volume, `database/006_sample_data.sql` loads one alert in each lifecycle state (`DRAFT`, `SCHEDULED`, `ACTIVE`, `ARCHIVED`); to reload it run `docker compose down -v && docker compose up -d postgres`.
+- `local`: stub catalog (`catalog-stub.json`), debug logging, Swagger enabled. Email is simulated: each notification is written to the log and recorded as sent. To send real email set `MAIL_PROVIDER=brevo` and `BREVO_API_KEY` in `.env`. Sample data (`database/sample/sample_data.sql`) loads one alert in each lifecycle state (`DRAFT`, `SCHEDULED`, `ACTIVE`, `ARCHIVED`); it is not a migration, so it does not run by itself. After the service has started once and Flyway has created the schema, load it with:
+  ```powershell
+  Get-Content -Raw .\database\sample\sample_data.sql |
+      docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts -v ON_ERROR_STOP=1
+  ```
 - `test`: stub catalog, used by the automated tests.
 - `integration`: real MS01 and MS02 through the API Gateway, Swagger disabled. No technical user is required: MS01 authorizes the internal routes by `X-Service-Name`.
 
 ### Database migrations
 
-MS03 does not use Flyway or Liquibase. The scripts in `database/` are applied manually, in this order:
+The schema is managed by Flyway. The migrations live in `src/main/resources/db/migration` and travel inside the jar, so the service applies them on startup, before Hibernate validates the mapping (`spring.jpa.hibernate.ddl-auto=validate`):
 
-1. `001_create_schema.sql`
-2. `002_indexes.sql`
-3. `003_phase2_contract.sql`
-4. `004_align_simulation_contract.sql`
-5. `005_business_logic_update.sql`
-6. `006_sample_data.sql` (sample data, development only)
-7. `007_alert_purpose.sql`
-8. `008_alert_purpose_unique.sql` (one live alert per `simulation_id` and `purpose`)
+1. `V1__esquema_inicial.sql`
+2. `V2__indices.sql`
+3. `V3__contrato_phase2.sql`
+4. `V4__contrato_simulacion.sql`
+5. `V5__logica_de_negocio.sql` (multiple alert types, `ENDED` removed)
+6. `V6__proposito_alerta.sql`
+7. `V7__proposito_alerta_unico.sql` (one live alert per `simulation_id` and `purpose`)
 
-`spring.jpa.hibernate.ddl-auto=validate` means the service will not start if `005` has not been applied. On a fresh Docker volume, the scripts run automatically in alphabetical order. To upgrade an existing local volume:
+Rules for a new change:
 
-1. Schedule a maintenance window and stop every process that writes to the database (MS03, Gateway and any integration job).
-2. Back up the database before applying `005`:
+- Never edit a migration that has already run. Add the next `V<n>__descripcion.sql`.
+- Each file is applied in its own transaction: do not open or commit one inside the script.
+- Sample data does not go in `db/migration`. It goes in `database/sample/`.
 
-   ```powershell
-   docker compose exec postgres pg_dump -U campusseguro -d campusseguro_alerts -Fc -f /tmp/ms03_before_005.dump
-   docker compose cp postgres:/tmp/ms03_before_005.dump .\ms03_before_005.dump
-   ```
+An existing database built from the old manual scripts is baselined at version 7 (`spring.flyway.baseline-on-migrate` and `baseline-version` in `application.yml`), so it is not migrated again and only receives new versions. A fresh database applies `V1` to `V7` from scratch.
 
-3. Apply the migration:
-
-   ```powershell
-   Get-Content -Raw .\database\005_business_logic_update.sql |
-       docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts -v ON_ERROR_STOP=1
-   ```
-
-4. Verify that `alerts` and `alert_types` counts match, that no `ENDED` value or `ended_at` column remains and that `archived_at` is complete for converted rows.
-5. Start the service and run the smoke tests. If the migration fails, restore the backup instead of running a partial rollback.
+To upgrade an existing environment: back up first, then start the service and check `flyway_schema_history`. If a migration fails, restore the backup instead of running a partial rollback.
 
 ### Build and Run
 
