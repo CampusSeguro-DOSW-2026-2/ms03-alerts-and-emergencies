@@ -20,7 +20,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.NotificationDeliveryEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.DeliveryStatus;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
@@ -87,7 +86,7 @@ class NotificationServiceTest {
     private AlertEntity alert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("EARTHQUAKE"));
         alert.setStatus(AlertStatus.ACTIVE);
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions("Evacuar");

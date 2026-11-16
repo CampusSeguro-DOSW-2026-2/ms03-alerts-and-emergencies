@@ -5,7 +5,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -46,7 +45,7 @@ public final class AlertSpecifications {
     }
 
     private static Specification<AlertEntity> hasAnyType(
-            List<AlertType> types) {
+            List<String> types) {
 
         return (root, query, cb) -> {
             if (types == null || types.isEmpty()) {
@@ -54,7 +53,7 @@ public final class AlertSpecifications {
             }
 
             query.distinct(true);
-            Join<AlertEntity, AlertType> typeJoin = root.join("types");
+            Join<AlertEntity, String> typeJoin = root.join("types");
             return typeJoin.in(types);
         };
     }

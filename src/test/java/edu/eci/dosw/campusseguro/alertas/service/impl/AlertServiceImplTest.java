@@ -32,7 +32,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
@@ -49,6 +48,7 @@ import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.Identities;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalogStub;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
@@ -129,6 +129,7 @@ class AlertServiceImplTest {
                 stateRules,
                 accessPolicy,
                 lifecycleService,
+                AlertTypeCatalogStub.create(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
@@ -136,7 +137,7 @@ class AlertServiceImplTest {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
-        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("EARTHQUAKE"));
         alert.setTitle("Simulacro");
         alert.setInstructions(instructions);
         return alert;
@@ -171,16 +172,16 @@ class AlertServiceImplTest {
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
         saved.setTypes(new LinkedHashSet<>(List.of(
-                AlertType.EARTHQUAKE, AlertType.FIRE)));
+                "EARTHQUAKE", "FIRE")));
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
-        when(request.types()).thenReturn(List.of(AlertType.FIRE, AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("FIRE", "EARTHQUAKE"));
         List<AlertRecipientEntity> recipientEntities = List.of(new AlertRecipientEntity());
         AlertResponse expected = mock(AlertResponse.class);
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         when(alertMapper.sortedTypes(saved.getTypes()))
-                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
         when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
         when(alertMapper.toScopeItems(ID, scope, NOW)).thenReturn(scopeItems);
@@ -213,7 +214,7 @@ class AlertServiceImplTest {
         when(request.scopes()).thenReturn(List.of(scope));
         when(request.origin()).thenReturn(
                 new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
-        when(request.types()).thenReturn(List.of(AlertType.OTHER));
+        when(request.types()).thenReturn(List.of("OTHER"));
         when(request.purpose()).thenReturn("GENERAL");
         when(alertMapper.normalizeScopes(any(), any())).thenReturn(List.of(scope));
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
@@ -340,7 +341,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.origin()).thenReturn(
                 new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
-        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
         when(request.title()).thenReturn(title);
         when(request.instructions()).thenReturn(instructions);
         lenient().when(request.activationAt()).thenReturn(activationAt);
@@ -355,7 +356,7 @@ class AlertServiceImplTest {
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
-        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
@@ -373,7 +374,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.ZONE);
         when(request.scope()).thenReturn(scope);
-        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         doThrow(new RuntimeException("invalid scope"))
@@ -392,7 +393,7 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         doThrow(new RuntimeException("invalid recipients"))
@@ -409,7 +410,7 @@ class AlertServiceImplTest {
     void create_shouldRejectDuplicateTypes() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.types()).thenReturn(
-                List.of(AlertType.FIRE, AlertType.FIRE));
+                List.of("FIRE", "FIRE"));
 
         InvalidAlertRequestException exception = assertThrows(
                 InvalidAlertRequestException.class,
@@ -424,7 +425,7 @@ class AlertServiceImplTest {
     void create_shouldRejectOperativaCombinedWithOtherTypes() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.types()).thenReturn(
-                List.of(AlertType.OPERATIVA, AlertType.EARTHQUAKE));
+                List.of("OPERATIVA", "EARTHQUAKE"));
 
         InvalidAlertRequestException exception = assertThrows(
                 InvalidAlertRequestException.class,
@@ -440,7 +441,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.origin()).thenReturn(new AlertOriginRequest(
                 AlertOrigin.SIMULATION, UUID.randomUUID()));
-        when(request.types()).thenReturn(List.of(AlertType.OPERATIVA));
+        when(request.types()).thenReturn(List.of("OPERATIVA"));
 
         InvalidAlertRequestException exception = assertThrows(
                 InvalidAlertRequestException.class,
@@ -454,7 +455,7 @@ class AlertServiceImplTest {
     @Test
     void create_shouldForbidOrganizer_whenAlertIsNotASimulation() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.types()).thenReturn(List.of(AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
 
         ForbiddenOperationException exception = assertThrows(
                 ForbiddenOperationException.class,

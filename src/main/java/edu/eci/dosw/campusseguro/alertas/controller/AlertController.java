@@ -11,7 +11,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
@@ -124,7 +123,7 @@ public class AlertController {
     public PageResponse<AlertSummaryResponse> search(
             @RequestParam(required = false) AlertStatus status,
             @RequestParam(name = "type", required = false)
-            List<AlertType> types,
+            List<String> types,
             @RequestParam(required = false) AlertOrigin origin,
             @RequestParam(required = false) ScopeType scope,
             @RequestParam(required = false)

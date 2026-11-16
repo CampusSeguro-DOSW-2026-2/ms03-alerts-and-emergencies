@@ -2,6 +2,7 @@ package edu.eci.dosw.campusseguro.alertas.contract;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.controller.AlertController;
@@ -13,7 +14,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Method;
@@ -60,8 +60,8 @@ class ApiContractTest {
                 Arrays.stream(AlertStatus.values()).map(Enum::name).toList(),
                 enumValues(schemas, "AlertStatus"));
         assertEquals(
-                Arrays.stream(AlertType.values()).map(Enum::name).toList(),
-                enumValues(schemas, "AlertType"));
+                List.of("EARTHQUAKE", "FIRE", "OTHER", "OPERATIVA"),
+                examplesOf(schemas, "AlertType"));
         assertTrue(properties(schemas, "AlertCreateRequest").containsKey("types"));
         assertTrue(properties(schemas, "AlertUpdateRequest").containsKey("types"));
         assertTrue(properties(schemas, "AlertResponse").containsKey("types"));
@@ -145,6 +145,15 @@ class ApiContractTest {
 
         Map<String, Object> schema = (Map<String, Object>) schemas.get(schemaName);
         return (List<String>) schema.get("enum");
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> examplesOf(
+            Map<String, Object> schemas, String schemaName) {
+
+        Map<String, Object> schema = (Map<String, Object>) schemas.get(schemaName);
+        assertNull(schema.get("enum"), schemaName + " no debe declarar un enum cerrado");
+        return (List<String>) schema.get("examples");
     }
 
     @SuppressWarnings("unchecked")

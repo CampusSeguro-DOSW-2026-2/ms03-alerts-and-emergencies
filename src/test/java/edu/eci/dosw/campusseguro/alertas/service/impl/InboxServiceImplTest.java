@@ -21,7 +21,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
@@ -87,7 +86,7 @@ class InboxServiceImplTest {
 
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of(AlertType.FIRE, AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("FIRE", "EARTHQUAKE"));
         alert.setTitle("Evacuar");
         alert.setInstructions("Salir por la escalera");
         alert.setStatus(status);
@@ -264,7 +263,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of(confirmation));
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
         when(alertMapper.toScope(List.of(scopeItem))).thenReturn(scope);
 
         InboxAlertResponse response =
@@ -274,7 +273,7 @@ class InboxServiceImplTest {
 
         assertEquals(ALERT_ID, response.id());
         assertEquals(
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 response.types());
         assertEquals("Evacuar", response.title());
         assertEquals(AlertStatus.ACTIVE, response.status());
@@ -307,7 +306,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of());
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
 
         InboxAlertResponse response =
                 service.inbox(InboxStatus.ACTIVE, 0, 20, ACTOR)

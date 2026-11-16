@@ -15,7 +15,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
@@ -32,6 +31,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
@@ -81,6 +81,8 @@ public class AlertServiceImpl implements AlertService {
     private final AlertStateRules stateRules;
     private final AlertAccessPolicy accessPolicy;
     private final AlertLifecycleService lifecycleService;
+    private final AlertTypeCatalog alertTypeCatalog;
+
     private final Clock clock;
 
     public AlertServiceImpl(
@@ -93,6 +95,7 @@ public class AlertServiceImpl implements AlertService {
             AlertStateRules stateRules,
             AlertAccessPolicy accessPolicy,
             AlertLifecycleService lifecycleService,
+            AlertTypeCatalog alertTypeCatalog,
             Clock clock) {
         this.alertRepository = alertRepository;
         this.scopeItemRepository = scopeItemRepository;
@@ -103,6 +106,7 @@ public class AlertServiceImpl implements AlertService {
         this.stateRules = stateRules;
         this.accessPolicy = accessPolicy;
         this.lifecycleService = lifecycleService;
+        this.alertTypeCatalog = alertTypeCatalog;
         this.clock = clock;
     }
 
@@ -286,7 +290,7 @@ public class AlertServiceImpl implements AlertService {
                 && !keys(desiredRecipients, this::recipientKey)
                         .equals(keys(currentRecipients, this::recipientKey));
 
-        List<AlertType> desiredTypes = request.types() == null
+        List<String> desiredTypes = request.types() == null
                 ? null
                 : normalizeTypes(request.types(), alert.getOrigin());
 
@@ -469,8 +473,8 @@ public class AlertServiceImpl implements AlertService {
         }
     }
 
-    private List<AlertType> normalizeTypes(
-            List<AlertType> types,
+    private List<String> normalizeTypes(
+            List<String> types,
             AlertOrigin origin) {
 
         validateTypes(types, origin);
@@ -478,7 +482,7 @@ public class AlertServiceImpl implements AlertService {
     }
 
     private void validateTypes(
-            List<AlertType> types,
+            List<String> types,
             AlertOrigin origin) {
 
         if (types == null || types.isEmpty()) {
@@ -487,29 +491,30 @@ public class AlertServiceImpl implements AlertService {
                     "At least one alert type is required");
         }
 
-        Set<AlertType> uniqueTypes = new HashSet<>();
-        for (AlertType type : types) {
-            if (type == null) {
+        Set<String> uniqueTypes = new LinkedHashSet<>();
+        for (String type : types) {
+            if (type == null || type.isBlank()) {
                 throw new InvalidAlertRequestException(
                         "types",
                         "Alert types cannot contain null values");
             }
-            if (!uniqueTypes.add(type)) {
+            if (!uniqueTypes.add(type.strip())) {
                 throw new InvalidAlertRequestException(
                         "types",
                         "Alert types cannot contain duplicates");
             }
         }
 
-        if (uniqueTypes.contains(AlertType.OPERATIVA)
-                && uniqueTypes.size() > 1) {
+        alertTypeCatalog.requireKnown(uniqueTypes);
+
+        boolean operational = uniqueTypes.contains(AlertTypeCatalog.OPERATIONAL);
+        if (operational && uniqueTypes.size() > 1) {
             throw new InvalidAlertRequestException(
                     "types",
                     "OPERATIVA cannot be combined with other alert types");
         }
 
-        if (uniqueTypes.contains(AlertType.OPERATIVA)
-                && origin == AlertOrigin.SIMULATION) {
+        if (operational && origin == AlertOrigin.SIMULATION) {
             throw new InvalidAlertRequestException(
                     "types",
                     "OPERATIVA cannot be used for a simulation");

@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalogStub;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ class EmailTemplateBuilderTest {
 
     private static final UUID ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
-    private AlertEntity alert(AlertType type, String instructions) {
+    private AlertEntity alert(String type, String instructions) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setTypes(Set.of(type));
@@ -28,10 +28,10 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldContainTypeInstructionsAndLink() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("https://campus.example/");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("https://campus.example/", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
-        EmailMessage message = builder.build(alert(AlertType.FIRE, "Salir por la escalera"), user);
+        EmailMessage message = builder.build(alert("FIRE", "Salir por la escalera"), user);
 
         assertEquals("ana@example.edu.co", message.to());
         assertEquals("Ana", message.toName());
@@ -46,11 +46,11 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldEscapeUserControlledHtmlAndQuotes() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "<Ana & \"Luis\">");
 
         EmailMessage message = builder.build(
-                alert(AlertType.OTHER, "<script>alert('x')</script> \"instrucción\""),
+                alert("OTHER", "<script>alert('x')</script> \"instrucción\""),
                 user);
 
         assertFalse(message.html().contains("<script>"));
@@ -62,10 +62,10 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldUsePlainTextInstructions_butEscapeHtmlVersion() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", null);
 
-        EmailMessage message = builder.build(alert(AlertType.EARTHQUAKE, "<b>Evacuar</b>"), user);
+        EmailMessage message = builder.build(alert("EARTHQUAKE", "<b>Evacuar</b>"), user);
 
         assertTrue(message.text().contains("<b>Evacuar</b>"));
         assertTrue(message.html().contains("&lt;b&gt;Evacuar&lt;/b&gt;"));
@@ -74,14 +74,14 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldTranslateEveryEmergencyTypeInCanonicalOrder() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
-        AlertEntity alert = alert(AlertType.OTHER, "x");
-        alert.setTypes(Set.of(AlertType.OTHER, AlertType.FIRE, AlertType.EARTHQUAKE));
+        AlertEntity alert = alert("OTHER", "x");
+        alert.setTypes(Set.of("OTHER", "FIRE", "EARTHQUAKE"));
 
-        assertEquals("Terremoto", subjectType(builder.build(alert(AlertType.EARTHQUAKE, "x"), user)));
-        assertEquals("Incendio", subjectType(builder.build(alert(AlertType.FIRE, "x"), user)));
-        assertEquals("Otra emergencia", subjectType(builder.build(alert(AlertType.OTHER, "x"), user)));
+        assertEquals("Terremoto", subjectType(builder.build(alert("EARTHQUAKE", "x"), user)));
+        assertEquals("Incendio", subjectType(builder.build(alert("FIRE", "x"), user)));
+        assertEquals("Otra emergencia", subjectType(builder.build(alert("OTHER", "x"), user)));
         assertEquals(
                 "Terremoto, Incendio, Otra emergencia",
                 subjectType(builder.build(alert, user)));
@@ -89,10 +89,10 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldUseOperationalSubjectAndOmitBaseMessage() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
-        EmailMessage message = builder.build(alert(AlertType.OPERATIVA, "Cierre de cafetería"), user);
+        EmailMessage message = builder.build(alert("OPERATIVA", "Cierre de cafetería"), user);
 
         assertEquals("[Operativa] Titulo de prueba", message.subject());
         assertFalse(message.text().contains("Has recibido una alerta oficial"));
@@ -103,10 +103,10 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldOmitLink_whenBaseUrlIsBlank() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("  ");
+        EmailTemplateBuilder builder = new EmailTemplateBuilder("  ", AlertTypeCatalogStub.create());
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
-        EmailMessage message = builder.build(alert(AlertType.EARTHQUAKE, "Evacuar"), user);
+        EmailMessage message = builder.build(alert("EARTHQUAKE", "Evacuar"), user);
 
         assertFalse(message.html().contains("href="));
         assertFalse(message.text().contains("/bandeja?alerta="));

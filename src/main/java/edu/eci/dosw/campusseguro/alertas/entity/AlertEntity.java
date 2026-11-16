@@ -2,7 +2,6 @@ package edu.eci.dosw.campusseguro.alertas.entity;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -35,9 +34,8 @@ public class AlertEntity extends BaseEntity {
             name = "alert_types",
             joinColumns = @JoinColumn(name = "alert_id"))
     @Column(name = "type", nullable = false, length = 20)
-    @Enumerated(EnumType.STRING)
     @BatchSize(size = 50)
-    private Set<AlertType> types = new LinkedHashSet<>();
+    private Set<String> types = new LinkedHashSet<>();
 
     @Column(name = "title", nullable = false, length = 150)
     private String title;
@@ -83,11 +81,11 @@ public class AlertEntity extends BaseEntity {
         return id;
     }
 
-    public Set<AlertType> getTypes() {
+    public Set<String> getTypes() {
         return types;
     }
 
-    public void setTypes(Set<AlertType> types) {
+    public void setTypes(Set<String> types) {
         this.types = types == null
                 ? new LinkedHashSet<>()
                 : new LinkedHashSet<>(types);

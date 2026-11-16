@@ -961,7 +961,11 @@ components:
         - ARCHIVED
     AlertType:
       type: string
-      enum:
+      description: |
+        Codigo de un tipo de alerta del catalogo (`alert_type`). El catalogo es
+        data: el administrador puede agregar tipos sin desplegar, asi que esta
+        lista abierta. Estos son los tipos iniciales.
+      examples:
         - EARTHQUAKE
         - FIRE
         - OTHER

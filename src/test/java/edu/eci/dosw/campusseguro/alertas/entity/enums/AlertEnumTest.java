@@ -11,17 +11,6 @@ import org.junit.jupiter.api.Test;
 class AlertEnumTest {
 
     @Test
-    void alertType_shouldExposeOnlyTheCurrentCatalog() {
-        assertEquals(
-                List.of(
-                        AlertType.EARTHQUAKE,
-                        AlertType.FIRE,
-                        AlertType.OTHER,
-                        AlertType.OPERATIVA),
-                Arrays.asList(AlertType.values()));
-    }
-
-    @Test
     void alertStatus_shouldExposeOnlyTheFourLifecycleStates() {
         assertEquals(
                 List.of(

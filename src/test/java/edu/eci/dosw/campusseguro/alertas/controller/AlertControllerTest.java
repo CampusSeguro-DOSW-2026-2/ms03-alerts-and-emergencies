@@ -29,7 +29,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
@@ -163,7 +162,7 @@ class AlertControllerTest {
         verify(alertService).create(captor.capture(), eq(REQUESTER));
 
         assertEquals(
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 captor.getValue().types());
     }
 
@@ -275,7 +274,7 @@ class AlertControllerTest {
         AlertFilter filter = captor.getValue();
 
         assertEquals(AlertStatus.ACTIVE, filter.status());
-        assertEquals(List.of(AlertType.EARTHQUAKE), filter.types());
+        assertEquals(List.of("EARTHQUAKE"), filter.types());
         assertEquals(AlertOrigin.SIMULATION, filter.origin());
         assertEquals(ScopeType.BUILDING, filter.scope());
         assertEquals(Instant.parse("2026-10-05T12:00:00Z"), filter.activeAt());
@@ -400,7 +399,7 @@ class AlertControllerTest {
                 eq(ID), captor.capture(), eq(REQUESTER));
 
         assertEquals(
-                List.of(AlertType.FIRE, AlertType.EARTHQUAKE),
+                List.of("FIRE", "EARTHQUAKE"),
                 captor.getValue().types());
     }
 

@@ -21,7 +21,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
@@ -166,7 +165,7 @@ class AlertApiIntegrationIT {
 
         AlertFilter filter = new AlertFilter(
                 AlertStatus.ACTIVE,
-                List.of(AlertType.EARTHQUAKE),
+                List.of("EARTHQUAKE"),
                 null,
                 null,
                 null,
@@ -507,7 +506,7 @@ class AlertApiIntegrationIT {
 
     private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {
         AlertEntity alert = new AlertEntity();
-        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("EARTHQUAKE"));
         alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
