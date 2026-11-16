@@ -13,20 +13,31 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailMessage;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailSender;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailTemplateBuilder;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.NotificationDeliveryEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.DeliveryStatus;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.NotificationDeliveryRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -87,7 +98,7 @@ class NotificationServiceTest {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
         alert.setTypes(Set.of("EARTHQUAKE"));
-        alert.setStatus(AlertStatus.ACTIVE);
+        alert.setStatus("ACTIVE");
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions("Evacuar");
         return alert;
@@ -120,10 +131,10 @@ class NotificationServiceTest {
                 saved.getAllValues().stream().map(NotificationDeliveryEntity::getStatus).toList());
         verify(auditService).record(
                 ALERT_ID,
-                AuditAction.NOTIFICATION_SENT,
+                AuditActions.NOTIFICATION_SENT,
                 ActorResolver.SYSTEM_NOTIFIER,
-                AlertStatus.ACTIVE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
+                "ACTIVE",
                 "Notificaciones de alerta: enviadas=2, fallidas=0");
     }
 
@@ -188,10 +199,10 @@ class NotificationServiceTest {
         assertEquals(DeliveryStatus.SENT, saved.getAllValues().get(1).getStatus());
         verify(auditService).record(
                 ALERT_ID,
-                AuditAction.NOTIFICATION_FAILED,
+                AuditActions.NOTIFICATION_FAILED,
                 ActorResolver.SYSTEM_NOTIFIER,
-                AlertStatus.ACTIVE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
+                "ACTIVE",
                 "Notificaciones de alerta: enviadas=1, fallidas=1");
     }
 
@@ -254,10 +265,10 @@ class NotificationServiceTest {
         verifyNoInteractions(emailSender, deliveryRepository);
         verify(auditService).record(
                 ALERT_ID,
-                AuditAction.RECIPIENT_RESOLUTION_FAILED,
+                AuditActions.RECIPIENT_RESOLUTION_FAILED,
                 ActorResolver.SYSTEM_NOTIFIER,
-                AlertStatus.ACTIVE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
+                "ACTIVE",
                 "No se pudieron resolver destinatarios: MS01 caído");
     }
 

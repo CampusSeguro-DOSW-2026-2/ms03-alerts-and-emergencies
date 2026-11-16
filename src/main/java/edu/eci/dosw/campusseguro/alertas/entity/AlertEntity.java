@@ -1,7 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.entity;
 
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
@@ -40,9 +39,8 @@ public class AlertEntity extends BaseEntity {
     @Column(name = "title", nullable = false, length = 150)
     private String title;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
-    private AlertStatus status;
+    private String status;
 
     @Column(name = "instructions", nullable = false, length = 1000)
     private String instructions;
@@ -91,11 +89,11 @@ public class AlertEntity extends BaseEntity {
                 : new LinkedHashSet<>(types);
     }
 
-    public AlertStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(AlertStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 

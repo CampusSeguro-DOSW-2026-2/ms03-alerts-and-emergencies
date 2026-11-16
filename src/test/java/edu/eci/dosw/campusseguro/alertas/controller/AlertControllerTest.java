@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
+import edu.eci.dosw.campusseguro.alertas.exception.InvalidAlertRequestException;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.InboxStatus;
@@ -28,7 +29,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.GlobalExceptionHandler;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
@@ -273,7 +273,7 @@ class AlertControllerTest {
 
         AlertFilter filter = captor.getValue();
 
-        assertEquals(AlertStatus.ACTIVE, filter.status());
+        assertEquals("ACTIVE", filter.status());
         assertEquals(List.of("EARTHQUAKE"), filter.types());
         assertEquals(AlertOrigin.SIMULATION, filter.origin());
         assertEquals(ScopeType.BUILDING, filter.scope());
@@ -290,14 +290,18 @@ class AlertControllerTest {
     }
 
     @Test
-    void search_shouldReturn400AndNotCallService_whenStatusIsInvalid()
+    void search_shouldReturn400_whenServiceRejectsAnUnknownStatus()
             throws Exception {
+
+        // Los estados son data: el valor desconocido lo rechaza el catalogo en el servicio,
+        // no el binding del framework.
+        when(alertService.search(any(AlertFilter.class)))
+                .thenThrow(new InvalidAlertRequestException(
+                        "status", "Unknown alert status: NOT_A_STATUS"));
 
         mockMvc.perform(get(BASE_URL)
                         .param("status", "NOT_A_STATUS"))
                 .andExpect(status().isBadRequest());
-
-        verifyNoInteractions(alertService);
     }
 
     @Test

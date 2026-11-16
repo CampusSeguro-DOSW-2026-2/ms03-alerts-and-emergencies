@@ -11,7 +11,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
 import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -121,7 +120,7 @@ public class AlertMapper {
         AlertEntity alert = new AlertEntity();
         alert.setTypes(new LinkedHashSet<>(sortedTypes(request.types())));
         alert.setTitle(request.title().strip());
-        alert.setStatus(AlertStatus.DRAFT);
+        alert.setStatus("DRAFT");
         alert.setInstructions(request.instructions().strip());
         alert.setCreatedBy(actor);
         alert.setCreatedAt(now);

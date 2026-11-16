@@ -10,7 +10,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
@@ -121,7 +120,7 @@ public class AlertController {
             @ApiResponse(responseCode = "403", description = "Sin permiso")
     })
     public PageResponse<AlertSummaryResponse> search(
-            @RequestParam(required = false) AlertStatus status,
+            @RequestParam(required = false) String status,
             @RequestParam(name = "type", required = false)
             List<String> types,
             @RequestParam(required = false) AlertOrigin origin,

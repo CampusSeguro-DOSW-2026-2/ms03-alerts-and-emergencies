@@ -4,8 +4,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.ConfirmationResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotActiveException;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.mapper.ConfirmationMapper;
@@ -14,6 +12,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationResult;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationService;
@@ -58,7 +57,7 @@ public class ConfirmationServiceImpl implements ConfirmationService {
         AlertEntity alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new AlertNotFoundException(alertId));
 
-        if (alert.getStatus() != AlertStatus.ACTIVE) {
+        if (alert.getStatus() != "ACTIVE") {
             throw new AlertNotActiveException(alertId);
         }
 
@@ -81,10 +80,10 @@ public class ConfirmationServiceImpl implements ConfirmationService {
         if (inserted > 0) {
             auditService.record(
                     alertId,
-                    AuditAction.CONFIRM,
+                    AuditActions.CONFIRM,
                     actor.userId(),
-                    AlertStatus.ACTIVE,
-                    AlertStatus.ACTIVE,
+                    "ACTIVE",
+                    "ACTIVE",
                     "Recepción confirmada por " + actor.userId());
         }
 

@@ -136,9 +136,44 @@ class AlertMigrationIT {
                   AND column_name = 'purpose'
                 """));
 
-        assertTrue(constraintDefinition("ck_alerts_status").contains("ARCHIVED"));
-        assertTrue(constraintDefinition("ck_alerts_status").contains("DRAFT"));
-        assertTrue(constraintDefinition("ck_audit_action").contains("END"));
+        assertTrue(constraintDefinition("fk_audit_events_action").contains("audit_action"));
+    }
+
+    @Test
+    void migration_shouldSeedTheStatusCatalogAndItsTransitions() throws Exception {
+        assertEquals(4, count("SELECT count(*) FROM alert_status"));
+        assertEquals(6, count("SELECT count(*) FROM alert_status_transition"));
+
+        assertEquals(0, count("""
+                SELECT count(*)
+                FROM alerts a
+                WHERE NOT EXISTS (SELECT 1 FROM alert_status s WHERE s.code = a.status)
+                """));
+
+        assertTrue(constraintDefinition("fk_alerts_status").contains("alert_status"));
+
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_status_transition
+                WHERE from_code = 'DRAFT' AND to_code = 'ACTIVE'
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_status_transition
+                WHERE from_code = 'ACTIVE' AND to_code = 'ARCHIVED'
+                """));
+        assertEquals(0, count("""
+                SELECT count(*)
+                FROM alert_status_transition
+                WHERE from_code = 'ARCHIVED'
+                """));
+
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_status
+                WHERE code = 'ARCHIVED' AND final_state
+                """));
+        assertEquals(2, count("SELECT count(*) FROM alert_status WHERE editable"));
     }
 
     @Test

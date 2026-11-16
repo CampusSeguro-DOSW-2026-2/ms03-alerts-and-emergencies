@@ -17,7 +17,6 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalogStub;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
@@ -66,7 +65,7 @@ class AlertMapperTest {
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
         alert.setTypes(Set.of("EARTHQUAKE", "FIRE"));
         alert.setTitle(TITLE);
-        alert.setStatus(AlertStatus.ACTIVE);
+        alert.setStatus("ACTIVE");
         alert.setOrigin(AlertOrigin.SIMULATION);
         alert.setSimulationId(SIMULATION_ID);
         alert.setInstructions("Evacuar");
@@ -151,7 +150,7 @@ class AlertMapperTest {
                 List.of("EARTHQUAKE", "FIRE"),
                 mapper.sortedTypes(result.getTypes()));
         assertEquals(TITLE, result.getTitle());
-        assertEquals(AlertStatus.DRAFT, result.getStatus());
+        assertEquals("DRAFT", result.getStatus());
         assertEquals(AlertOrigin.MANUAL, result.getOrigin());
         assertEquals("Evacuar el edificio", result.getInstructions());
         assertEquals(ACTOR, result.getCreatedBy());
@@ -310,7 +309,7 @@ class AlertMapperTest {
                 ALERT_ID,
                 List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
@@ -341,7 +340,7 @@ class AlertMapperTest {
                 List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 NOW.minusSeconds(300),
@@ -363,7 +362,7 @@ class AlertMapperTest {
                 List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
                 null,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 NOW.minusSeconds(300),

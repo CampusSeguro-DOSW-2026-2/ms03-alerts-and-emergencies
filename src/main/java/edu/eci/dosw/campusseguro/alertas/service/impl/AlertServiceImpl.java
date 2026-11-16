@@ -14,8 +14,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.DuplicateSimulationAlertException;
@@ -31,17 +29,18 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
+import edu.eci.dosw.campusseguro.alertas.service.AlertStateCatalog;
 import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -69,8 +68,8 @@ public class AlertServiceImpl implements AlertService {
     private static final int MAX_PAGE_SIZE = 100;
 
     // Una solicitud repetida de MS06 reutiliza la alerta del simulacro mientras no haya terminado.
-    private static final Set<AlertStatus> REUSABLE_SIMULATION_STATUSES =
-            EnumSet.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
+    private static final Set<String> REUSABLE_SIMULATION_STATUSES =
+            Set.of("DRAFT", "SCHEDULED", "ACTIVE");
 
     private final AlertRepository alertRepository;
     private final AlertScopeItemRepository scopeItemRepository;
@@ -82,6 +81,8 @@ public class AlertServiceImpl implements AlertService {
     private final AlertAccessPolicy accessPolicy;
     private final AlertLifecycleService lifecycleService;
     private final AlertTypeCatalog alertTypeCatalog;
+
+    private final AlertStateCatalog alertStateCatalog;
 
     private final Clock clock;
 
@@ -96,6 +97,7 @@ public class AlertServiceImpl implements AlertService {
             AlertAccessPolicy accessPolicy,
             AlertLifecycleService lifecycleService,
             AlertTypeCatalog alertTypeCatalog,
+            AlertStateCatalog alertStateCatalog,
             Clock clock) {
         this.alertRepository = alertRepository;
         this.scopeItemRepository = scopeItemRepository;
@@ -107,6 +109,7 @@ public class AlertServiceImpl implements AlertService {
         this.accessPolicy = accessPolicy;
         this.lifecycleService = lifecycleService;
         this.alertTypeCatalog = alertTypeCatalog;
+        this.alertStateCatalog = alertStateCatalog;
         this.clock = clock;
     }
 
@@ -193,7 +196,7 @@ public class AlertServiceImpl implements AlertService {
         AlertEntity alert = alertMapper.toEntity(request, actor, now);
 
         if (request.activationAt() != null) {
-            alert.setStatus(AlertStatus.SCHEDULED);
+            alert.setStatus("SCHEDULED");
             alert.setActivationAt(request.activationAt());
         }
 
@@ -221,7 +224,7 @@ public class AlertServiceImpl implements AlertService {
 
         auditService.record(
                 alert.getId(),
-                AuditAction.CREATE,
+                AuditActions.CREATE,
                 auditActor,
                 null,
                 alert.getStatus(),
@@ -360,7 +363,7 @@ public class AlertServiceImpl implements AlertService {
 
         auditService.record(
                 id,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 requester.auditActor(),
                 alert.getStatus(),
                 alert.getStatus(),
@@ -404,6 +407,7 @@ public class AlertServiceImpl implements AlertService {
                 : filter.size();
 
         validatePagination(filter, page, size);
+        validateFilterCatalogs(filter);
 
         Specification<AlertEntity> specification =
                 AlertSpecifications.fromFilter(filter, clock.getZone());
@@ -473,6 +477,26 @@ public class AlertServiceImpl implements AlertService {
         }
     }
 
+    /**
+     * Comprueba que los filtros de estado y tipo existan en sus catalogos.
+     *
+     * <p>Antes el enum rechazaba un valor desconocido con 400 al convertir el parametro; ahora los
+     * catalogos son data y la validacion tiene que ser explicita.
+     *
+     * @param filter filtro del listado
+     */
+    private void validateFilterCatalogs(AlertFilter filter) {
+        if (filter.status() != null
+                && !filter.status().isBlank()
+                && !alertStateCatalog.isKnown(filter.status())) {
+            throw new InvalidAlertRequestException(
+                    "status",
+                    "Unknown alert status: " + filter.status());
+        }
+        if (filter.types() != null && !filter.types().isEmpty()) {
+            alertTypeCatalog.requireKnown(filter.types());
+        }
+    }
     private List<String> normalizeTypes(
             List<String> types,
             AlertOrigin origin) {

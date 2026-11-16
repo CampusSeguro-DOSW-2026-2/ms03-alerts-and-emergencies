@@ -16,8 +16,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertScheduleRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
@@ -30,6 +28,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -96,7 +95,7 @@ class AlertLifecycleServiceImplTest {
                 eventPublisher);
     }
 
-    private AlertEntity alert(AlertStatus status) {
+    private AlertEntity alert(String status) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
@@ -117,7 +116,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void schedule_shouldScheduleAlert_whenAlertIsDraftAndDateIsInTheFuture() {
-        AlertEntity alert = alert(AlertStatus.DRAFT);
+        AlertEntity alert = alert("DRAFT");
         AlertResponse expected = responseFor(alert);
         Instant activationAt = NOW.plusSeconds(3600);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
@@ -125,24 +124,24 @@ class AlertLifecycleServiceImplTest {
         AlertResponse result = service.schedule(ID, scheduleRequest(activationAt), REQUESTER);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.SCHEDULED, alert.getStatus());
+        assertEquals("SCHEDULED", alert.getStatus());
         assertEquals(activationAt, alert.getActivationAt());
         assertEquals(NOW, alert.getUpdatedAt());
-        verify(stateMachine).assertTransition(AlertStatus.DRAFT, AlertStatus.SCHEDULED);
+        verify(stateMachine).assertTransition("DRAFT", "SCHEDULED");
         verify(alertRepository).saveAndFlush(alert);
         verify(auditService).record(
                 ID,
-                AuditAction.SCHEDULE,
+                AuditActions.SCHEDULE,
                 ACTOR,
-                AlertStatus.DRAFT,
-                AlertStatus.SCHEDULED,
+                "DRAFT",
+                "SCHEDULED",
                 "Alert scheduled for " + activationAt);
         verifyNoInteractions(eventPublisher);
     }
 
     @Test
     void schedule_shouldReschedule_whenAlertIsAlreadyScheduled() {
-        AlertEntity alert = alert(AlertStatus.SCHEDULED);
+        AlertEntity alert = alert("SCHEDULED");
         alert.setActivationAt(NOW.plusSeconds(600));
         AlertResponse expected = responseFor(alert);
         Instant newActivation = NOW.plusSeconds(7200);
@@ -151,7 +150,7 @@ class AlertLifecycleServiceImplTest {
         AlertResponse result = service.schedule(ID, scheduleRequest(newActivation), REQUESTER);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.SCHEDULED, alert.getStatus());
+        assertEquals("SCHEDULED", alert.getStatus());
         assertEquals(newActivation, alert.getActivationAt());
         verify(stateMachine, never()).assertTransition(any(), any());
         verify(alertRepository).saveAndFlush(alert);
@@ -170,7 +169,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void schedule_shouldRejectPastOrEqualActivationDate() {
-        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert(AlertStatus.DRAFT)));
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert("DRAFT")));
 
         assertThrows(
                 InvalidActivationDateException.class,
@@ -182,12 +181,12 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void schedule_shouldNotSaveNorAudit_whenTransitionIsInvalid() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertEntity alert = alert("ACTIVE");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         doThrow(new InvalidTransitionException(
-                AlertStatus.ACTIVE, AlertStatus.SCHEDULED))
+                "ACTIVE", "SCHEDULED"))
                 .when(stateMachine)
-                .assertTransition(AlertStatus.ACTIVE, AlertStatus.SCHEDULED);
+                .assertTransition("ACTIVE", "SCHEDULED");
 
         assertThrows(
                 InvalidTransitionException.class,
@@ -199,7 +198,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void schedule_shouldForbidOrganizer_whenAlertIsNotASimulation() {
-        AlertEntity alert = alert(AlertStatus.DRAFT);
+        AlertEntity alert = alert("DRAFT");
         alert.setOrigin(AlertOrigin.MANUAL);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
@@ -214,13 +213,13 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldActivateAlert_whenAlertIsScheduled() {
-        AlertEntity alert = alert(AlertStatus.SCHEDULED);
+        AlertEntity alert = alert("SCHEDULED");
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertRepository.activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any()))
+                eq(ID), eq("ACTIVE"), eq(NOW), any()))
                 .thenAnswer(invocation -> {
-                    alert.setStatus(AlertStatus.ACTIVE);
+                    alert.setStatus("ACTIVE");
                     alert.setActivatedAt(NOW);
                     return 1;
                 });
@@ -228,56 +227,56 @@ class AlertLifecycleServiceImplTest {
         AlertResponse result = service.activate(ID, REQUESTER, CORRELATION_ID);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.ACTIVE, alert.getStatus());
+        assertEquals("ACTIVE", alert.getStatus());
         assertEquals(NOW, alert.getActivatedAt());
-        verify(stateMachine).assertTransition(AlertStatus.SCHEDULED, AlertStatus.ACTIVE);
+        verify(stateMachine).assertTransition("SCHEDULED", "ACTIVE");
         verify(alertRepository).activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any());
+                eq(ID), eq("ACTIVE"), eq(NOW), any());
         verify(alertRepository, never()).saveAndFlush(any());
         verify(auditService).record(
                 ID,
-                AuditAction.ACTIVATE,
+                AuditActions.ACTIVATE,
                 ACTOR,
-                AlertStatus.SCHEDULED,
-                AlertStatus.ACTIVE,
+                "SCHEDULED",
+                "ACTIVE",
                 "Alert activated from SCHEDULED");
         verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.SCHEDULED, NOW, CORRELATION_ID));
+                new AlertActivatedEvent(ID, "SCHEDULED", NOW, CORRELATION_ID));
     }
 
     @Test
     void activate_shouldActivateAlert_whenAlertIsDraft() {
-        AlertEntity alert = alert(AlertStatus.DRAFT);
+        AlertEntity alert = alert("DRAFT");
         responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertRepository.activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any()))
+                eq(ID), eq("ACTIVE"), eq(NOW), any()))
                 .thenAnswer(invocation -> {
-                    alert.setStatus(AlertStatus.ACTIVE);
+                    alert.setStatus("ACTIVE");
                     alert.setActivatedAt(NOW);
                     return 1;
                 });
 
         service.activate(ID, REQUESTER, CORRELATION_ID);
 
-        assertEquals(AlertStatus.ACTIVE, alert.getStatus());
-        verify(stateMachine).assertTransition(AlertStatus.DRAFT, AlertStatus.ACTIVE);
+        assertEquals("ACTIVE", alert.getStatus());
+        verify(stateMachine).assertTransition("DRAFT", "ACTIVE");
         verify(alertRepository).activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any());
+                eq(ID), eq("ACTIVE"), eq(NOW), any());
         verify(eventPublisher).publishEvent(
-                new AlertActivatedEvent(ID, AlertStatus.DRAFT, NOW, CORRELATION_ID));
+                new AlertActivatedEvent(ID, "DRAFT", NOW, CORRELATION_ID));
     }
 
     @Test
     void activate_shouldAllowScheduledAlertBeforeItsActivationDate() {
-        AlertEntity alert = alert(AlertStatus.SCHEDULED);
+        AlertEntity alert = alert("SCHEDULED");
         alert.setActivationAt(NOW.plusSeconds(60));
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         when(alertRepository.activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any()))
+                eq(ID), eq("ACTIVE"), eq(NOW), any()))
                 .thenAnswer(invocation -> {
-                    alert.setStatus(AlertStatus.ACTIVE);
+                    alert.setStatus("ACTIVE");
                     alert.setActivatedAt(NOW);
                     return 1;
                 });
@@ -285,9 +284,9 @@ class AlertLifecycleServiceImplTest {
         AlertResponse result = service.activate(ID, REQUESTER, CORRELATION_ID);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.ACTIVE, alert.getStatus());
+        assertEquals("ACTIVE", alert.getStatus());
         verify(alertRepository).activateIfPending(
-                eq(ID), eq(AlertStatus.ACTIVE), eq(NOW), any());
+                eq(ID), eq("ACTIVE"), eq(NOW), any());
     }
 
     @Test
@@ -301,7 +300,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldForbidOrganizer_whenAlertIsNotASimulation() {
-        AlertEntity alert = alert(AlertStatus.SCHEDULED);
+        AlertEntity alert = alert("SCHEDULED");
         alert.setOrigin(AlertOrigin.MANUAL);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
@@ -315,7 +314,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void activate_shouldBeIdempotent_whenAlertIsAlreadyActive() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertEntity alert = alert("ACTIVE");
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
@@ -329,10 +328,10 @@ class AlertLifecycleServiceImplTest {
     @Test
     void findDueScheduledAlertIds_shouldReturnIdsOfDueScheduledAlerts() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
-        AlertEntity first = alert(AlertStatus.SCHEDULED);
-        AlertEntity second = alert(AlertStatus.SCHEDULED);
+        AlertEntity first = alert("SCHEDULED");
+        AlertEntity second = alert("SCHEDULED");
         ReflectionTestUtils.setField(second, "id", secondId);
-        when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
+        when(alertRepository.findByStatusAndActivationAtLessThanEqual("SCHEDULED", NOW))
                 .thenReturn(List.of(first, second));
 
         assertEquals(List.of(ID, secondId), service.findDueScheduledAlertIds());
@@ -341,7 +340,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void findDueScheduledAlertIds_shouldReturnEmpty_whenThereAreNoDueAlerts() {
-        when(alertRepository.findByStatusAndActivationAtLessThanEqual(AlertStatus.SCHEDULED, NOW))
+        when(alertRepository.findByStatusAndActivationAtLessThanEqual("SCHEDULED", NOW))
                 .thenReturn(List.of());
 
         assertEquals(List.of(), service.findDueScheduledAlertIds());
@@ -349,30 +348,30 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void archive_shouldArchiveAlert_whenAlertIsActive() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertEntity alert = alert("ACTIVE");
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
         AlertResponse result = service.archive(ID, REQUESTER);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.ARCHIVED, alert.getStatus());
+        assertEquals("ARCHIVED", alert.getStatus());
         assertEquals(NOW, alert.getArchivedAt());
-        verify(stateMachine).assertTransition(AlertStatus.ACTIVE, AlertStatus.ARCHIVED);
+        verify(stateMachine).assertTransition("ACTIVE", "ARCHIVED");
         verify(alertRepository).saveAndFlush(alert);
         verify(auditService).record(
                 ID,
-                AuditAction.ARCHIVE,
+                AuditActions.ARCHIVE,
                 ACTOR,
-                AlertStatus.ACTIVE,
-                AlertStatus.ARCHIVED,
+                "ACTIVE",
+                "ARCHIVED",
                 "Alert archived");
         verifyNoInteractions(eventPublisher);
     }
 
     @Test
     void archive_shouldForbidOrganizer_whenAlertIsNotASimulation() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertEntity alert = alert("ACTIVE");
         alert.setOrigin(AlertOrigin.MANUAL);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
 
@@ -386,7 +385,7 @@ class AlertLifecycleServiceImplTest {
 
     @Test
     void archive_shouldAllowOrganizer_whenAlertIsSimulation() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE);
+        AlertEntity alert = alert("ACTIVE");
         alert.setOrigin(AlertOrigin.SIMULATION);
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
@@ -394,19 +393,19 @@ class AlertLifecycleServiceImplTest {
         AlertResponse result = service.archive(ID, ORGANIZER);
 
         assertSame(expected, result);
-        assertEquals(AlertStatus.ARCHIVED, alert.getStatus());
+        assertEquals("ARCHIVED", alert.getStatus());
         verify(auditService).record(
                 ID,
-                AuditAction.ARCHIVE,
+                AuditActions.ARCHIVE,
                 "organizer",
-                AlertStatus.ACTIVE,
-                AlertStatus.ARCHIVED,
+                "ACTIVE",
+                "ARCHIVED",
                 "Alert archived");
     }
 
     @Test
     void archive_shouldBeIdempotent_whenAlertIsAlreadyArchived() {
-        AlertEntity alert = alert(AlertStatus.ARCHIVED);
+        AlertEntity alert = alert("ARCHIVED");
         alert.setArchivedAt(NOW.minusSeconds(10));
         AlertResponse expected = responseFor(alert);
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));

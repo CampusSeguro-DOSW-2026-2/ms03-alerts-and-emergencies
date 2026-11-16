@@ -1,65 +1,41 @@
 package edu.eci.dosw.campusseguro.alertas.service;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.exception.InvalidTransitionException;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
 import org.springframework.stereotype.Component;
 
+/**
+ * Máquina de estados de una alerta.
+ *
+ * <p>Las transiciones válidas son datos: viven en {@code alert_status_transition} y las expone
+ * {@link AlertStateCatalog}. Esta clase solo las consulta, así que agregar una transición no requiere
+ * tocar código.
+ */
 @Component
 public class AlertStateMachine {
 
-    private final Map<AlertStatus, Set<AlertStatus>> transitions =
-            new EnumMap<>(AlertStatus.class);
+    private final AlertStateCatalog stateCatalog;
 
-    public AlertStateMachine() {
-        transitions.put(
-                AlertStatus.DRAFT,
-                EnumSet.of(
-                        AlertStatus.SCHEDULED,
-                        AlertStatus.ACTIVE,
-                        AlertStatus.ARCHIVED));
-
-        transitions.put(
-                AlertStatus.SCHEDULED,
-                EnumSet.of(
-                        AlertStatus.ACTIVE,
-                        AlertStatus.ARCHIVED));
-
-        transitions.put(
-                AlertStatus.ACTIVE,
-                EnumSet.of(AlertStatus.ARCHIVED));
-
-        transitions.put(
-                AlertStatus.ARCHIVED,
-                EnumSet.noneOf(AlertStatus.class));
+    public AlertStateMachine(AlertStateCatalog stateCatalog) {
+        this.stateCatalog = stateCatalog;
     }
 
-    public boolean canTransition(
-            AlertStatus currentStatus,
-            AlertStatus nextStatus) {
-
-        if (currentStatus == null || nextStatus == null) {
-            return false;
-        }
-
-        return transitions
-                .getOrDefault(
-                        currentStatus,
-                        EnumSet.noneOf(AlertStatus.class))
-                .contains(nextStatus);
+    /**
+     * Indica si el catálogo permite pasar de un estado al otro.
+     *
+     * @param currentStatus estado actual
+     * @param nextStatus estado solicitado
+     * @return true si la transición está declarada
+     */
+    public boolean canTransition(String currentStatus, String nextStatus) {
+        return stateCatalog.canTransition(currentStatus, nextStatus);
     }
 
-    public void assertTransition(
-            AlertStatus currentStatus,
-            AlertStatus nextStatus) {
-
-        if (!canTransition(currentStatus, nextStatus)) {
-            throw new InvalidTransitionException(
-                    currentStatus,
-                    nextStatus);
-        }
+    /**
+     * Comprueba la transición y falla si no está declarada.
+     *
+     * @param currentStatus estado actual
+     * @param nextStatus estado solicitado
+     */
+    public void assertTransition(String currentStatus, String nextStatus) {
+        stateCatalog.assertTransition(currentStatus, nextStatus);
     }
 }

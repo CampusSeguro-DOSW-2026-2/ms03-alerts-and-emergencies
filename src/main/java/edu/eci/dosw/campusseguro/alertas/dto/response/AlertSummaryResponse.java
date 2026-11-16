@@ -3,7 +3,6 @@ package edu.eci.dosw.campusseguro.alertas.dto.response;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -15,7 +14,7 @@ public record AlertSummaryResponse(
         String purpose,
         ScopeRequest scope,
         List<ScopeRequest> scopes,
-        AlertStatus status,
+        String status,
         AlertOrigin origin,
         UUID simulationId,
         Instant createdAt,
@@ -29,7 +28,7 @@ public record AlertSummaryResponse(
             List<String> types,
             String title,
             ScopeRequest scope,
-            AlertStatus status,
+            String status,
             AlertOrigin origin,
             UUID simulationId,
             Instant createdAt,

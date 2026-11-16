@@ -13,7 +13,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertUpdateRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.InboxAlertResponse;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.reflect.Method;
@@ -57,8 +56,8 @@ class ApiContractTest {
         Map<String, Object> schemas = schemas(document);
 
         assertEquals(
-                Arrays.stream(AlertStatus.values()).map(Enum::name).toList(),
-                enumValues(schemas, "AlertStatus"));
+                List.of("DRAFT", "SCHEDULED", "ACTIVE", "ARCHIVED"),
+                examplesOf(schemas, "AlertStatus"));
         assertEquals(
                 List.of("EARTHQUAKE", "FIRE", "OTHER", "OPERATIVA"),
                 examplesOf(schemas, "AlertType"));

@@ -31,8 +31,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
@@ -48,10 +46,12 @@ import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.Identities;
+import edu.eci.dosw.campusseguro.alertas.service.AlertStateCatalog;
 import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalogStub;
 import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -117,6 +117,12 @@ class AlertServiceImplTest {
 
     private AlertServiceImpl service;
 
+    private static AlertStateCatalog lenientStateCatalog() {
+        AlertStateCatalog catalog = mock(AlertStateCatalog.class);
+        lenient().when(catalog.isKnown(any())).thenReturn(true);
+        return catalog;
+    }
+
     @BeforeEach
     void setUp() {
         service = new AlertServiceImpl(
@@ -130,10 +136,11 @@ class AlertServiceImplTest {
                 accessPolicy,
                 lifecycleService,
                 AlertTypeCatalogStub.create(),
+                lenientStateCatalog(),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
-    private AlertEntity alert(AlertStatus status, String instructions) {
+    private AlertEntity alert(String status, String instructions) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
@@ -170,7 +177,7 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
+        AlertEntity saved = alert("DRAFT", "instructions");
         saved.setTypes(new LinkedHashSet<>(List.of(
                 "EARTHQUAKE", "FIRE")));
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
@@ -198,10 +205,10 @@ class AlertServiceImplTest {
         verify(catalogClient).validateRecipients(recipients);
         verify(auditService).record(
                 ID,
-                AuditAction.CREATE,
+                AuditActions.CREATE,
                 ACTOR,
                 null,
-                AlertStatus.DRAFT,
+                "DRAFT",
                 "Alert created: title=Simulacro, types=[EARTHQUAKE, FIRE], origin=null, "
                         + "simulationId=null, scope=CAMPUS, recipients=1");
     }
@@ -221,7 +228,7 @@ class AlertServiceImplTest {
         when(alertRepository.findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId), eq("GENERAL"), any())).thenReturn(Optional.empty());
 
-        AlertEntity saved = alert(AlertStatus.DRAFT, "x");
+        AlertEntity saved = alert("DRAFT", "x");
         saved.setSimulationId(simulationId);
         saved.setPurpose("GENERAL");
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
@@ -245,7 +252,7 @@ class AlertServiceImplTest {
     void create_withSameSimulationIdAndSameData_shouldReturnExistingAlert() {
         UUID simulationId = UUID.randomUUID();
         ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
-        AlertEntity existing = alert(AlertStatus.SCHEDULED, "Evacuar");
+        AlertEntity existing = alert("SCHEDULED", "Evacuar");
         existing.setSimulationId(simulationId);
         existing.setActivationAt(NOW.plusSeconds(3600));
 
@@ -276,7 +283,7 @@ class AlertServiceImplTest {
     void create_withSameSimulationIdWhileDraft_shouldReturnExistingAlert() {
         UUID simulationId = UUID.randomUUID();
         ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
-        AlertEntity existing = alert(AlertStatus.DRAFT, "Evacuar");
+        AlertEntity existing = alert("DRAFT", "Evacuar");
         existing.setSimulationId(simulationId);
 
         AlertCreateRequest request = simulationRequest(
@@ -292,7 +299,7 @@ class AlertServiceImplTest {
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         when(alertRepository.findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
                 eq(simulationId),
-                argThat(statuses -> statuses.contains(AlertStatus.DRAFT))))
+                argThat(statuses -> statuses.contains("DRAFT"))))
                 .thenReturn(Optional.of(existing));
         when(alertMapper.toResponse(eq(existing), any(), any()))
                 .thenReturn(expected);
@@ -308,7 +315,7 @@ class AlertServiceImplTest {
     void create_withSameSimulationIdAndDifferentData_shouldThrowDuplicate() {
         UUID simulationId = UUID.randomUUID();
         ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
-        AlertEntity existing = alert(AlertStatus.ACTIVE, "Evacuar");
+        AlertEntity existing = alert("ACTIVE", "Evacuar");
         existing.setSimulationId(simulationId);
 
         AlertCreateRequest request = simulationRequest(
@@ -355,7 +362,7 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.BUILDING);
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        AlertEntity saved = alert(AlertStatus.DRAFT, "instructions");
+        AlertEntity saved = alert("DRAFT", "instructions");
         when(request.types()).thenReturn(List.of("EARTHQUAKE"));
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
@@ -481,7 +488,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldPropagateError_whenAlertIsNotEditable() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, "text");
+        AlertEntity alert = alert("ACTIVE", "text");
         when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
         doThrow(new IllegalStateException("not editable")).when(stateRules).assertEditable(alert);
 
@@ -495,7 +502,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNotSaveNorAudit_whenThereAreNoChanges() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
         when(request.types()).thenReturn(null);
@@ -511,7 +518,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNotCountAsChange_whenInstructionsAreEqual() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         when(request.types()).thenReturn(null);
         when(request.instructions()).thenReturn("  text  ");
@@ -525,7 +532,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldNormalizeSaveAndAudit_whenInstructionsChange() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "old text");
+        AlertEntity alert = alert("DRAFT", "old text");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         AlertResponse expected = mock(AlertResponse.class);
         when(request.types()).thenReturn(null);
@@ -542,16 +549,16 @@ class AlertServiceImplTest {
         verify(alertRepository).saveAndFlush(alert);
         verify(auditService).record(
                 ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 ACTOR,
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 "Modified fields: instructions");
     }
 
     @Test
     void update_shouldNotValidateNorReplace_whenScopeIsTheSame() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         List<AlertScopeItemEntity> current = List.of(scopeItem(ScopeType.CAMPUS, null));
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
         ScopeRequest newScope = mock(ScopeRequest.class);
@@ -571,7 +578,7 @@ class AlertServiceImplTest {
 
     @Test
     void update_shouldValidateAndReplaceItems_whenScopeChanges() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         AlertScopeItemEntity oldItem = scopeItem(ScopeType.CAMPUS, null);
         AlertScopeItemEntity newItem = scopeItem(ScopeType.BUILDING, "B1");
         AlertUpdateRequest request = mock(AlertUpdateRequest.class);
@@ -592,16 +599,16 @@ class AlertServiceImplTest {
         verify(alertRepository).saveAndFlush(alert);
         verify(auditService).record(
                 ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 ACTOR,
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 "Modified fields: scope");
     }
 
     @Test
     void findById_shouldReturnMappedAlert_whenAlertExists() {
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         AlertResponse expected = mock(AlertResponse.class);
         when(alertRepository.findById(ID)).thenReturn(Optional.of(alert));
         when(alertMapper.toResponse(eq(alert), anyList(), anyList())).thenReturn(expected);
@@ -710,7 +717,7 @@ class AlertServiceImplTest {
     @Test
     void search_shouldGroupScopesAndRecipientsByAlert_whenThereAreResults() {
         AlertFilter filter = filterWith(null, null);
-        AlertEntity alert = alert(AlertStatus.DRAFT, "text");
+        AlertEntity alert = alert("DRAFT", "text");
         AlertScopeItemEntity item = scopeItem(ScopeType.CAMPUS, null);
         AlertRecipientEntity recipient = new AlertRecipientEntity();
         recipient.setAlertId(ID);

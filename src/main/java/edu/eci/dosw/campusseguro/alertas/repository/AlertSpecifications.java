@@ -4,7 +4,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
@@ -37,7 +36,7 @@ public final class AlertSpecifications {
     }
 
     private static Specification<AlertEntity> hasStatus(
-            AlertStatus status) {
+            String status) {
 
         return (root, query, cb) -> status == null
                 ? cb.conjunction()

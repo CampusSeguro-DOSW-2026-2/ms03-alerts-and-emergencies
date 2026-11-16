@@ -17,8 +17,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.ConfirmationResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotActiveException;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
@@ -29,6 +27,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationResult;
 import java.time.Clock;
@@ -93,7 +92,7 @@ class ConfirmationServiceImplTest {
         return recipient;
     }
 
-    private AlertEntity alert(AlertStatus status) {
+    private AlertEntity alert(String status) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
         alert.setStatus(status);
@@ -120,7 +119,7 @@ class ConfirmationServiceImplTest {
 
     @Test
     void confirm_shouldThrowNotActive_whenAlertIsNotActive() {
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.DRAFT)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("DRAFT")));
 
         assertThrows(AlertNotActiveException.class, () -> service.confirm(ALERT_ID, ACTOR));
 
@@ -129,7 +128,7 @@ class ConfirmationServiceImplTest {
 
     @Test
     void confirm_shouldThrowNotARecipient_whenPolicyRejectsActor() {
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
         doThrow(new NotARecipientException(ALERT_ID))
                 .when(accessPolicy).assertCanConfirm(ALERT_ID, ACTOR, RECIPIENTS);
@@ -144,7 +143,7 @@ class ConfirmationServiceImplTest {
         AlertConfirmationEntity existing = confirmation();
         ConfirmationResponse response = new ConfirmationResponse(
                 existing.getId(), ALERT_ID, ACTOR.userId(), NOW);
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
         when(confirmationRepository.findByAlertIdAndUserId(ALERT_ID, ACTOR.userId()))
                 .thenReturn(Optional.of(existing));
@@ -163,7 +162,7 @@ class ConfirmationServiceImplTest {
         AlertConfirmationEntity created = confirmation();
         ConfirmationResponse response = new ConfirmationResponse(
                 created.getId(), ALERT_ID, ACTOR.userId(), NOW);
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
         when(confirmationRepository.findByAlertIdAndUserId(ALERT_ID, ACTOR.userId()))
                 .thenReturn(Optional.empty(), Optional.of(created));
@@ -177,10 +176,10 @@ class ConfirmationServiceImplTest {
         verify(accessPolicy).assertCanConfirm(ALERT_ID, ACTOR, RECIPIENTS);
         verify(auditService).record(
                 ALERT_ID,
-                AuditAction.CONFIRM,
+                AuditActions.CONFIRM,
                 ACTOR.userId(),
-                AlertStatus.ACTIVE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
+                "ACTIVE",
                 "Recepción confirmada por " + ACTOR.userId());
     }
 
@@ -189,7 +188,7 @@ class ConfirmationServiceImplTest {
         AlertConfirmationEntity existing = confirmation();
         ConfirmationResponse response = new ConfirmationResponse(
                 existing.getId(), ALERT_ID, ACTOR.userId(), NOW);
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
         when(confirmationRepository.findByAlertIdAndUserId(ALERT_ID, ACTOR.userId()))
                 .thenReturn(Optional.empty(), Optional.of(existing));
@@ -204,7 +203,7 @@ class ConfirmationServiceImplTest {
 
     @Test
     void confirm_shouldFail_whenInsertDidNotPersistConfirmation() {
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
         when(confirmationRepository.findByAlertIdAndUserId(ALERT_ID, ACTOR.userId()))
                 .thenReturn(Optional.empty());
@@ -221,7 +220,7 @@ class ConfirmationServiceImplTest {
         role.setAlertId(ALERT_ID);
         role.setRecipientType(RecipientType.ROLE);
         role.setRecipientRefId("ESTUDIANTE");
-        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert(AlertStatus.ACTIVE)));
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert("ACTIVE")));
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(role));
         when(confirmationRepository.insertIfAbsent(ALERT_ID, ACTOR.userId(), NOW)).thenReturn(1);
         AlertConfirmationEntity created = confirmation();

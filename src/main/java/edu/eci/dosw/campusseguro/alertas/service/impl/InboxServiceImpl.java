@@ -6,7 +6,6 @@ import edu.eci.dosw.campusseguro.alertas.dto.response.PageResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
 import edu.eci.dosw.campusseguro.alertas.mapper.AlertMapper;
@@ -16,7 +15,6 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.service.InboxService;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -66,7 +64,7 @@ public class InboxServiceImpl implements InboxService {
 
         validatePagination(resolvedPage, resolvedSize);
 
-        Collection<AlertStatus> statuses = statuses(status);
+        Collection<String> statuses = statuses(status);
         Set<String> roles = actor.roles().isEmpty()
                 ? Set.of("__NO_ROLE__")
                 : actor.roles();
@@ -137,17 +135,17 @@ public class InboxServiceImpl implements InboxService {
         return PageResponse.of(content, result);
     }
 
-    private Collection<AlertStatus> statuses(InboxStatus status) {
+    private Collection<String> statuses(InboxStatus status) {
         InboxStatus resolved = status == null
                 ? InboxStatus.ACTIVE
                 : status;
 
         return switch (resolved) {
-            case ACTIVE -> EnumSet.of(AlertStatus.ACTIVE);
-            case ARCHIVED -> EnumSet.of(AlertStatus.ARCHIVED);
-            case ALL -> EnumSet.of(
-                    AlertStatus.ACTIVE,
-                    AlertStatus.ARCHIVED);
+            case ACTIVE -> Set.of("ACTIVE");
+            case ARCHIVED -> Set.of("ARCHIVED");
+            case ALL -> Set.of(
+                    "ACTIVE",
+                    "ARCHIVED");
         };
     }
 

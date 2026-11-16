@@ -7,7 +7,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Path;
@@ -91,7 +90,7 @@ class GlobalExceptionHandlerTest {
             throws Exception {
 
         performFailingWith(
-                new InvalidAlertStateException(AlertStatus.ACTIVE))
+                new InvalidAlertStateException("ACTIVE"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.codigo").value("ESTADO_ALERTA_INVALIDO"))
@@ -106,7 +105,7 @@ class GlobalExceptionHandlerTest {
 
         performFailingWith(
                 new InvalidTransitionException(
-                        AlertStatus.ACTIVE, AlertStatus.DRAFT))
+                        "ACTIVE", "DRAFT"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("TRANSICION_INVALIDA"))
                 .andExpect(jsonPath("$.mensaje")
