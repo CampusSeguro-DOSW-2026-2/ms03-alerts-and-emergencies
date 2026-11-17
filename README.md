@@ -237,7 +237,9 @@ The integration compose runs the Gateway, MS01, MS03 and both PostgreSQL databas
 docker compose --env-file .env.gw -f docker-compose.gw.yml up -d --build
 ```
 
-Create `.env.gw` locally with the variables referenced by `docker-compose.gw.yml`; never commit it. MS01 must include `ms03` in `INTERNAL_ALLOWED_SERVICES` (it is the default) so the internal routes accept MS03's service key. The `AUDITOR` user created by `integration/ms01-seed.sql` is no longer required to resolve recipients.
+Create `.env.gw` locally with the variables referenced by `docker-compose.gw.yml`; never commit it. MS01 must include `ms03` in `INTERNAL_ALLOWED_SERVICES` (it is the default) so the internal routes accept MS03's service key. No seed script is mounted into the MS01 database: MS01's `database/001_create_schema.sql` creates the schema together with the role and permission catalogs, and the first administrator comes from `BOOTSTRAP_ADMIN_EMAIL` and `BOOTSTRAP_ADMIN_PASSWORD`.
+
+The compose declares the Gateway route table explicitly (`GATEWAY_ROUTES_*`) so the stack starts with any build of the `api-gateway` image; keep those paths in sync with `gateway.routes` in the Gateway `application.yaml` (MS01 includes `/api/v1/roles/**` and `/api/v1/permissions`). `SQUAD_PATHS` defaults to the two `/api/v1/alertas` patterns and no longer has to be set in `.env.gw`.
 
 The compose sets `GATEWAY_DOWNSTREAM_TIMEOUT_MS=15000`. The Gateway default of 3 seconds caused `504` responses because MS01 login and recipient resolution can take longer. See `docs/plan-integracion-ms01-api-gateway.md` for the verified E2E flow and external blockers.
 

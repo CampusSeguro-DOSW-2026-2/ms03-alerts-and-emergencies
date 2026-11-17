@@ -8,9 +8,9 @@ MS03 ya no valida JWT ni configura CORS. Autentica con `X-User-Id`, `X-User-Role
 
 El esquema lo administra Flyway (`src/main/resources/db/migration`). Los catalogos de dominio que pueden crecer sin desplegar codigo viven en tablas: `alert_type`, `alert_status` con `alert_status_transition`, `audit_action` y `audit_status`. Solo quedan como enum en el codigo `AlertOrigin`, `RecipientType`, `ScopeType` y `DeliveryStatus`, cuyos valores nuevos obligan a cambiar logica de todas formas.
 
-La integracion fue verificada de extremo a extremo el 2026-10-27 con la imagen `ghcr.io/campusseguro-dosw-2026-2/api-gateway:integracion` y MS01 `develop` (`40d476e8`). La imagen del Gateway implementa RF-GW-08, elimina las cabeceras de identidad del cliente y enruta MS03; el `develop` local del Gateway todavia no contiene esos cambios.
+La integracion fue verificada de extremo a extremo el 2026-10-27 con la imagen `ghcr.io/campusseguro-dosw-2026-2/api-gateway:integracion` y MS01 `develop` (`40d476e8`). Esa version del Gateway, que despues llego a `develop`, implementa RF-GW-08, elimina las cabeceras de identidad del cliente y enruta MS03.
 
-Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para resolver destinatarios sin una cuenta con `ms01:user:read`. Como workaround de integracion, MS03 usa una cuenta tecnica `AUDITOR` creada en la base local de MS01.
+MS01 `develop` expone las rutas internas `POST /api/v1/users/batch` y `GET /api/v1/users/by-role`, autorizadas por `X-Service-Name` con `ms03` en `internal.allowed-services`. Por eso la resolucion de destinatarios no usa ninguna cuenta tecnica y `integration/ms01-seed.sql` se elimino.
 
 ## Cambios implementados en MS03
 
@@ -68,9 +68,9 @@ Asignacion inicial de MS01 (solo como referencia; MS03 no la usa para autorizar)
 - Actuator expone solo `health` e `info`; Swagger se controla con `SPRINGDOC_ENABLED`.
 - `application-integration.yml` define MS01 real y desactiva Swagger.
 - `docker-compose.gw.yml` levanta Gateway, MS01, MS03 y sus dos PostgreSQL. Solo el Gateway publica `8080`; MS01 y MS03 quedan en la red interna.
-- MS03 usa `MS01_URL=http://api-gateway:8080`, `MS_SERVICE_KEY`, `MS01_TECHNICAL_USER_ID` y `MS01_TECHNICAL_USER_ROLE=AUDITOR`. Las llamadas al catalogo pasan por el Gateway con `X-Service-Name: ms03`.
-- La cuenta tecnica local insertada es `auditor.integracion@escuelaing.edu.co` con id `b4051a1f-8f5c-4b79-b57e-dcbf68166abf`, estado `ACTIVO` y rol `AUDITOR`. No sirve para iniciar sesion; solo para el catalogo.
-- En un volumen nuevo de `ms01-db`, `integration/ms01-seed.sql` crea esa cuenta de forma automatica. Si el volumen ya existia, el seed no se ejecuta: aplique el SQL manualmente o recree el volumen.
+- MS03 usa `MS01_URL=http://api-gateway:8080` y `MS_SERVICE_KEY`. Las llamadas al catalogo pasan por el Gateway con `X-Service-Name: ms03` y `X-Service-Key`, y las rutas internas de MS01 las autoriza el servicio llamante: no se envia identidad de usuario ni existe cuenta tecnica.
+- El Gateway valida el JWT localmente con la llave publica de MS01 y consulta los cortes de sesion en `GET /api/v1/internal/session-cuts`; no hay introspeccion por peticion.
+- El compose declara la tabla de rutas del Gateway de forma explicita (`GATEWAY_ROUTES_*`) para que el stack arranque con cualquier build de la imagen; las rutas deben seguir la tabla `gateway.routes` del `application.yaml` del Gateway.
 - El compose fija `GATEWAY_DOWNSTREAM_TIMEOUT_MS=15000`. El valor por defecto de 3 s provocaba `504 TIEMPO_AGOTADO` en el primer login y en la creacion de alertas con varias llamadas a MS01.
 - Las claves y contrasenas locales viven en `.env.gw`, ignorado por Git. El par RSA se genero fuera del repositorio.
 
@@ -113,7 +113,7 @@ Asignacion inicial de MS01 (solo como referencia; MS03 no la usa para autorizar)
 - [x] El OpenAPI no declara `bearerAuth`, declara las cabeceras, los permisos y la paginacion estandar.
 - [x] No quedan referencias a JWT local ni CORS propio en MS03.
 - [x] La imagen `:integracion` del Gateway implementa RF-GW-08 y enruta MS03.
-- [ ] MS01 expone el endpoint interno de consulta de usuarios.
+- [x] MS01 expone el endpoint interno de consulta de usuarios.
 - [x] MS03 llama a MS01 unicamente por el Gateway; el compose usa `MS01_URL=http://api-gateway:8080`.
 - [x] `mvn clean verify` pasa con Docker/Testcontainers disponible.
 - [x] El flujo E2E MS03 -> Gateway -> MS01 esta verificado.
@@ -121,8 +121,8 @@ Asignacion inicial de MS01 (solo como referencia; MS03 no la usa para autorizar)
 
 ## Prerrequisitos y bloqueos externos
 
-- **MS01:** aprobar la decision #2 y exponer el endpoint interno de consulta de usuarios; registrar la llamada en la wiki §5. Sin esto, la resolucion de destinatarios en produccion depende de una cuenta tecnica.
-- **Gateway:** el `develop` local no tiene RF-GW-08; usar la imagen `:integracion` o integrar esa rama. Revisar el timeout de downstream para llamadas que consultan varios usuarios.
+- **MS01:** registrar en la wiki el contrato de las rutas internas `POST /api/v1/users/batch` y `GET /api/v1/users/by-role` (§5).
+- **Gateway:** `develop` ya incluye RF-GW-08 y la validacion local del JWT con cortes de sesion; revisar el timeout de downstream para llamadas que consultan varios usuarios.
 - **MS02:** acordar el contrato de validacion de alcance; la ruta usada actualmente no esta registrada en la wiki.
 - **MS08:** confirmar `POST /api/v1/audit/events` y su ruta interna.
 - **Frontend:** adaptar el parser de errores y paginacion al contrato de 5 campos.
@@ -133,11 +133,11 @@ Asignacion inicial de MS01 (solo como referencia; MS03 no la usa para autorizar)
 1. La wiki prevalece sobre el formato de errores y roles del `AGENTS.md`/backlog local.
 2. Esta iteracion cubre solo MS01; MS02, MS06 y MS08 quedan en fases separadas.
 3. Se conservan codigos de error de dominio traducidos, declarados en OpenAPI.
-4. La cuenta tecnica `AUDITOR` es un workaround local, no la solucion definitiva de MS01.
+4. La cuenta tecnica `AUDITOR` fue solo un workaround local y ya no existe: MS01 expone las rutas internas.
 
 ## Decisiones pendientes
 
-1. **MS01:** acepta exponer el endpoint interno de consulta por lote? Si no, la resolucion de destinatarios queda limitada a la cuenta tecnica.
+1. ~~**MS01:** acepta exponer el endpoint interno de consulta por lote?~~ Resuelto: MS01 `develop` expone `POST /api/v1/users/batch` y `GET /api/v1/users/by-role`.
 2. **MS06:** confirmar que enviara `X-Service-Name: ms06` ademas de la identidad `ORGANIZADOR`.
 3. **MS08:** confirmar si `/alertas/{id}/auditoria` se conserva o si MS08 es la fuente unica.
 4. **Datos:** decidir si `NotificationDeliveryEntity` deja de persistir el correo.
