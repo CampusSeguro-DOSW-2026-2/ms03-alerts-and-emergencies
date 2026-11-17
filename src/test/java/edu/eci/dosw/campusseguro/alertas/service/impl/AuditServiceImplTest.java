@@ -7,10 +7,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
@@ -59,19 +58,19 @@ class AuditServiceImplTest {
     void record_shouldSaveEventWithAllFields() {
         service.record(
                 ALERT_ID,
-                AuditAction.SCHEDULE,
+                AuditActions.SCHEDULE,
                 "admin",
-                AlertStatus.DRAFT,
-                AlertStatus.SCHEDULED,
+                "DRAFT",
+                "SCHEDULED",
                 "detalle");
 
         AuditEventEntity event = captureSaved();
 
         assertEquals(ALERT_ID, event.getAlertId());
-        assertEquals(AuditAction.SCHEDULE, event.getAction());
+        assertEquals(AuditActions.SCHEDULE, event.getAction());
         assertEquals("admin", event.getActor());
-        assertEquals(AuditStatus.DRAFT, event.getFromStatus());
-        assertEquals(AuditStatus.SCHEDULED, event.getToStatus());
+        assertEquals("DRAFT", event.getFromStatus());
+        assertEquals("SCHEDULED", event.getToStatus());
         assertEquals("detalle", event.getDetails());
         assertEquals(NOW, event.getCreatedAt());
         assertEquals(NOW, event.getUpdatedAt());
@@ -81,16 +80,16 @@ class AuditServiceImplTest {
     void record_shouldSaveEvent_whenFromStatusAndDetailsAreNull() {
         service.record(
                 ALERT_ID,
-                AuditAction.CREATE,
+                AuditActions.CREATE,
                 "admin",
                 null,
-                AlertStatus.DRAFT,
+                "DRAFT",
                 null);
 
         AuditEventEntity event = captureSaved();
 
         assertNull(event.getFromStatus());
-        assertEquals(AuditStatus.DRAFT, event.getToStatus());
+        assertEquals("DRAFT", event.getToStatus());
         assertNull(event.getDetails());
     }
 
@@ -100,10 +99,10 @@ class AuditServiceImplTest {
                 IllegalArgumentException.class,
                 () -> service.record(
                         ALERT_ID,
-                        AuditAction.END,
+                        AuditActions.END,
                         "admin",
-                        AlertStatus.ACTIVE,
-                        AlertStatus.ARCHIVED,
+                        "ACTIVE",
+                        "ARCHIVED",
                         "legacy"));
     }
 
@@ -113,10 +112,10 @@ class AuditServiceImplTest {
 
         service.record(
                 ALERT_ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 actor,
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 "x");
 
         assertEquals(64, captureSaved().getActor().length());
@@ -128,10 +127,10 @@ class AuditServiceImplTest {
 
         service.record(
                 ALERT_ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 actor,
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 "x");
 
         assertEquals(actor, captureSaved().getActor());
@@ -143,10 +142,10 @@ class AuditServiceImplTest {
 
         service.record(
                 ALERT_ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 "admin",
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 details);
 
         assertEquals(500, captureSaved().getDetails().length());
@@ -158,10 +157,10 @@ class AuditServiceImplTest {
 
         service.record(
                 ALERT_ID,
-                AuditAction.UPDATE,
+                AuditActions.UPDATE,
                 "admin",
-                AlertStatus.DRAFT,
-                AlertStatus.DRAFT,
+                "DRAFT",
+                "DRAFT",
                 details);
 
         assertEquals(details, captureSaved().getDetails());
@@ -174,10 +173,10 @@ class AuditServiceImplTest {
         Method method = AuditServiceImpl.class.getMethod(
                 "record",
                 UUID.class,
-                AuditAction.class,
                 String.class,
-                AlertStatus.class,
-                AlertStatus.class,
+                String.class,
+                String.class,
+                String.class,
                 String.class);
 
         Transactional transactional =

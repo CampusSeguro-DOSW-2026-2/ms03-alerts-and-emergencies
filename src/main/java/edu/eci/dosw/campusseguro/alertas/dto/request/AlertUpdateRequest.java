@@ -1,6 +1,5 @@
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.validation.AtLeastOneField;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -13,7 +12,7 @@ public record AlertUpdateRequest(
         @Size(min = 1, message = "You must specify at least one alert type.")
         List<
                 @NotNull(message = "Alert type cannot be null")
-                AlertType
+                String
         > types,
 
         @Size(max = 150, message = "Title cannot exceed 150 characters")

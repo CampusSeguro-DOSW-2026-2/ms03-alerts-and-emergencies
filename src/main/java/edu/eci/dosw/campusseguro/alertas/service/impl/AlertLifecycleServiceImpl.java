@@ -6,8 +6,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.event.AlertActivatedEvent;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.ForbiddenOperationException;
@@ -21,11 +19,12 @@ import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.EnumSet;
+import java.util.Set;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.ApplicationEventPublisher;
@@ -35,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
-    private static final EnumSet<AlertStatus> ACTIVATABLE_STATUSES =
-            EnumSet.of(AlertStatus.DRAFT, AlertStatus.SCHEDULED);
+    private static final Set<String> ACTIVATABLE_STATUSES =
+            Set.of("DRAFT", "SCHEDULED");
 
     private final AlertRepository alertRepository;
     private final AlertScopeItemRepository scopeItemRepository;
@@ -83,25 +82,25 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
             throw new InvalidActivationDateException();
         }
 
-        AlertStatus previousStatus = alert.getStatus();
+        String previousStatus = alert.getStatus();
 
         // A SCHEDULED alert can be rescheduled in place; any other state must
         // follow the normal transition rules.
-        if (previousStatus != AlertStatus.SCHEDULED) {
+        if (previousStatus != "SCHEDULED") {
             alertStateMachine.assertTransition(
                     previousStatus,
-                    AlertStatus.SCHEDULED);
+                    "SCHEDULED");
         }
 
         alert.setActivationAt(activationAt);
-        alert.setStatus(AlertStatus.SCHEDULED);
+        alert.setStatus("SCHEDULED");
         alert.setUpdatedAt(now);
 
         alertRepository.saveAndFlush(alert);
 
         auditService.record(
                 alert.getId(),
-                AuditAction.SCHEDULE,
+                AuditActions.SCHEDULE,
                 requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),
@@ -126,40 +125,40 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         AlertEntity alert = findAlertForUpdate(id);
         assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (alert.getStatus() == AlertStatus.ACTIVE) {
+        if (alert.getStatus() == "ACTIVE") {
             return toResponse(alert);
         }
 
-        AlertStatus previousStatus = alert.getStatus();
+        String previousStatus = alert.getStatus();
         alertStateMachine.assertTransition(
                 previousStatus,
-                AlertStatus.ACTIVE);
+                "ACTIVE");
 
         Instant now = clock.instant();
 
         int updated = alertRepository.activateIfPending(
                 id,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 now,
                 ACTIVATABLE_STATUSES);
 
         if (updated == 0) {
             AlertEntity current = findAlertForUpdate(id);
 
-            if (current.getStatus() == AlertStatus.ACTIVE) {
+            if (current.getStatus() == "ACTIVE") {
                 return toResponse(current);
             }
 
             throw new InvalidTransitionException(
                     current.getStatus(),
-                    AlertStatus.ACTIVE);
+                    "ACTIVE");
         }
 
         AlertEntity activated = findAlertForUpdate(id);
 
         auditService.record(
                 activated.getId(),
-                AuditAction.ACTIVATE,
+                AuditActions.ACTIVATE,
                 requester.auditActor(),
                 previousStatus,
                 activated.getStatus(),
@@ -179,7 +178,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
     @Transactional(readOnly = true)
     public List<UUID> findDueScheduledAlertIds() {
         return alertRepository.findByStatusAndActivationAtLessThanEqual(
-                        AlertStatus.SCHEDULED,
+                        "SCHEDULED",
                         clock.instant())
                 .stream()
                 .map(AlertEntity::getId)
@@ -192,18 +191,18 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         AlertEntity alert = findAlertForUpdate(id);
         assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (alert.getStatus() == AlertStatus.ARCHIVED) {
+        if (alert.getStatus() == "ARCHIVED") {
             return toResponse(alert);
         }
 
-        AlertStatus previousStatus = alert.getStatus();
+        String previousStatus = alert.getStatus();
         Instant now = clock.instant().truncatedTo(ChronoUnit.MICROS);
 
         alertStateMachine.assertTransition(
                 previousStatus,
-                AlertStatus.ARCHIVED);
+                "ARCHIVED");
 
-        alert.setStatus(AlertStatus.ARCHIVED);
+        alert.setStatus("ARCHIVED");
         alert.setArchivedAt(now);
         alert.setUpdatedAt(now);
 
@@ -211,7 +210,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         auditService.record(
                 alert.getId(),
-                AuditAction.ARCHIVE,
+                AuditActions.ARCHIVE,
                 requester.auditActor(),
                 previousStatus,
                 alert.getStatus(),

@@ -3,20 +3,18 @@ package edu.eci.dosw.campusseguro.alertas.dto.response;
 import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 public record AlertSummaryResponse(
         UUID id,
-        List<AlertType> types,
+        List<String> types,
         String title,
         String purpose,
         ScopeRequest scope,
         List<ScopeRequest> scopes,
-        AlertStatus status,
+        String status,
         AlertOrigin origin,
         UUID simulationId,
         Instant createdAt,
@@ -27,10 +25,10 @@ public record AlertSummaryResponse(
     /** Keeps the previous constructor for callers that do not use purpose or scopes. */
     public AlertSummaryResponse(
             UUID id,
-            List<AlertType> types,
+            List<String> types,
             String title,
             ScopeRequest scope,
-            AlertStatus status,
+            String status,
             AlertOrigin origin,
             UUID simulationId,
             Instant createdAt,

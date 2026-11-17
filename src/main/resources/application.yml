@@ -15,6 +15,14 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+  flyway:
+    enabled: true
+    # Los scripts que ya se aplicaron a mano en una base desplegada quedaron
+    # consolidados como V1..V7. Al baselinar en 7, esa base no los repite y solo
+    # recibe las migraciones nuevas; una base vacia aplica V1..V7 desde cero.
+    baseline-on-migrate: true
+    baseline-version: 7
+    locations: classpath:db/migration
   mail:
     host: ${MAIL_HOST:smtp-relay.brevo.com}
     port: ${MAIL_PORT:587}

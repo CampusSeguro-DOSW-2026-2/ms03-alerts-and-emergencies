@@ -2,8 +2,7 @@ package edu.eci.dosw.campusseguro.alertas.client.email;
 
 import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
-import java.util.Comparator;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
 import java.util.List;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -18,18 +17,22 @@ public class EmailTemplateBuilder {
 
     private final String appBaseUrl;
 
+    private final AlertTypeCatalog alertTypeCatalog;
+
     public EmailTemplateBuilder(
             @Value("${app.mail.app-base-url:http://localhost:5173}")
-            String appBaseUrl) {
+            String appBaseUrl,
+            AlertTypeCatalog alertTypeCatalog) {
 
+        this.alertTypeCatalog = alertTypeCatalog;
         this.appBaseUrl = appBaseUrl == null
                 ? ""
                 : appBaseUrl.strip().replaceAll("/+$", "");
     }
 
     public EmailMessage build(AlertEntity alert, ResolvedUser recipient) {
-        List<AlertType> types = sortedTypes(alert.getTypes());
-        boolean operational = types.contains(AlertType.OPERATIVA);
+        List<String> types = sortedTypes(alert.getTypes());
+        boolean operational = types.contains(AlertTypeCatalog.OPERATIONAL);
         String link = link(alert);
         String instructions = alert.getInstructions();
         String title = alert.getTitle();
@@ -140,21 +143,15 @@ public class EmailTemplateBuilder {
         return appBaseUrl + "/bandeja?alerta=" + alert.getId();
     }
 
-    private List<AlertType> sortedTypes(
-            java.util.Collection<AlertType> types) {
+    private List<String> sortedTypes(
+            java.util.Collection<String> types) {
 
-        if (types == null) {
-            return List.of();
-        }
-
-        return types.stream()
-                .sorted(Comparator.comparingInt(AlertType::ordinal))
-                .toList();
+        return alertTypeCatalog.sorted(types);
     }
 
-    private String labels(List<AlertType> types) {
+    private String labels(List<String> types) {
         return types.stream()
-                .map(this::typeLabel)
+                .map(alertTypeCatalog::labelOf)
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
     }
@@ -163,14 +160,5 @@ public class EmailTemplateBuilder {
         return HtmlUtils.htmlEscape(
                 value == null ? "" : value,
                 "UTF-8");
-    }
-
-    private String typeLabel(AlertType type) {
-        return switch (type) {
-            case EARTHQUAKE -> "Terremoto";
-            case FIRE -> "Incendio";
-            case OTHER -> "Otra emergencia";
-            case OPERATIVA -> "Operativa";
-        };
     }
 }

@@ -6,7 +6,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
 import java.time.Instant;
@@ -37,7 +36,7 @@ class AlertActivatedListenerTest {
 
         listener.onAlertActivated(new AlertActivatedEvent(
                 alertId,
-                AlertStatus.SCHEDULED,
+                "SCHEDULED",
                 Instant.now(),
                 CORRELATION_ID));
 
@@ -57,7 +56,7 @@ class AlertActivatedListenerTest {
 
         listener.onAlertActivated(new AlertActivatedEvent(
                 alertId,
-                AlertStatus.SCHEDULED,
+                "SCHEDULED",
                 Instant.now(),
                 CORRELATION_ID));
 

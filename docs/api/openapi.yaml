@@ -954,14 +954,22 @@ components:
   schemas:
     AlertStatus:
       type: string
-      enum:
+      description: |
+        Codigo de un estado del ciclo de vida (`alert_status`). Los estados y las
+        transiciones validas son data: agregar uno es insertar filas, asi que esta
+        lista es abierta. Estos son los estados iniciales.
+      examples:
         - DRAFT
         - SCHEDULED
         - ACTIVE
         - ARCHIVED
     AlertType:
       type: string
-      enum:
+      description: |
+        Codigo de un tipo de alerta del catalogo (`alert_type`). El catalogo es
+        data: el administrador puede agregar tipos sin desplegar, asi que esta
+        lista abierta. Estos son los tipos iniciales.
+      examples:
         - EARTHQUAKE
         - FIRE
         - OTHER
@@ -991,9 +999,10 @@ components:
     AuditAction:
       type: string
       description: |
-        Acciones actuales y valores historicos de solo lectura. El codigo nuevo
-        no genera END.
-      enum:
+        Codigo de una accion auditable (`audit_action`). El catalogo es data y
+        crece con cada operacion nueva; END solo sobrevive en registros
+        historicos. Estos son los valores iniciales.
+      examples:
         - CREATE
         - UPDATE
         - SCHEDULE
@@ -1007,8 +1016,9 @@ components:
     AuditStatus:
       type: string
       description: |
-        Estados actuales y el valor historico ENDED, conservado para lectura.
-      enum:
+        Codigo de un estado historico (`audit_status`). Incluye ENDED, que ya no
+        existe en el ciclo de vida y se conserva solo para lectura.
+      examples:
         - DRAFT
         - SCHEDULED
         - ACTIVE

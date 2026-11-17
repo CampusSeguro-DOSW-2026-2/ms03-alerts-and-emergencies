@@ -13,11 +13,10 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.ScopeRequest;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertSummaryResponse;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalogStub;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
@@ -40,7 +39,7 @@ class AlertMapperTest {
 
     @BeforeEach
     void setUp() {
-        mapper = new AlertMapper();
+        mapper = new AlertMapper(AlertTypeCatalogStub.create());
     }
 
     // helpers
@@ -64,9 +63,9 @@ class AlertMapperTest {
     private AlertEntity fullAlert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+        alert.setTypes(Set.of("EARTHQUAKE", "FIRE"));
         alert.setTitle(TITLE);
-        alert.setStatus(AlertStatus.ACTIVE);
+        alert.setStatus("ACTIVE");
         alert.setOrigin(AlertOrigin.SIMULATION);
         alert.setSimulationId(SIMULATION_ID);
         alert.setInstructions("Evacuar");
@@ -141,17 +140,17 @@ class AlertMapperTest {
     @Test
     void toEntity_shouldBuildDraftManualAlert_whenRequestIsValid() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.types()).thenReturn(List.of(AlertType.FIRE, AlertType.EARTHQUAKE));
+        when(request.types()).thenReturn(List.of("FIRE", "EARTHQUAKE"));
         when(request.title()).thenReturn("  " + TITLE + "  ");
         when(request.instructions()).thenReturn("  Evacuar el edificio  ");
 
         AlertEntity result = mapper.toEntity(request, ACTOR, NOW);
 
         assertEquals(
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 mapper.sortedTypes(result.getTypes()));
         assertEquals(TITLE, result.getTitle());
-        assertEquals(AlertStatus.DRAFT, result.getStatus());
+        assertEquals("DRAFT", result.getStatus());
         assertEquals(AlertOrigin.MANUAL, result.getOrigin());
         assertEquals("Evacuar el edificio", result.getInstructions());
         assertEquals(ACTOR, result.getCreatedBy());
@@ -308,9 +307,9 @@ class AlertMapperTest {
 
         AlertResponse expected = new AlertResponse(
                 ALERT_ID,
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 new ScopeRequest(ScopeType.BUILDING, List.of("B1")),
@@ -338,10 +337,10 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 NOW.minusSeconds(300),
@@ -360,10 +359,10 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 TITLE,
                 null,
-                AlertStatus.ACTIVE,
+                "ACTIVE",
                 AlertOrigin.SIMULATION,
                 SIMULATION_ID,
                 NOW.minusSeconds(300),

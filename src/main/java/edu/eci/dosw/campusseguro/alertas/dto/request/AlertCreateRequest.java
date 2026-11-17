@@ -1,6 +1,5 @@
 package edu.eci.dosw.campusseguro.alertas.dto.request;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -13,7 +12,7 @@ public record AlertCreateRequest(
         @NotEmpty(message = "At least one alert type is required")
         List<
                 @NotNull(message = "Alert type cannot be null")
-                AlertType
+                String
         > types,
 
         @NotBlank(message = "Title is required")
@@ -59,7 +58,7 @@ public record AlertCreateRequest(
 
     /** Keeps the previous constructor for callers that do not use scopes or purpose. */
     public AlertCreateRequest(
-            List<AlertType> types,
+            List<String> types,
             String title,
             ScopeRequest scope,
             String instructions,

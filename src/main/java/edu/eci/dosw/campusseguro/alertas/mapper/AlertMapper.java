@@ -10,8 +10,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
+import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -28,6 +27,12 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class AlertMapper {
+
+    private final AlertTypeCatalog alertTypeCatalog;
+
+    public AlertMapper(AlertTypeCatalog alertTypeCatalog) {
+        this.alertTypeCatalog = alertTypeCatalog;
+    }
 
     public ScopeRequest normalizeScope(ScopeRequest scope) {
         Objects.requireNonNull(scope, "Scope cannot be null");
@@ -115,7 +120,7 @@ public class AlertMapper {
         AlertEntity alert = new AlertEntity();
         alert.setTypes(new LinkedHashSet<>(sortedTypes(request.types())));
         alert.setTitle(request.title().strip());
-        alert.setStatus(AlertStatus.DRAFT);
+        alert.setStatus("DRAFT");
         alert.setInstructions(request.instructions().strip());
         alert.setCreatedBy(actor);
         alert.setCreatedAt(now);
@@ -312,18 +317,11 @@ public class AlertMapper {
                 toRecipientRequests(recipients));
     }
 
-    public List<AlertType> sortedTypes(Collection<AlertType> types) {
-        if (types == null) {
-            return List.of();
-        }
-
-        return types.stream()
-                .filter(Objects::nonNull)
-                .sorted(Comparator.comparingInt(AlertType::ordinal))
-                .toList();
+    public List<String> sortedTypes(Collection<String> types) {
+        return alertTypeCatalog.sorted(types);
     }
 
-    public Set<AlertType> toTypeSet(Collection<AlertType> types) {
+    public Set<String> toTypeSet(Collection<String> types) {
         return new LinkedHashSet<>(sortedTypes(types));
     }
 

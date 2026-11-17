@@ -1,13 +1,13 @@
 -- Migracion de logica de negocio de MS03.
 --
--- Aplicar con MS03 detenido y con un respaldo previo de la base. El codigo
--- nuevo usa spring.jpa.hibernate.ddl-auto=validate, por lo que este script
--- debe ejecutarse antes de arrancar la version nueva.
+-- La aplica Flyway al arrancar el servicio, antes de que Hibernate valide el
+-- esquema (spring.jpa.hibernate.ddl-auto=validate). Flyway envuelve cada
+-- migracion en su propia transaccion, por eso el archivo no abre ni cierra una.
 --
--- Rollback preferido: restaurar el respaldo y desplegar la version anterior.
--- Un rollback solo por SQL perderia el detalle de los tipos multiples.
+-- Rollback preferido: restaurar el respaldo anterior y desplegar la version
+-- anterior del servicio. Un rollback solo por SQL perderia el detalle de los
+-- tipos multiples.
 
-BEGIN;
 
 -- 1. Tipos multiples por alerta.
 CREATE TABLE alert_types (
@@ -161,7 +161,6 @@ BEGIN
     END IF;
 END $$;
 
-COMMIT;
 
 -- Verificacion manual sugerida:
 -- SELECT (SELECT count(*) FROM alerts) AS alertas,

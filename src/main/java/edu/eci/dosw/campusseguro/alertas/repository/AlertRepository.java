@@ -1,7 +1,6 @@
 package edu.eci.dosw.campusseguro.alertas.repository;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import java.time.Instant;
 import java.util.Collection;
@@ -28,17 +27,17 @@ public interface AlertRepository
     Optional<AlertEntity> findForUpdate(@Param("id") UUID id);
 
     List<AlertEntity> findByStatusAndActivationAtLessThanEqual(
-            AlertStatus status,
+            String status,
             Instant activationAt);
 
     Optional<AlertEntity> findFirstBySimulationIdAndStatusInOrderByCreatedAtDesc(
             UUID simulationId,
-            Collection<AlertStatus> statuses);
+            Collection<String> statuses);
 
     Optional<AlertEntity> findFirstBySimulationIdAndPurposeAndStatusInOrderByCreatedAtDesc(
             UUID simulationId,
             String purpose,
-            Collection<AlertStatus> statuses);
+            Collection<String> statuses);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("""
@@ -52,9 +51,9 @@ public interface AlertRepository
             """)
     int activateIfPending(
             @Param("id") UUID id,
-            @Param("targetStatus") AlertStatus targetStatus,
+            @Param("targetStatus") String targetStatus,
             @Param("now") Instant now,
-            @Param("fromStatuses") Collection<AlertStatus> fromStatuses);
+            @Param("fromStatuses") Collection<String> fromStatuses);
 
     @Query("""
             select a
@@ -86,7 +85,7 @@ public interface AlertRepository
     Page<AlertEntity> findInbox(
             @Param("userId") String userId,
             @Param("roles") Set<String> roles,
-            @Param("statuses") Collection<AlertStatus> statuses,
+            @Param("statuses") Collection<String> statuses,
             @Param("userType") RecipientType userType,
             @Param("roleType") RecipientType roleType,
             Pageable pageable);

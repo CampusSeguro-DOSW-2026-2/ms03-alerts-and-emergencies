@@ -1,16 +1,15 @@
 
 package edu.eci.dosw.campusseguro.alertas.exception;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 
 public class InvalidTransitionException extends RuntimeException {
 
-    private final AlertStatus currentStatus;
-    private final AlertStatus requestedStatus;
+    private final String currentStatus;
+    private final String requestedStatus;
 
     public InvalidTransitionException(
-            AlertStatus currentStatus,
-            AlertStatus requestedStatus) {
+            String currentStatus,
+            String requestedStatus) {
 
         super("No se puede cambiar la alerta de "
                 + currentStatus + " a " + requestedStatus);
@@ -19,11 +18,11 @@ public class InvalidTransitionException extends RuntimeException {
         this.requestedStatus = requestedStatus;
     }
 
-    public AlertStatus getCurrentStatus() {
+    public String getCurrentStatus() {
         return currentStatus;
     }
 
-    public AlertStatus getRequestedStatus() {
+    public String getRequestedStatus() {
         return requestedStatus;
     }
 }

@@ -6,6 +6,8 @@
 
 MS03 ya no valida JWT ni configura CORS. Autentica con `X-User-Id`, `X-User-Role`, `X-User-Permission` y `X-Correlation-ID`, autoriza por permisos `ms03:*`, devuelve errores de 5 campos, pagina con nombres en espanol y consulta MS01 con el contrato real. El stub de catalogo queda para `local`/`test`; el perfil `integration` usa MS01.
 
+El esquema lo administra Flyway (`src/main/resources/db/migration`). Los catalogos de dominio que pueden crecer sin desplegar codigo viven en tablas: `alert_type`, `alert_status` con `alert_status_transition`, `audit_action` y `audit_status`. Solo quedan como enum en el codigo `AlertOrigin`, `RecipientType`, `ScopeType` y `DeliveryStatus`, cuyos valores nuevos obligan a cambiar logica de todas formas.
+
 La integracion fue verificada de extremo a extremo el 2026-10-27 con la imagen `ghcr.io/campusseguro-dosw-2026-2/api-gateway:integracion` y MS01 `develop` (`40d476e8`). La imagen del Gateway implementa RF-GW-08, elimina las cabeceras de identidad del cliente y enruta MS03; el `develop` local del Gateway todavia no contiene esos cambios.
 
 Queda un bloqueo externo: MS01 no expone un endpoint interno o por lote para resolver destinatarios sin una cuenta con `ms01:user:read`. Como workaround de integracion, MS03 usa una cuenta tecnica `AUDITOR` creada en la base local de MS01.

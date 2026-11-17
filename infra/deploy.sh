@@ -34,18 +34,11 @@ linea_env() {
 }
 
 umask 077
-mkdir -p "$STACK_DIR/database"
 
 echo "== Archivos del despliegue ($ENTORNO, $TAG) en $STACK_DIR"
 cp "$REPO_DIR/infra/docker-compose.prod.yml" "$STACK_DIR/docker-compose.yml"
-# Los datos de ejemplo (006_sample_data.sql) no van a producción.
-for f in "$REPO_DIR"/database/*.sql; do
-    [ "$(basename "$f")" = "006_sample_data.sql" ] && continue
-    cp "$f" "$STACK_DIR/database/"
-done
-# Postgres lee los scripts con su propio usuario: la carpeta del esquema no lleva secretos.
-chmod 755 "$STACK_DIR/database"
-chmod 644 "$STACK_DIR"/database/*.sql
+# El esquema viaja en la imagen: Flyway aplica src/main/resources/db/migration al arrancar ms03.
+
 {
     linea_env ENTORNO "$ENTORNO"
     linea_env IMAGE "$IMAGE"

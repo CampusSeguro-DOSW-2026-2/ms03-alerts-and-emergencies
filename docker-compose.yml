@@ -11,7 +11,10 @@ services:
       - "5432:5432"
     volumes:
       - alerts_pgdata:/var/lib/postgresql/data
-      - ./database:/docker-entrypoint-initdb.d:ro
+      # El esquema lo crea Flyway cuando arranca el servicio, no el entrypoint de Postgres.
+      # Los datos de ejemplo quedan en database/sample y se aplican a mano tras el primer arranque:
+      #   docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts \\
+      #     < database/sample/sample_data.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s

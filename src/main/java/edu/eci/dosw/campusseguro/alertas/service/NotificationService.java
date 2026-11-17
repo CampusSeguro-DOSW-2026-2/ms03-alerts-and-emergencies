@@ -6,7 +6,6 @@ import edu.eci.dosw.campusseguro.alertas.client.email.EmailSender;
 import edu.eci.dosw.campusseguro.alertas.client.email.EmailTemplateBuilder;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.NotificationDeliveryEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.DeliveryStatus;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
@@ -70,7 +69,7 @@ public class NotificationService {
             log.error("No se pudieron resolver los destinatarios de la alerta {}", alertId, ex);
             auditService.record(
                     alertId,
-                    AuditAction.RECIPIENT_RESOLUTION_FAILED,
+                    AuditActions.RECIPIENT_RESOLUTION_FAILED,
                     ActorResolver.SYSTEM_NOTIFIER,
                     alert.getStatus(),
                     alert.getStatus(),
@@ -113,7 +112,7 @@ public class NotificationService {
         String details = "Notificaciones de alerta: enviadas=" + sent + ", fallidas=" + failed;
         auditService.record(
                 alertId,
-                failed == 0 ? AuditAction.NOTIFICATION_SENT : AuditAction.NOTIFICATION_FAILED,
+                failed == 0 ? AuditActions.NOTIFICATION_SENT : AuditActions.NOTIFICATION_FAILED,
                 ActorResolver.SYSTEM_NOTIFIER,
                 alert.getStatus(),
                 alert.getStatus(),

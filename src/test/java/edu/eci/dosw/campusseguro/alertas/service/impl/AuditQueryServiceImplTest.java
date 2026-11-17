@@ -8,9 +8,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import edu.eci.dosw.campusseguro.alertas.dto.response.AuditEventResponse;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import edu.eci.dosw.campusseguro.alertas.exception.AlertNotFoundException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
@@ -49,9 +48,9 @@ class AuditQueryServiceImplTest {
         ReflectionTestUtils.setField(event, "id", UUID.randomUUID());
         event.setAlertId(ALERT_ID);
         event.setActor(actor);
-        event.setAction(AuditAction.CREATE);
+        event.setAction(AuditActions.CREATE);
         event.setFromStatus(null);
-        event.setToStatus(AuditStatus.DRAFT);
+        event.setToStatus("DRAFT");
         event.setDetails("detalle");
         event.setCreatedAt(NOW);
         return event;
@@ -71,7 +70,7 @@ class AuditQueryServiceImplTest {
         assertEquals("USER", events.get(0).actorType());
         assertEquals("SYSTEM", events.get(1).actorType());
         assertEquals("SERVICE", events.get(2).actorType());
-        assertEquals(AuditStatus.DRAFT, events.get(0).toStatus());
+        assertEquals("DRAFT", events.get(0).toStatus());
         assertEquals(NOW, events.get(0).occurredAt());
         verify(auditEventRepository).findByAlertIdOrderByCreatedAtAsc(ALERT_ID);
     }
@@ -79,9 +78,9 @@ class AuditQueryServiceImplTest {
     @Test
     void findByAlert_shouldExposeLegacyEndEventWithoutConversion() {
         AuditEventEntity legacy = event("usr-001");
-        legacy.setAction(AuditAction.END);
-        legacy.setFromStatus(AuditStatus.ACTIVE);
-        legacy.setToStatus(AuditStatus.ENDED);
+        legacy.setAction(AuditActions.END);
+        legacy.setFromStatus("ACTIVE");
+        legacy.setToStatus("ENDED");
         when(alertRepository.existsById(ALERT_ID)).thenReturn(true);
         when(auditEventRepository.findByAlertIdOrderByCreatedAtAsc(ALERT_ID))
                 .thenReturn(List.of(legacy));
@@ -89,9 +88,9 @@ class AuditQueryServiceImplTest {
         List<AuditEventResponse> events = service.findByAlert(ALERT_ID);
 
         assertEquals(1, events.size());
-        assertEquals(AuditAction.END, events.get(0).action());
-        assertEquals(AuditStatus.ACTIVE, events.get(0).fromStatus());
-        assertEquals(AuditStatus.ENDED, events.get(0).toStatus());
+        assertEquals(AuditActions.END, events.get(0).action());
+        assertEquals("ACTIVE", events.get(0).fromStatus());
+        assertEquals("ENDED", events.get(0).toStatus());
     }
 
     @Test

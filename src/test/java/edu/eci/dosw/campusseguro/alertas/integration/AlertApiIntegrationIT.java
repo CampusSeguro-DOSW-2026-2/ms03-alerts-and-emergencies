@@ -14,33 +14,50 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertFilter;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.dto.request.InboxStatus;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.dto.response.AlertResponse;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertRecipientEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertSpecifications;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.scheduler.AlertActivationScheduler;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.security.Identities;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.InboxService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.NotificationService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import jakarta.persistence.EntityManagerFactory;
 import org.hibernate.SessionFactory;
 import org.hibernate.stat.Statistics;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -66,7 +83,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.MountableFile;
 
 @SpringBootTest(properties = {
         "app.alerts.activation-check-ms=3600000",
@@ -98,40 +114,6 @@ class AlertApiIntegrationIT {
 
     static {
         POSTGRES.start();
-        applyMigrations();
-    }
-
-    private static void applyMigrations() {
-        try {
-            for (String script : List.of(
-                    "001_create_schema.sql",
-                    "002_indexes.sql",
-                    "003_phase2_contract.sql",
-                    "004_align_simulation_contract.sql",
-                    "005_business_logic_update.sql",
-                    "007_alert_purpose.sql",
-                    "008_alert_purpose_unique.sql")) {
-                Path path = Path.of("database", script);
-                String containerPath = "/tmp/" + script;
-                POSTGRES.copyFileToContainer(MountableFile.forHostPath(path), containerPath);
-                var result = POSTGRES.execInContainer(
-                        "psql",
-                        "-U",
-                        POSTGRES.getUsername(),
-                        "-d",
-                        POSTGRES.getDatabaseName(),
-                        "-v",
-                        "ON_ERROR_STOP=1",
-                        "-f",
-                        containerPath);
-                if (result.getExitCode() != 0) {
-                    throw new IllegalStateException(
-                            "No se pudo aplicar " + script + ": " + result.getStderr());
-                }
-            }
-        } catch (Exception exception) {
-            throw new IllegalStateException("No se pudieron aplicar las migraciones", exception);
-        }
     }
 
     @DynamicPropertySource
@@ -196,13 +178,13 @@ class AlertApiIntegrationIT {
 
     @Test
     void search_shouldFilterByStatusTypeAndDateRange() {
-        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.parse("2026-10-01T10:00:00Z"), null));
-        alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.parse("2026-10-05T10:00:00Z"), null));
-        alertRepository.save(newAlert(AlertStatus.SCHEDULED, Instant.parse("2026-10-10T10:00:00Z"), null));
+        alertRepository.save(newAlert("DRAFT", Instant.parse("2026-10-01T10:00:00Z"), null));
+        alertRepository.save(newAlert("ACTIVE", Instant.parse("2026-10-05T10:00:00Z"), null));
+        alertRepository.save(newAlert("SCHEDULED", Instant.parse("2026-10-10T10:00:00Z"), null));
 
         AlertFilter filter = new AlertFilter(
-                AlertStatus.ACTIVE,
-                List.of(AlertType.EARTHQUAKE),
+                "ACTIVE",
+                List.of("EARTHQUAKE"),
                 null,
                 null,
                 null,
@@ -217,14 +199,14 @@ class AlertApiIntegrationIT {
                 PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))));
 
         assertEquals(1, result.getTotalElements());
-        assertEquals(AlertStatus.ACTIVE, result.getContent().getFirst().getStatus());
+        assertEquals("ACTIVE", result.getContent().getFirst().getStatus());
     }
 
     @Test
     void search_shouldFilterBySimulationId() {
         UUID simulationId = UUID.randomUUID();
-        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), simulationId));
-        alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
+        alertRepository.save(newAlert("DRAFT", Instant.now(), simulationId));
+        alertRepository.save(newAlert("DRAFT", Instant.now(), null));
 
         var result = alertRepository.findAll(
                 AlertSpecifications.fromFilter(
@@ -240,9 +222,9 @@ class AlertApiIntegrationIT {
     @Test
     void search_shouldFilterByOriginAndScope() {
         AlertEntity manual = alertRepository.save(
-                newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+                newAlert("ACTIVE", Instant.now(), null));
         AlertEntity simulation = alertRepository.save(
-                newAlert(AlertStatus.ACTIVE, Instant.now(), UUID.randomUUID()));
+                newAlert("ACTIVE", Instant.now(), UUID.randomUUID()));
 
         scopeItemRepository.save(newScopeItem(
                 manual.getId(), ScopeType.BUILDING, "BLD-001"));
@@ -267,9 +249,9 @@ class AlertApiIntegrationIT {
         Instant activatedAt = Instant.parse("2026-10-01T10:00:00Z");
 
         AlertEntity active = alertRepository.save(
-                newAlert(AlertStatus.ACTIVE, activatedAt, null));
+                newAlert("ACTIVE", activatedAt, null));
 
-        AlertEntity archived = newAlert(AlertStatus.ARCHIVED, activatedAt, null);
+        AlertEntity archived = newAlert("ARCHIVED", activatedAt, null);
         archived.setArchivedAt(activatedAt.plusSeconds(7200));
         alertRepository.save(archived);
 
@@ -289,7 +271,7 @@ class AlertApiIntegrationIT {
     void search_shouldPageAndOrderByCreatedAtDescending() {
         for (int i = 0; i < 5; i++) {
             alertRepository.save(newAlert(
-                    AlertStatus.DRAFT, Instant.parse("2026-10-0" + (i + 1) + "T10:00:00Z"), null));
+                    "DRAFT", Instant.parse("2026-10-0" + (i + 1) + "T10:00:00Z"), null));
         }
 
         var firstPage = alertRepository.findAll(
@@ -308,22 +290,22 @@ class AlertApiIntegrationIT {
 
     @Test
     void activation_shouldMoveAlertToActiveAndAuditOnce() {
-        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
+        AlertEntity alert = alertRepository.save(newAlert("DRAFT", Instant.now(), null));
 
         AlertResponse response = alertLifecycleService.activate(
                 alert.getId(),
                 Identities.coordinador("it-coordinator"));
 
-        assertEquals(AlertStatus.ACTIVE, response.status());
-        assertEquals(AlertStatus.ACTIVE, alertRepository.findById(alert.getId()).orElseThrow().getStatus());
+        assertEquals("ACTIVE", response.status());
+        assertEquals("ACTIVE", alertRepository.findById(alert.getId()).orElseThrow().getStatus());
         assertEquals(1, auditEventRepository.findByAlertIdOrderByCreatedAtAsc(alert.getId()).stream()
-                .filter(event -> event.getAction() == AuditAction.ACTIVATE)
+                .filter(event -> AuditActions.ACTIVATE.equals(event.getAction()))
                 .count());
     }
 
     @Test
     void scheduledAlert_shouldAllowManualActivationBeforeItsDate() {
-        AlertEntity alert = newAlert(AlertStatus.SCHEDULED, Instant.now(), null);
+        AlertEntity alert = newAlert("SCHEDULED", Instant.now(), null);
         alert.setActivationAt(Instant.now().plusSeconds(3600));
         AlertEntity saved = alertRepository.save(alert);
 
@@ -331,14 +313,14 @@ class AlertApiIntegrationIT {
                 saved.getId(),
                 Identities.coordinador("it-coordinator"));
 
-        assertEquals(AlertStatus.ACTIVE, response.status());
-        assertEquals(AlertStatus.ACTIVE,
+        assertEquals("ACTIVE", response.status());
+        assertEquals("ACTIVE",
                 alertRepository.findById(saved.getId()).orElseThrow().getStatus());
     }
 
     @Test
     void uniqueConstraint_shouldRejectDuplicatedConfirmation() {
-        AlertEntity alert = alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+        AlertEntity alert = alertRepository.save(newAlert("ACTIVE", Instant.now(), null));
         jdbcTemplate.update(
                 "INSERT INTO alert_confirmations (alert_id, user_id, confirmed_at) VALUES (?, ?, now())",
                 alert.getId(), STUB_USER_ID);
@@ -350,18 +332,18 @@ class AlertApiIntegrationIT {
 
     @Test
     void inbox_shouldExposeOnlyActiveAndArchivedReceivedAlerts() throws Exception {
-        AlertEntity active = alertRepository.save(newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+        AlertEntity active = alertRepository.save(newAlert("ACTIVE", Instant.now(), null));
         recipientRepository.save(newRecipient(active.getId(), STUB_USER_ID));
 
-        AlertEntity archivedFromDraft = newAlert(AlertStatus.ARCHIVED, Instant.now(), null);
+        AlertEntity archivedFromDraft = newAlert("ARCHIVED", Instant.now(), null);
         archivedFromDraft.setActivatedAt(null);
         archivedFromDraft = alertRepository.save(archivedFromDraft);
         recipientRepository.save(newRecipient(archivedFromDraft.getId(), STUB_USER_ID));
 
-        AlertEntity draft = alertRepository.save(newAlert(AlertStatus.DRAFT, Instant.now(), null));
+        AlertEntity draft = alertRepository.save(newAlert("DRAFT", Instant.now(), null));
         recipientRepository.save(newRecipient(draft.getId(), STUB_USER_ID));
 
-        AlertEntity scheduled = newAlert(AlertStatus.SCHEDULED, Instant.now(), null);
+        AlertEntity scheduled = newAlert("SCHEDULED", Instant.now(), null);
         scheduled.setActivationAt(Instant.now().plusSeconds(3600));
         scheduled = alertRepository.save(scheduled);
         recipientRepository.save(newRecipient(scheduled.getId(), STUB_USER_ID));
@@ -399,7 +381,7 @@ class AlertApiIntegrationIT {
     void inbox_shouldNotQueryTypesForEachAlert() {
         for (int index = 0; index < 3; index++) {
             AlertEntity alert = alertRepository.save(
-                    newAlert(AlertStatus.ACTIVE, Instant.now(), null));
+                    newAlert("ACTIVE", Instant.now(), null));
             recipientRepository.save(newRecipient(alert.getId(), STUB_USER_ID));
         }
 
@@ -541,9 +523,9 @@ class AlertApiIntegrationIT {
                         PERMISSIONS_BY_ROLE.getOrDefault(roles, "ms03:alert:receive"));
     }
 
-    private AlertEntity newAlert(AlertStatus status, Instant createdAt, UUID simulationId) {
+    private AlertEntity newAlert(String status, Instant createdAt, UUID simulationId) {
         AlertEntity alert = new AlertEntity();
-        alert.setTypes(Set.of(AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("EARTHQUAKE"));
         alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
@@ -552,13 +534,13 @@ class AlertApiIntegrationIT {
         alert.setCreatedBy("it-user");
         alert.setCreatedAt(createdAt);
         alert.setUpdatedAt(createdAt);
-        if (status == AlertStatus.SCHEDULED) {
+        if (status == "SCHEDULED") {
             alert.setActivationAt(createdAt.plusSeconds(3600));
         }
-        if (status == AlertStatus.ACTIVE || status == AlertStatus.ARCHIVED) {
+        if (status == "ACTIVE" || status == "ARCHIVED") {
             alert.setActivatedAt(createdAt);
         }
-        if (status == AlertStatus.ARCHIVED) {
+        if (status == "ARCHIVED") {
             alert.setArchivedAt(createdAt);
         }
         return alert;

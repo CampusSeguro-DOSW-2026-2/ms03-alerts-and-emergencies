@@ -1,19 +1,18 @@
 
 package edu.eci.dosw.campusseguro.alertas.exception;
 
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
 
 public class InvalidAlertStateException extends RuntimeException {
 
-    private final AlertStatus currentStatus;
+    private final String currentStatus;
 
-    public InvalidAlertStateException(AlertStatus currentStatus) {
+    public InvalidAlertStateException(String currentStatus) {
         super("La alerta está en estado " + currentStatus
                 + " y no permite esta operación");
         this.currentStatus = currentStatus;
     }
 
-    public AlertStatus getCurrentStatus() {
+    public String getCurrentStatus() {
         return currentStatus;
     }
 }

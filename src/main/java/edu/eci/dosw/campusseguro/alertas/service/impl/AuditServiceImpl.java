@@ -2,10 +2,8 @@
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditAction;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AuditStatus;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
+import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -35,16 +33,16 @@ public class AuditServiceImpl implements AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(
             UUID alertId,
-            AuditAction action,
+            String action,
             String actor,
-            AlertStatus fromStatus,
-            AlertStatus toStatus,
+            String fromStatus,
+            String toStatus,
             String details) {
 
         Objects.requireNonNull(alertId, "Alert ID must not be null.");
         Objects.requireNonNull(action, "Audit action must not be null.");
 
-        if (action == AuditAction.END) {
+        if (AuditActions.END.equals(action)) {
             throw new IllegalArgumentException(
                     "END is a legacy audit action and cannot be emitted.");
         }
@@ -60,8 +58,8 @@ public class AuditServiceImpl implements AuditService {
         event.setAlertId(alertId);
         event.setAction(action);
         event.setActor(truncate(actor.strip(), MAX_ACTOR_LENGTH));
-        event.setFromStatus(toAuditStatus(fromStatus));
-        event.setToStatus(toAuditStatus(toStatus));
+        event.setFromStatus(toString(fromStatus));
+        event.setToStatus(toString(toStatus));
         event.setDetails(truncate(details, MAX_DETAILS_LENGTH));
         event.setCreatedAt(now);
         event.setUpdatedAt(now);
@@ -69,10 +67,10 @@ public class AuditServiceImpl implements AuditService {
         auditEventRepository.save(event);
     }
 
-    private AuditStatus toAuditStatus(AlertStatus status) {
+    private String toString(String status) {
         return status == null
                 ? null
-                : AuditStatus.valueOf(status.name());
+                : String.valueOf(status);
     }
 
     private String truncate(String value, int maxLength) {

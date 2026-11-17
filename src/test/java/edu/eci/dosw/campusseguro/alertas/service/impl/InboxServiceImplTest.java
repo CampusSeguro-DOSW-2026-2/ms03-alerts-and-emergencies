@@ -20,8 +20,6 @@ import edu.eci.dosw.campusseguro.alertas.entity.AlertConfirmationEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertScopeItemEntity;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertOrigin;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertStatus;
-import edu.eci.dosw.campusseguro.alertas.entity.enums.AlertType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidPaginationException;
@@ -31,7 +29,6 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -81,19 +78,19 @@ class InboxServiceImplTest {
     }
 
     private AlertEntity alert(
-            AlertStatus status,
+            String status,
             AlertOrigin origin,
             Instant activatedAt) {
 
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of(AlertType.FIRE, AlertType.EARTHQUAKE));
+        alert.setTypes(Set.of("FIRE", "EARTHQUAKE"));
         alert.setTitle("Evacuar");
         alert.setInstructions("Salir por la escalera");
         alert.setStatus(status);
         alert.setOrigin(origin);
         alert.setActivatedAt(activatedAt);
-        alert.setArchivedAt(status == AlertStatus.ARCHIVED ? NOW : null);
+        alert.setArchivedAt(status == "ARCHIVED" ? NOW : null);
         return alert;
     }
 
@@ -122,7 +119,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldUseActivePageZeroAndSizeTwentyByDefault() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.MANUAL, NOW);
+        AlertEntity alert = alert("ACTIVE", AlertOrigin.MANUAL, NOW);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         when(alertRepository.findInbox(
                 eq(ACTOR.userId()),
@@ -147,7 +144,7 @@ class InboxServiceImplTest {
         verify(alertRepository).findInbox(
                 eq(ACTOR.userId()),
                 eq(ACTOR.roles()),
-                eq(EnumSet.of(AlertStatus.ACTIVE)),
+                eq(Set.of("ACTIVE")),
                 eq(RecipientType.USER),
                 eq(RecipientType.ROLE),
                 pageableCaptor.capture());
@@ -163,7 +160,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldRequestArchivedStatus() {
-        AlertEntity alert = alert(AlertStatus.ARCHIVED, AlertOrigin.MANUAL, NOW);
+        AlertEntity alert = alert("ARCHIVED", AlertOrigin.MANUAL, NOW);
         when(alertRepository.findInbox(
                 eq(ACTOR.userId()),
                 anySet(),
@@ -181,7 +178,7 @@ class InboxServiceImplTest {
         verify(alertRepository).findInbox(
                 eq(ACTOR.userId()),
                 eq(ACTOR.roles()),
-                eq(EnumSet.of(AlertStatus.ARCHIVED)),
+                eq(Set.of("ARCHIVED")),
                 eq(RecipientType.USER),
                 eq(RecipientType.ROLE),
                 any(Pageable.class));
@@ -189,7 +186,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldRequestActiveAndArchivedForAll() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.MANUAL, NOW);
+        AlertEntity alert = alert("ACTIVE", AlertOrigin.MANUAL, NOW);
         when(alertRepository.findInbox(
                 eq(ACTOR.userId()),
                 anySet(),
@@ -207,7 +204,7 @@ class InboxServiceImplTest {
         verify(alertRepository).findInbox(
                 eq(ACTOR.userId()),
                 eq(ACTOR.roles()),
-                eq(EnumSet.of(AlertStatus.ACTIVE, AlertStatus.ARCHIVED)),
+                eq(Set.of("ACTIVE", "ARCHIVED")),
                 eq(RecipientType.USER),
                 eq(RecipientType.ROLE),
                 any(Pageable.class));
@@ -216,7 +213,7 @@ class InboxServiceImplTest {
     @Test
     void inbox_shouldUseSentinelRole_whenActorHasNoRoles() {
         AccessActor actor = new AccessActor("usr-002", Set.of(), Set.of());
-        AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.MANUAL, NOW);
+        AlertEntity alert = alert("ACTIVE", AlertOrigin.MANUAL, NOW);
         when(alertRepository.findInbox(
                 eq(actor.userId()),
                 anySet(),
@@ -234,7 +231,7 @@ class InboxServiceImplTest {
         verify(alertRepository).findInbox(
                 eq(actor.userId()),
                 eq(Set.of("__NO_ROLE__")),
-                eq(EnumSet.of(AlertStatus.ACTIVE)),
+                eq(Set.of("ACTIVE")),
                 eq(RecipientType.USER),
                 eq(RecipientType.ROLE),
                 any(Pageable.class));
@@ -242,7 +239,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldMapScopeTypesAndConfirmation() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.SIMULATION, NOW);
+        AlertEntity alert = alert("ACTIVE", AlertOrigin.SIMULATION, NOW);
         AlertScopeItemEntity scopeItem = scopeItem();
         ScopeRequest scope = new ScopeRequest(ScopeType.CAMPUS, List.of());
         AlertConfirmationEntity confirmation = confirmation();
@@ -264,7 +261,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of(confirmation));
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
         when(alertMapper.toScope(List.of(scopeItem))).thenReturn(scope);
 
         InboxAlertResponse response =
@@ -274,10 +271,10 @@ class InboxServiceImplTest {
 
         assertEquals(ALERT_ID, response.id());
         assertEquals(
-                List.of(AlertType.EARTHQUAKE, AlertType.FIRE),
+                List.of("EARTHQUAKE", "FIRE"),
                 response.types());
         assertEquals("Evacuar", response.title());
-        assertEquals(AlertStatus.ACTIVE, response.status());
+        assertEquals("ACTIVE", response.status());
         assertEquals(AlertOrigin.SIMULATION, response.origin());
         assertEquals(scope, response.scope());
         assertEquals("Salir por la escalera", response.instructions());
@@ -288,7 +285,7 @@ class InboxServiceImplTest {
 
     @Test
     void inbox_shouldLeaveConfirmationNull_whenActorHasNotConfirmed() {
-        AlertEntity alert = alert(AlertStatus.ACTIVE, AlertOrigin.MANUAL, NOW);
+        AlertEntity alert = alert("ACTIVE", AlertOrigin.MANUAL, NOW);
         when(alertRepository.findInbox(
                 eq(ACTOR.userId()),
                 anySet(),
@@ -307,7 +304,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of());
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of(AlertType.EARTHQUAKE, AlertType.FIRE));
+                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
 
         InboxAlertResponse response =
                 service.inbox(InboxStatus.ACTIVE, 0, 20, ACTOR)
