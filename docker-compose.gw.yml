@@ -14,12 +14,15 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       GATEWAY_DOWNSTREAM_TIMEOUT_MS: ${GATEWAY_DOWNSTREAM_TIMEOUT_MS:-15000}
+      # Tabla de rutas explicita: mantiene el stack arrancando con cualquier version de la
+      # imagen del Gateway. Debe seguir la tabla de gateway.routes de su application.yaml
+      # (MS01 incluye /api/v1/roles/** y /api/v1/permissions desde el catalogo de roles).
       GATEWAY_ROUTES_0_ID: ms01
       GATEWAY_ROUTES_0_URI: http://ms01-identity-and-access:8081
-      GATEWAY_ROUTES_0_PATHS: /api/v1/auth/**,/api/v1/users,/api/v1/users/**,/api/v1/roles
+      GATEWAY_ROUTES_0_PATHS: /api/v1/auth/**,/api/v1/users,/api/v1/users/**,/api/v1/roles,/api/v1/roles/**,/api/v1/permissions
       GATEWAY_ROUTES_1_ID: ms03
       GATEWAY_ROUTES_1_URI: http://ms03-alerts-and-emergencies:8083
-      GATEWAY_ROUTES_1_PATHS: ${SQUAD_PATHS:?SQUAD_PATHS es obligatoria}
+      GATEWAY_ROUTES_1_PATHS: ${SQUAD_PATHS:-/api/v1/alertas,/api/v1/alertas/**}
       GW_SERVICE_KEY_MS01: ${MS01_SERVICE_KEY:-}
       GW_SERVICE_KEY_MS03: ${SQUAD_SERVICE_KEY:?SQUAD_SERVICE_KEY es obligatoria}
     networks:
@@ -126,7 +129,8 @@ services:
       POSTGRES_PASSWORD: ${MS01_DB_PASSWORD:?MS01_DB_PASSWORD es obligatoria}
     volumes:
       - ms01-db-data:/var/lib/postgresql/data
-      - ./integration/ms01-seed.sql:/docker-entrypoint-initdb.d/99_ms01_seed.sql:ro
+      # Sin seed propio: MS01 crea el esquema y los catalogos de roles y permisos en
+      # database/001_create_schema.sql, y el administrador inicial sale de BOOTSTRAP_ADMIN_*.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
