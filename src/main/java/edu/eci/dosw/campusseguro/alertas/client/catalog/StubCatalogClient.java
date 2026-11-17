@@ -6,6 +6,7 @@ import edu.eci.dosw.campusseguro.alertas.dto.request.RecipientRequest;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,8 +34,8 @@ public class StubCatalogClient implements CatalogClient {
     }
 
     @Override
-    public void validateBuildingsZones(ScopeType type, List<String> ids, String userId, String rolesCsv) {
-        campusScopeClient.validate(type, ids, userId, rolesCsv);
+    public void validateBuildingsZones(ScopeType type, List<String> ids, CallerIdentity caller) {
+        campusScopeClient.validate(type, ids, caller);
     }
 
     @Override

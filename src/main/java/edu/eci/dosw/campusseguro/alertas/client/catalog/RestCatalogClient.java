@@ -7,8 +7,9 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.entity.enums.ScopeType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
+import edu.eci.dosw.campusseguro.alertas.security.CallerIdentity;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
-import edu.eci.dosw.campusseguro.alertas.security.UserRole;
+import edu.eci.dosw.campusseguro.alertas.security.RoleNames;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -34,8 +35,12 @@ import org.springframework.web.client.RestClientResponseException;
  *
  * <p>Los usuarios se resuelven con las rutas internas de MS01
  * ({@code POST /api/v1/users/batch} y {@code GET /api/v1/users/by-role}), que se autorizan por el
- * servicio llamante ({@code X-Service-Name}) y no por la matriz Rol-Permiso. Por eso ya no se envía
+ * servicio llamante ({@code X-Service-Name}) y no por los permisos de un usuario. Por eso ya no se envía
  * identidad de usuario ni se necesita una cuenta técnica.
+ *
+ * <p>Los roles dejaron de ser un catálogo fijo del código: MS01 los guarda como datos. Un destinatario
+ * dirigido a un rol se acepta si su nombre tiene el formato de los Estándares; que el rol exista lo
+ * comprueba MS01 al resolver los usuarios y responde {@code 400} con el campo {@code rol} si no existe.
  *
  * <p>El alcance (edificios y zonas) se valida contra MS02 a través de {@link CampusScopeClient}.
  */
@@ -80,8 +85,8 @@ public class RestCatalogClient implements CatalogClient {
     }
 
     @Override
-    public void validateBuildingsZones(ScopeType type, List<String> ids, String userId, String rolesCsv) {
-        campusScopeClient.validate(type, ids, userId, rolesCsv);
+    public void validateBuildingsZones(ScopeType type, List<String> ids, CallerIdentity caller) {
+        campusScopeClient.validate(type, ids, caller);
     }
 
     @Override
@@ -111,7 +116,7 @@ public class RestCatalogClient implements CatalogClient {
                 continue;
             }
 
-            if (UserRole.from(recipient.id()).isEmpty()) {
+            if (!RoleNames.hasStoredFormat(recipient.id())) {
                 invalid.add(recipient.id());
             }
         }

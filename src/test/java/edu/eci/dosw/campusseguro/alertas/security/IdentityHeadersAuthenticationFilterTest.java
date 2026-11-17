@@ -59,6 +59,9 @@ class IdentityHeadersAuthenticationFilterTest {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(IdentityHeaderParser.USER_ID_HEADER, USER_ID);
         request.addHeader(IdentityHeaderParser.USER_ROLE_HEADER, "COORDINADOR");
+        request.addHeader(
+                IdentityHeaderParser.USER_PERMISSION_HEADER,
+                "ms03:alert:manage,ms03:alert:receive");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         filter.doFilter(request, response, chain);
@@ -70,6 +73,26 @@ class IdentityHeadersAuthenticationFilterTest {
         assertEquals(USER_ID, ((RequesterIdentity) authentication.getPrincipal()).userId().toString());
         assertTrue(authentication.getAuthorities().stream()
                 .anyMatch(authority -> "ms03:alert:manage".equals(authority.getAuthority())));
+        assertTrue(authentication.getAuthorities().stream()
+                .noneMatch(authority -> "COORDINADOR".equals(authority.getAuthority())));
+    }
+
+    @Test
+    void filter_shouldRejectRequest_whenPermissionHeaderIsMissing() throws Exception {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(IdentityHeaderParser.USER_ID_HEADER, USER_ID);
+        request.addHeader(IdentityHeaderParser.USER_ROLE_HEADER, "COORDINADOR");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(request, response, chain);
+
+        verify(entryPoint).commence(
+                eq(request),
+                eq(response),
+                any(InvalidIdentityHeadersException.class));
+        verify(chain, never()).doFilter(
+                any(HttpServletRequest.class),
+                any(HttpServletResponse.class));
     }
 
     @Test

@@ -22,8 +22,29 @@ class OpenApiConfigTest {
         assertNull(api.getComponents().getSecuritySchemes());
         assertTrue(api.getComponents().getParameters().containsKey("UserIdHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("UserRoleHeader"));
+        assertTrue(api.getComponents().getParameters().containsKey("UserPermissionHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("ServiceNameHeader"));
         assertTrue(api.getComponents().getParameters().containsKey("CorrelationIdHeader"));
+    }
+
+    @Test
+    void permissionHeader_shouldBeRequiredAndTheAuthorizationSource() {
+        OpenAPI api = config.campusSeguroAlertApi();
+
+        var header = api.getComponents().getParameters().get("UserPermissionHeader");
+
+        assertEquals("X-User-Permission", header.getName());
+        assertTrue(header.getRequired());
+        assertTrue(header.getDescription().contains("autorización"));
+    }
+
+    @Test
+    void roleHeader_shouldBeInformativeOnly() {
+        OpenAPI api = config.campusSeguroAlertApi();
+
+        var header = api.getComponents().getParameters().get("UserRoleHeader");
+
+        assertTrue(header.getDescription().contains("no conceden permisos"));
     }
 
     @Test
@@ -44,6 +65,6 @@ class OpenApiConfigTest {
 
         config.identityHeadersCustomizer().customise(api);
 
-        assertEquals(4, api.getPaths().get("/api/v1/alertas").getGet().getParameters().size());
+        assertEquals(5, api.getPaths().get("/api/v1/alertas").getGet().getParameters().size());
     }
 }

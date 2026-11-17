@@ -18,7 +18,7 @@ public class AlertActivationScheduler {
     private static final Logger log = LoggerFactory.getLogger(AlertActivationScheduler.class);
 
     private static final RequesterContext SYSTEM =
-            new RequesterContext(ActorResolver.SYSTEM_SCHEDULER, Set.of(), null);
+            new RequesterContext(ActorResolver.SYSTEM_SCHEDULER, Set.of(), Set.of(), null);
 
     private final AlertLifecycleService alertLifecycleService;
 

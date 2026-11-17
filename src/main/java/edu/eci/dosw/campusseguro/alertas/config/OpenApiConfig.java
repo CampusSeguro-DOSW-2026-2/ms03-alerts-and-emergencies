@@ -38,7 +38,15 @@ public class OpenApiConfig {
                         .addParameters("UserIdHeader", identityHeader(
                                 "X-User-Id", "UUID del usuario emisor.", true))
                         .addParameters("UserRoleHeader", identityHeader(
-                                "X-User-Role", "Roles oficiales separados por coma.", true))
+                                "X-User-Role",
+                                "Nombres de los roles del usuario separados por coma. "
+                                        + "Son informativos: no conceden permisos.",
+                                true))
+                        .addParameters("UserPermissionHeader", identityHeader(
+                                "X-User-Permission",
+                                "Códigos de los permisos efectivos del usuario separados "
+                                        + "por coma. Son la única fuente de autorización.",
+                                true))
                         .addParameters("ServiceNameHeader", identityHeader(
                                 "X-Service-Name",
                                 "Metadato opcional de auditoría. No altera el origen "
@@ -55,6 +63,7 @@ public class OpenApiConfig {
         List<Parameter> headers = List.of(
                 new Parameter().$ref("#/components/parameters/UserIdHeader"),
                 new Parameter().$ref("#/components/parameters/UserRoleHeader"),
+                new Parameter().$ref("#/components/parameters/UserPermissionHeader"),
                 new Parameter().$ref("#/components/parameters/ServiceNameHeader"),
                 new Parameter().$ref("#/components/parameters/CorrelationIdHeader"));
 

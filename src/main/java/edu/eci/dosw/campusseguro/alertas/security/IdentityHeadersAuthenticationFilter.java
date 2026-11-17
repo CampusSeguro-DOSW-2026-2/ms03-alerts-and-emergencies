@@ -33,8 +33,10 @@ public class IdentityHeadersAuthenticationFilter extends OncePerRequestFilter {
 
         String userId = request.getHeader(IdentityHeaderParser.USER_ID_HEADER);
         String roles = request.getHeader(IdentityHeaderParser.USER_ROLE_HEADER);
+        String permissions =
+                request.getHeader(IdentityHeaderParser.USER_PERMISSION_HEADER);
 
-        if (isBlank(userId) && isBlank(roles)) {
+        if (isBlank(userId) && isBlank(roles) && isBlank(permissions)) {
             filterChain.doFilter(request, response);
             return;
         }

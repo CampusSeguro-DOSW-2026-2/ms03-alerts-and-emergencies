@@ -6,6 +6,14 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+/**
+ * Resuelve el {@link RequesterContext} de la petición en curso a partir de la autenticación de Spring
+ * Security.
+ *
+ * <p>La autenticación la dejó {@link IdentityHeadersAuthenticationFilter}: las autoridades son los
+ * códigos de permiso que recibió en {@code X-User-Permission}, así que este resolver solo los transporta
+ * y nunca los deriva de un nombre de rol.
+ */
 @Component
 public class ActorResolver {
 
@@ -31,17 +39,19 @@ public class ActorResolver {
             return new RequesterContext(
                     truncate(identity.userId().toString()),
                     identity.roles(),
+                    identity.permissions(),
                     identity.serviceName());
         }
 
-        Set<UserRole> roles = authentication.getAuthorities().stream()
-                .map(authority -> UserRole.from(authority.getAuthority()))
-                .flatMap(java.util.Optional::stream)
+        Set<String> permissions = authentication.getAuthorities().stream()
+                .map(authority -> authority.getAuthority())
+                .filter(Permission::hasFormat)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
 
         return new RequesterContext(
                 truncate(authentication.getName()),
-                roles,
+                Set.of(),
+                permissions,
                 null);
     }
 

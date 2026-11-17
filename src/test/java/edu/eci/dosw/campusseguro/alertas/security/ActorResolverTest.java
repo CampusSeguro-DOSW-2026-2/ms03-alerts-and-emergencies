@@ -54,22 +54,20 @@ class ActorResolverTest {
 
     @Test
     void resolve_shouldReturnAuthenticationName_whenUserIsAuthenticated() {
-        authenticateAs("coordinator-1", new SimpleGrantedAuthority("ROLE_COORDINADOR"));
+        authenticateAs("coordinator-1", new SimpleGrantedAuthority("ms03:alert:manage"));
 
         assertEquals("coordinator-1", resolver.resolve());
     }
 
     @Test
-    void requester_shouldReturnIdentityActorAndRoles_whenPrincipalIsRequesterIdentity() {
-        authenticate(new RequesterIdentity(
-                USER_ID,
-                Set.of(UserRole.COORDINADOR),
-                "ms03"));
+    void requester_shouldReturnIdentityActorRolesAndPermissions() {
+        authenticate(Identities.identity(USER_ID.toString(), "ms03"));
 
         RequesterContext context = resolver.requester();
 
         assertEquals(USER_ID.toString(), context.actor());
-        assertEquals(Set.of(UserRole.COORDINADOR), context.roles());
+        assertEquals(Set.of("COORDINADOR"), context.roles());
+        assertEquals(Identities.COORDINADOR, context.permissions());
         assertEquals("ms03", context.serviceName());
         assertTrue(context.has(Permission.ALERT_MANAGE));
         assertTrue(context.has(Permission.ALERT_RECEIVE));
@@ -81,7 +79,8 @@ class ActorResolverTest {
     void requester_shouldReturnAuditActorWithServicePrefix_forAnyService() {
         authenticate(new RequesterIdentity(
                 USER_ID,
-                Set.of(UserRole.ORGANIZADOR),
+                Set.of("DIRECTOR_DE_BIENESTAR"),
+                Set.of("ms03:alert:manage_drill"),
                 "MS07"));
 
         RequesterContext context = resolver.requester();
@@ -92,16 +91,29 @@ class ActorResolverTest {
     }
 
     @Test
-    void requester_shouldMapAuthoritiesToOfficialRoles_whenPrincipalIsNotRequesterIdentity() {
+    void requester_shouldMapAuthoritiesToPermissions_whenPrincipalIsNotRequesterIdentity() {
         authenticateAs(
                 "coordinator-1",
                 new SimpleGrantedAuthority("ms03:alert:manage"),
-                new SimpleGrantedAuthority("ROLE_COORDINADOR"));
+                new SimpleGrantedAuthority("ms03:alert:receive"));
 
         RequesterContext context = resolver.requester();
 
-        assertEquals(Set.of(UserRole.COORDINADOR), context.roles());
+        assertEquals(
+                Set.of("ms03:alert:manage", "ms03:alert:receive"),
+                context.permissions());
         assertTrue(context.has(Permission.ALERT_MANAGE));
+        assertFalse(context.has(Permission.ALERT_READ_HISTORY));
+    }
+
+    @Test
+    void requester_shouldNotDerivePermissionsFromRoleAuthorities() {
+        authenticateAs("coordinator-1", new SimpleGrantedAuthority("ROLE_COORDINADOR"));
+
+        RequesterContext context = resolver.requester();
+
+        assertTrue(context.permissions().isEmpty());
+        assertFalse(context.has(Permission.ALERT_MANAGE));
     }
 
     @Test
@@ -111,6 +123,7 @@ class ActorResolverTest {
         RequesterContext context = resolver.requester();
 
         assertTrue(context.roles().isEmpty());
+        assertTrue(context.permissions().isEmpty());
         assertEquals("auditor-1", context.actor());
     }
 
@@ -129,7 +142,7 @@ class ActorResolverTest {
 
     @Test
     void resolve_shouldTruncateActor_whenNameIsLongerThan64Chars() {
-        authenticateAs("a".repeat(100), new SimpleGrantedAuthority("ROLE_COORDINADOR"));
+        authenticateAs("a".repeat(100), new SimpleGrantedAuthority("ms03:alert:manage"));
 
         String actor = resolver.resolve();
 
@@ -140,7 +153,7 @@ class ActorResolverTest {
     @Test
     void resolve_shouldNotTruncateActor_whenNameIsExactly64Chars() {
         String name = "b".repeat(64);
-        authenticateAs(name, new SimpleGrantedAuthority("ROLE_COORDINADOR"));
+        authenticateAs(name, new SimpleGrantedAuthority("ms03:alert:manage"));
 
         assertEquals(name, resolver.resolve());
     }

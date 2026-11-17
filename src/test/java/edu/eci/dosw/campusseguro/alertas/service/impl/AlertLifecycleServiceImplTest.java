@@ -28,7 +28,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertScopeItemRepository;
 import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
-import edu.eci.dosw.campusseguro.alertas.security.UserRole;
+import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
@@ -56,15 +56,9 @@ class AlertLifecycleServiceImplTest {
     private static final String CORRELATION_ID =
             "11111111-1111-4111-8111-111111111111";
 
-    private static final RequesterContext REQUESTER = new RequesterContext(
-            ACTOR,
-            Set.of(UserRole.COORDINADOR),
-            null);
+    private static final RequesterContext REQUESTER = Identities.coordinador(ACTOR);
 
-    private static final RequesterContext ORGANIZER = new RequesterContext(
-            "organizer",
-            Set.of(UserRole.ORGANIZADOR),
-            null);
+    private static final RequesterContext ORGANIZER = Identities.organizador("organizer");
 
     @Mock
     private AlertRepository alertRepository;
