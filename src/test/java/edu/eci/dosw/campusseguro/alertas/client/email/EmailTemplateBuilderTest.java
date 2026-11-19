@@ -17,6 +17,8 @@ class EmailTemplateBuilderTest {
 
     private static final UUID ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
 
+    private static final String LOGO = "https://cdn.example/branding/campusseguro-logo.png";
+
     private AlertEntity alert(String type, String instructions) {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
@@ -26,9 +28,13 @@ class EmailTemplateBuilderTest {
         return alert;
     }
 
+    private EmailTemplateBuilder builder(String appBaseUrl) {
+        return new EmailTemplateBuilder(appBaseUrl, LOGO, AlertTypeCatalogStub.create());
+    }
+
     @Test
     void build_shouldContainTypeInstructionsAndLink() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("https://campus.example/", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("https://campus.example/");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
         EmailMessage message = builder.build(alert("FIRE", "Salir por la escalera"), user);
@@ -36,6 +42,7 @@ class EmailTemplateBuilderTest {
         assertEquals("ana@example.edu.co", message.to());
         assertEquals("Ana", message.toName());
         assertTrue(message.subject().contains("Incendio"));
+        assertTrue(message.html().contains("Titulo de prueba"));
         assertTrue(message.html().contains("Salir por la escalera"));
         assertTrue(message.html().contains(
                 "https://campus.example/bandeja?alerta=" + ID));
@@ -45,8 +52,56 @@ class EmailTemplateBuilderTest {
     }
 
     @Test
+    void build_shouldShowTheLinkAsAButtonInsteadOfTheRawAddress() {
+        EmailMessage message = builder("https://campus.example").build(
+                alert("EARTHQUAKE", "Evacuar"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana"));
+
+        String url = "https://campus.example/bandeja?alerta=" + ID;
+        assertTrue(message.html().contains("href=\"" + url + "\""));
+        assertTrue(message.html().contains(">Ver y confirmar alerta</a>"));
+        assertFalse(message.html().contains(">" + url + "<"));
+    }
+
+    @Test
+    void build_shouldUseTheLogoAndTheBrandColors() {
+        String html = builder("https://campus.example").build(
+                alert("FIRE", "Salir"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana")).html();
+
+        assertTrue(html.contains("<img src=\"" + LOGO + "\""));
+        assertTrue(html.contains("CampusSeguro"));
+        assertTrue(html.contains("#990000"));
+        assertTrue(html.contains("#FFF7ED"));
+    }
+
+    @Test
+    void build_shouldKeepTheWordmark_whenThereIsNoLogoUrl() {
+        EmailTemplateBuilder withoutLogo = new EmailTemplateBuilder(
+                "https://campus.example", " ", AlertTypeCatalogStub.create());
+
+        String html = withoutLogo.build(
+                alert("FIRE", "Salir"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana")).html();
+
+        assertFalse(html.contains("<img"));
+        assertTrue(html.contains("CampusSeguro"));
+    }
+
+    @Test
+    void build_shouldUseTheBlueAccentForOperationalAlerts() {
+        String html = builder("https://campus.example").build(
+                alert("OPERATIVA", "Cierre de cafetería"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana")).html();
+
+        assertTrue(html.contains("#2563EB"));
+        assertTrue(html.contains("bgcolor=\"#2563EB\""));
+        assertTrue(html.contains(">Ver el aviso</a>"));
+    }
+
+    @Test
     void build_shouldEscapeUserControlledHtmlAndQuotes() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("http://localhost:5173");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "<Ana & \"Luis\">");
 
         EmailMessage message = builder.build(
@@ -62,7 +117,7 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldUsePlainTextInstructions_butEscapeHtmlVersion() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("http://localhost:5173");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", null);
 
         EmailMessage message = builder.build(alert("EARTHQUAKE", "<b>Evacuar</b>"), user);
@@ -74,7 +129,7 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldTranslateEveryEmergencyTypeInCanonicalOrder() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("http://localhost:5173");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
         AlertEntity alert = alert("OTHER", "x");
         alert.setTypes(Set.of("OTHER", "FIRE", "EARTHQUAKE"));
@@ -89,7 +144,7 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldUseOperationalSubjectAndOmitBaseMessage() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("http://localhost:5173", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("http://localhost:5173");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
         EmailMessage message = builder.build(alert("OPERATIVA", "Cierre de cafetería"), user);
@@ -103,7 +158,7 @@ class EmailTemplateBuilderTest {
 
     @Test
     void build_shouldOmitLink_whenBaseUrlIsBlank() {
-        EmailTemplateBuilder builder = new EmailTemplateBuilder("  ", AlertTypeCatalogStub.create());
+        EmailTemplateBuilder builder = builder("  ");
         ResolvedUser user = new ResolvedUser("usr-001", "ana@example.edu.co", "Ana");
 
         EmailMessage message = builder.build(alert("EARTHQUAKE", "Evacuar"), user);
