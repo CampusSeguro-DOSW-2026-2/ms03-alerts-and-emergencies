@@ -177,7 +177,7 @@ The `local` profile is active by default and reads `.env` when present. Start Po
 docker compose up -d postgres
 ```
 
-Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS06_URL`, `MS_SERVICE_KEY`, `MS06_ALERT_TYPES_PATH`, `MS06_SYSTEM_USER_ID`, `MS06_SYSTEM_USER_ROLE`, `MS06_SYSTEM_USER_PERMISSIONS`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
+Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS06_URL`, `MS_SERVICE_KEY`, `MS06_ALERT_TYPES_PATH`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
 
 Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch` and `GET /api/v1/users/by-role`), authorized by `X-Service-Name`, so no technical user identity is needed. Scope (buildings and zones) is validated against MS02 through `GET /api/v1/buildings/{id}` and `GET /api/v1/safe-zones/{id}`. The alert-type catalog is replicated from MS06 through the Gateway (`GET /api/v1/tipos-alerta`), authorized by `X-Service-Key` plus a configurable system identity. All three services are reached through the API Gateway, so `MS01_URL`, `MS02_URL` and `MS06_URL` must point to the Gateway and `MS_SERVICE_KEY` must match the Gateway's `GW_SERVICE_KEY_MS03`.
 

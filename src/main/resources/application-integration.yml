@@ -19,9 +19,6 @@ app:
       base-url: ${MS06_URL:http://localhost:8080}
       path: ${MS06_ALERT_TYPES_PATH:/api/v1/tipos-alerta}
       service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
-      system-user-id: ${MS06_SYSTEM_USER_ID:00000000-0000-4000-8000-000000000000}
-      system-user-role: ${MS06_SYSTEM_USER_ROLE:SERVICE_MS03}
-      system-user-permissions: ${MS06_SYSTEM_USER_PERMISSIONS:ms06:real_event:read}
       connect-timeout-ms: ${MS06_CONNECT_TIMEOUT_MS:2000}
       read-timeout-ms: ${MS06_READ_TIMEOUT_MS:2000}
       sync-ms: ${MS06_SYNC_MS:60000}
