@@ -353,7 +353,7 @@
                                     "pm.test('status 201', () => pm.response.to.have.status(201));",
                                     "const j = pm.response.json();",
                                     "pm.test('ACTIVE', () => pm.expect(j.status).to.eql('ACTIVE'));",
-                                    "pm.test('tipos multiples', () => pm.expect(pm.response.json().types).to.eql(['EARTHQUAKE', 'FIRE']));",
+                                    "pm.test('tipos multiples', () => pm.expect(pm.response.json().types).to.eql(['SISMO', 'INCENDIO']));",
                                     "pm.test('campos del contrato', () => ['id','types','title','scope','recipients','activatedAt'].forEach(k => pm.expect(j).to.have.property(k)));",
                                     "pm.test('correlation id', () => pm.expect(pm.response.headers.get('X-Correlation-ID')).to.eql(pm.collectionVariables.get('correlationId')));",
                                     "pm.collectionVariables.set('activeId', j.id);"
@@ -384,7 +384,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"EARTHQUAKE\",\n    \"FIRE\"\n  ],\n  \"title\": \"Sismo en bloque B\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B y dirigirse al punto de encuentro.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activateImmediately\": true\n}",
+                            "raw": "{\n  \"types\": [\n    \"SISMO\",\n    \"INCENDIO\"\n  ],\n  \"title\": \"Sismo en bloque B\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B y dirigirse al punto de encuentro.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activateImmediately\": true\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -432,7 +432,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Jornada de prevencion\",\n  \"scope\": {\n    \"type\": \"CAMPUS\"\n  },\n  \"instructions\": \"Seguir las indicaciones de los brigadistas.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"{{futureAt}}\"\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Jornada de prevencion\",\n  \"scope\": {\n    \"type\": \"CAMPUS\"\n  },\n  \"instructions\": \"Seguir las indicaciones de los brigadistas.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"{{futureAt}}\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -480,7 +480,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Borrador de simulacro\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-002\"\n    ]\n  },\n  \"instructions\": \"Borrador sujeto a revision.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Borrador de simulacro\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-002\"\n    ]\n  },\n  \"instructions\": \"Borrador sujeto a revision.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -526,7 +526,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas/{{draftId}}",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"title\": \"Borrador de simulacro (editado)\",\n  \"types\": [\n    \"OTHER\",\n    \"FIRE\"\n  ]\n}",
+                            "raw": "{\n  \"title\": \"Borrador de simulacro (editado)\",\n  \"types\": [\n    \"OTRO\",\n    \"INCENDIO\"\n  ]\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -839,7 +839,43 @@
                                 "value": "application/json"
                             }
                         ],
-                        "url": "{{baseUrl}}/api/v1/alertas?page=0&size=20&type=EARTHQUAKE&type=FIRE"
+                        "url": "{{baseUrl}}/api/v1/alertas?page=0&size=20&type=SISMO&type=INCENDIO"
+                    }
+                },
+                {
+                    "name": "Listar tipos de alerta",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const tipos = pm.response.json();",
+                                    "pm.test('lista ordenada', () => pm.expect(tipos).to.be.an('array').and.not.empty);",
+                                    "pm.test('incluye OPERATIVA local', () => pm.expect(tipos.map(t => t.code)).to.include('OPERATIVA'));",
+                                    "pm.test('contrato code label displayOrder', () => tipos.forEach(t => ['code','label','displayOrder'].forEach(k => pm.expect(t).to.have.property(k))));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/tipos"
                     }
                 },
                 {
@@ -994,7 +1030,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1042,7 +1078,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Fecha invalida\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"2020-01-01T00:00:00Z\"\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Fecha invalida\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  },\n  \"activationAt\": \"2020-01-01T00:00:00Z\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1164,7 +1200,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"No permitido\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"No permitido\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1212,7 +1248,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Alerta manual de organizador\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Alerta manual de organizador\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"x\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"MANUAL\"\n  }\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1413,7 +1449,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Simulacro de evacuacion\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Simulacro de evacuacion\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1461,7 +1497,7 @@
                         "url": "{{baseUrl}}/api/v1/alertas",
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"types\": [\n    \"OTHER\"\n  ],\n  \"title\": \"Simulacro de evacuacion (otra version)\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
+                            "raw": "{\n  \"types\": [\n    \"OTRO\"\n  ],\n  \"title\": \"Simulacro de evacuacion (otra version)\",\n  \"scope\": {\n    \"type\": \"BUILDING\",\n    \"ids\": [\n      \"BLD-001\"\n    ]\n  },\n  \"instructions\": \"Evacuar el bloque B.\",\n  \"recipients\": [\n    {\n      \"type\": \"ROLE\",\n      \"id\": \"ESTUDIANTE\"\n    }\n  ],\n  \"origin\": {\n    \"type\": \"SIMULATION\",\n    \"simulationId\": \"{{simulationId}}\"\n  },\n  \"activateImmediately\": true\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"

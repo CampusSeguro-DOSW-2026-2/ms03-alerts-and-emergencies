@@ -80,6 +80,21 @@ app:
     service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
     connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
+  alerts:
+    types:
+      # MS06 es la fuente de verdad; el API Gateway publica /api/v1/tipos-alerta hacia MS06.
+      base-url: ${MS06_URL:http://localhost:8080}
+      path: ${MS06_ALERT_TYPES_PATH:/api/v1/tipos-alerta}
+      service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+      system-user-id: ${MS06_SYSTEM_USER_ID:00000000-0000-4000-8000-000000000000}
+      system-user-role: ${MS06_SYSTEM_USER_ROLE:SERVICE_MS03}
+      system-user-permissions: ${MS06_SYSTEM_USER_PERMISSIONS:ms06:real_event:read}
+      connect-timeout-ms: ${MS06_CONNECT_TIMEOUT_MS:2000}
+      read-timeout-ms: ${MS06_READ_TIMEOUT_MS:2000}
+      # Sincronización periódica, arranque y throttle del refresco bajo demanda.
+      sync-ms: ${MS06_SYNC_MS:60000}
+      sync-initial-delay-ms: ${MS06_SYNC_INITIAL_DELAY_MS:5000}
+      refresh-throttle-ms: ${MS06_REFRESH_THROTTLE_MS:5000}
   campus:
     # Validación del alcance (edificios y zonas) contra MS02 a través del API Gateway.
     base-url: ${MS02_URL:http://localhost:8080}

@@ -97,7 +97,7 @@ class NotificationServiceTest {
     private AlertEntity alert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of("EARTHQUAKE"));
+        alert.setTypes(Set.of("SISMO"));
         alert.setStatus("ACTIVE");
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions("Evacuar");

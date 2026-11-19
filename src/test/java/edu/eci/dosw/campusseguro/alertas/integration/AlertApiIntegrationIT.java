@@ -168,6 +168,22 @@ class AlertApiIntegrationIT {
     }
 
     @Test
+    void alertTypes_shouldReturnTheActiveMs06CatalogPlusOperativa() throws Exception {
+        mockMvc.perform(as(
+                        get("/api/v1/alertas/tipos"),
+                        STUDENT_ID,
+                        "ESTUDIANTE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(7)))
+                .andExpect(jsonPath("$[0].code").value("SISMO"))
+                .andExpect(jsonPath("$[0].label").value("Sismo"))
+                .andExpect(jsonPath("$[0].displayOrder").value(1))
+                .andExpect(jsonPath("$[6].code").value("OPERATIVA"))
+                .andExpect(jsonPath("$[6].label").value("Operativa"))
+                .andExpect(jsonPath("$[6].displayOrder").value(1000));
+    }
+
+    @Test
     void health_shouldReportUpWithoutDetails() throws Exception {
         mockMvc.perform(get("/actuator/health"))
                 .andExpect(status().isOk())
@@ -184,7 +200,7 @@ class AlertApiIntegrationIT {
 
         AlertFilter filter = new AlertFilter(
                 "ACTIVE",
-                List.of("EARTHQUAKE"),
+                List.of("SISMO"),
                 null,
                 null,
                 null,
@@ -356,7 +372,7 @@ class AlertApiIntegrationIT {
                 .andExpect(jsonPath("$.contenido", hasSize(1)))
                 .andExpect(jsonPath("$.contenido[0].id").value(active.getId().toString()))
                 .andExpect(jsonPath("$.contenido[0].status").value("ACTIVE"))
-                .andExpect(jsonPath("$.contenido[0].types[0]").value("EARTHQUAKE"))
+                .andExpect(jsonPath("$.contenido[0].types[0]").value("SISMO"))
                 .andExpect(jsonPath("$.contenido[0].confirmedAt").value(nullValue()));
 
         mockMvc.perform(as(
@@ -525,7 +541,7 @@ class AlertApiIntegrationIT {
 
     private AlertEntity newAlert(String status, Instant createdAt, UUID simulationId) {
         AlertEntity alert = new AlertEntity();
-        alert.setTypes(Set.of("EARTHQUAKE"));
+        alert.setTypes(Set.of("SISMO"));
         alert.setTitle("Simulacro sismico");
         alert.setStatus(status);
         alert.setInstructions("Evacuar el campus");
@@ -573,7 +589,7 @@ class AlertApiIntegrationIT {
     private String createRequestJson() {
         return """
                 {
-                  "types": ["EARTHQUAKE"],
+                  "types": ["SISMO"],
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "Evacuar el campus",
@@ -587,7 +603,7 @@ class AlertApiIntegrationIT {
             String instructions) {
         return """
                 {
-                  "types": ["EARTHQUAKE"],
+                  "types": ["SISMO"],
                   "title": "Simulacro sismico",
                   "scope": {"type": "CAMPUS"},
                   "instructions": "%s",

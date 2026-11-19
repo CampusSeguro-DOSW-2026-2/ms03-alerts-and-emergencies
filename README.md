@@ -34,8 +34,9 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 
 ### Alert model
 
-- `types` is an array with one or more values from `EARTHQUAKE`, `FIRE`, `OTHER` and `OPERATIVA`. `SIMULATION` is no longer a type; it is expressed with `origin=SIMULATION`.
+- `types` is an array with one or more values from the alert-type catalog. MS06 owns the catalog: `SISMO`, `INCENDIO`, `DISTURBIOS`, `INUNDACION`, `FUGA_QUIMICA` and `OTRO`. MS03 adds the local `OPERATIVA` type, which is never synchronized. `SIMULATION` is no longer a type; it is expressed with `origin=SIMULATION`.
 - `OPERATIVA` is exclusive: it cannot be combined with another type and cannot be used for a simulation.
+- The catalog is replicated from MS06 (`GET /api/v1/tipos-alerta` through the Gateway) on startup and every 60 s. If MS06 is unavailable or returns an empty list, MS03 keeps the last copy and keeps validating; an unknown type triggers at most one on-demand synchronization every 5 s. Types absent from MS06 are deactivated, never deleted, and the synchronization never modifies `OPERATIVA`.
 - The lifecycle states are `DRAFT`, `SCHEDULED`, `ACTIVE` and `ARCHIVED`. There is no `ENDED` state and there is no `/finalizar` endpoint.
 - Valid transitions are `DRAFT -> SCHEDULED/ACTIVE/ARCHIVED`, `SCHEDULED -> ACTIVE/ARCHIVED` and `ACTIVE -> ARCHIVED`.
 - Archiving is idempotent: a second archive returns `200`, preserves `archivedAt` and does not duplicate the audit event.
@@ -48,6 +49,7 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 | POST | `/api/v1/alertas` | `manage` or `manage_drill` |
 | GET | `/api/v1/alertas` | `read_history` |
 | GET | `/api/v1/alertas/mias` | `receive` |
+| GET | `/api/v1/alertas/tipos` | `manage`, `manage_drill` or `receive` |
 | GET | `/api/v1/alertas/{id}` | `receive` or `read_history` |
 | PUT | `/api/v1/alertas/{id}` | `manage` or `manage_drill` |
 | PATCH | `/api/v1/alertas/{id}/programar` | `manage` or `manage_drill` |
@@ -56,7 +58,7 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 | POST | `/api/v1/alertas/{id}/confirmaciones` | `receive` |
 | GET | `/api/v1/alertas/{id}/auditoria` | `read_history` |
 
-The list endpoint accepts repeated `type` parameters (`GET /api/v1/alertas?type=FIRE&type=EARTHQUAKE`) with OR semantics and returns each alert once. It also accepts `origin`, `scope` (the scope type), `activeAt` (an ISO instant to find alerts active at that moment), `status`, `startDate`, `endDate`, `simulationId` and pagination.
+The list endpoint accepts repeated `type` parameters (`GET /api/v1/alertas?type=INCENDIO&type=SISMO`) with OR semantics and returns each alert once. It also accepts `origin`, `scope` (the scope type), `activeAt` (an ISO instant to find alerts active at that moment), `status`, `startDate`, `endDate`, `simulationId` and pagination.
 
 ### Inbox and confirmation
 
@@ -175,9 +177,9 @@ The `local` profile is active by default and reads `.env` when present. Start Po
 docker compose up -d postgres
 ```
 
-Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS_SERVICE_KEY`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
+Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS06_URL`, `MS_SERVICE_KEY`, `MS06_ALERT_TYPES_PATH`, `MS06_SYSTEM_USER_ID`, `MS06_SYSTEM_USER_ROLE`, `MS06_SYSTEM_USER_PERMISSIONS`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
 
-Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch` and `GET /api/v1/users/by-role`), authorized by `X-Service-Name`, so no technical user identity is needed. Scope (buildings and zones) is validated against MS02 through `GET /api/v1/buildings/{id}` and `GET /api/v1/safe-zones/{id}`. Both services are reached through the API Gateway, so `MS01_URL` and `MS02_URL` must point to the Gateway and `MS_SERVICE_KEY` must match the Gateway's `GW_SERVICE_KEY_MS03`.
+Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch` and `GET /api/v1/users/by-role`), authorized by `X-Service-Name`, so no technical user identity is needed. Scope (buildings and zones) is validated against MS02 through `GET /api/v1/buildings/{id}` and `GET /api/v1/safe-zones/{id}`. The alert-type catalog is replicated from MS06 through the Gateway (`GET /api/v1/tipos-alerta`), authorized by `X-Service-Key` plus a configurable system identity. All three services are reached through the API Gateway, so `MS01_URL`, `MS02_URL` and `MS06_URL` must point to the Gateway and `MS_SERVICE_KEY` must match the Gateway's `GW_SERVICE_KEY_MS03`.
 
 Profiles:
 
@@ -187,7 +189,7 @@ Profiles:
       docker compose exec -T postgres psql -U campusseguro -d campusseguro_alerts -v ON_ERROR_STOP=1
   ```
 - `test`: stub catalog, used by the automated tests.
-- `integration`: real MS01 and MS02 through the API Gateway, Swagger disabled. No technical user is required: MS01 authorizes the internal routes by `X-Service-Name`.
+- `integration`: real MS01, MS02 and MS06 through the API Gateway, Swagger disabled. No technical user is required for MS01: it authorizes the internal routes by `X-Service-Name`; MS06 uses the configurable system identity.
 
 ### Database migrations
 
@@ -200,6 +202,10 @@ The schema is managed by Flyway. The migrations live in `src/main/resources/db/m
 5. `V5__logica_de_negocio.sql` (multiple alert types, `ENDED` removed)
 6. `V6__proposito_alerta.sql`
 7. `V7__proposito_alerta_unico.sql` (one live alert per `simulation_id` and `purpose`)
+8. `V8__catalogo_tipos_alerta.sql` (`alert_type` catalog and FK)
+9. `V9__catalogo_estados_alerta.sql`
+10. `V10__catalogos_auditoria.sql`
+11. `V11__catalogo_tipos_alerta_ms06.sql` (MS06 replica, source/synced_at and canonical codes)
 
 Rules for a new change:
 
@@ -207,7 +213,7 @@ Rules for a new change:
 - Each file is applied in its own transaction: do not open or commit one inside the script.
 - Sample data does not go in `db/migration`. It goes in `database/sample/`.
 
-An existing database built from the old manual scripts is baselined at version 7 (`spring.flyway.baseline-on-migrate` and `baseline-version` in `application.yml`), so it is not migrated again and only receives new versions. A fresh database applies `V1` to `V7` from scratch.
+An existing database built from the old manual scripts is baselined at version 7 (`spring.flyway.baseline-on-migrate` and `baseline-version` in `application.yml`), so it is not migrated again and only receives new versions. A fresh database applies every migration from `V1` onward.
 
 To upgrade an existing environment: back up first, then start the service and check `flyway_schema_history`. If a migration fails, restore the backup instead of running a partial rollback.
 
@@ -252,7 +258,7 @@ mvn test
 mvn clean verify
 ```
 
-`mvn clean verify` runs unit and integration tests and generates the JaCoCo report at `target/site/jacoco/index.html`. The integration test uses PostgreSQL 17 with Testcontainers and applies `001` through `005`; Docker must be running.
+`mvn clean verify` runs unit and integration tests and generates the JaCoCo report at `target/site/jacoco/index.html`. The integration test uses PostgreSQL 17 with Testcontainers and applies the Flyway migrations; Docker must be running.
 
 ### Continuous Integration
 
@@ -271,7 +277,7 @@ SpotBugs runs with `effort=max` and fails the build on medium and high priority 
 postman collection run docs/postman/ms03-alertas.postman_collection.json -e <local-environment.json>
 ```
 
-The collection creates multi-type alerts, filters with repeated `type`, exercises scheduling, activation, the inbox, confirmation and archiving, and never calls the removed `/finalizar` endpoint.
+The collection creates multi-type alerts, filters with repeated `type`, exercises scheduling, activation, the inbox, confirmation and archiving, loads the alert-type catalog from `GET /api/v1/alertas/tipos`, and never calls the removed `/finalizar` endpoint.
 
 ### Static Analysis (SonarQube)
 

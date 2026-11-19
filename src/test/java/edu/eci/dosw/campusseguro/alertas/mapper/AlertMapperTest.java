@@ -63,7 +63,7 @@ class AlertMapperTest {
     private AlertEntity fullAlert() {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of("EARTHQUAKE", "FIRE"));
+        alert.setTypes(Set.of("SISMO", "INCENDIO"));
         alert.setTitle(TITLE);
         alert.setStatus("ACTIVE");
         alert.setOrigin(AlertOrigin.SIMULATION);
@@ -140,14 +140,14 @@ class AlertMapperTest {
     @Test
     void toEntity_shouldBuildDraftManualAlert_whenRequestIsValid() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.types()).thenReturn(List.of("FIRE", "EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("INCENDIO", "SISMO"));
         when(request.title()).thenReturn("  " + TITLE + "  ");
         when(request.instructions()).thenReturn("  Evacuar el edificio  ");
 
         AlertEntity result = mapper.toEntity(request, ACTOR, NOW);
 
         assertEquals(
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 mapper.sortedTypes(result.getTypes()));
         assertEquals(TITLE, result.getTitle());
         assertEquals("DRAFT", result.getStatus());
@@ -307,7 +307,7 @@ class AlertMapperTest {
 
         AlertResponse expected = new AlertResponse(
                 ALERT_ID,
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 TITLE,
                 "ACTIVE",
                 AlertOrigin.SIMULATION,
@@ -337,7 +337,7 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 TITLE,
                 new ScopeRequest(ScopeType.CAMPUS, List.of()),
                 "ACTIVE",
@@ -359,7 +359,7 @@ class AlertMapperTest {
 
         AlertSummaryResponse expected = new AlertSummaryResponse(
                 ALERT_ID,
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 TITLE,
                 null,
                 "ACTIVE",

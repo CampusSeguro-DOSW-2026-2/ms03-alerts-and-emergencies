@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.controller.AlertController;
+import edu.eci.dosw.campusseguro.alertas.controller.AlertTypeController;
 import edu.eci.dosw.campusseguro.alertas.controller.AuditController;
 import edu.eci.dosw.campusseguro.alertas.controller.ConfirmationController;
 import edu.eci.dosw.campusseguro.alertas.dto.request.AlertCreateRequest;
@@ -39,6 +40,7 @@ class ApiContractTest {
 
     private static final List<Class<?>> CONTROLLERS = List.of(
             AlertController.class,
+            AlertTypeController.class,
             AuditController.class,
             ConfirmationController.class);
 
@@ -59,7 +61,14 @@ class ApiContractTest {
                 List.of("DRAFT", "SCHEDULED", "ACTIVE", "ARCHIVED"),
                 examplesOf(schemas, "AlertStatus"));
         assertEquals(
-                List.of("EARTHQUAKE", "FIRE", "OTHER", "OPERATIVA"),
+                List.of(
+                        "SISMO",
+                        "INCENDIO",
+                        "DISTURBIOS",
+                        "INUNDACION",
+                        "FUGA_QUIMICA",
+                        "OTRO",
+                        "OPERATIVA"),
                 examplesOf(schemas, "AlertType"));
         assertTrue(properties(schemas, "AlertCreateRequest").containsKey("types"));
         assertTrue(properties(schemas, "AlertUpdateRequest").containsKey("types"));

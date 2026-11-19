@@ -77,7 +77,7 @@ class AlertControllerTest {
 
     private static final String VALID_CREATE_JSON = """
             {
-              "types": ["EARTHQUAKE", "FIRE"],
+              "types": ["SISMO", "INCENDIO"],
               "title": "Simulacro Sismico Nacional",
               "scope": { "type": "CAMPUS" },
               "instructions": "Evacuar hacia los puntos de encuentro",
@@ -162,7 +162,7 @@ class AlertControllerTest {
         verify(alertService).create(captor.capture(), eq(REQUESTER));
 
         assertEquals(
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 captor.getValue().types());
     }
 
@@ -184,7 +184,7 @@ class AlertControllerTest {
 
         String withoutTitle = """
                 {
-                  "types": ["EARTHQUAKE"],
+                  "types": ["SISMO"],
                   "scope": { "type": "CAMPUS" },
                   "instructions": "Evacuar",
                   "recipients": [
@@ -255,7 +255,7 @@ class AlertControllerTest {
 
         mockMvc.perform(get(BASE_URL)
                         .param("status", "ACTIVE")
-                        .param("type", "EARTHQUAKE")
+                        .param("type", "SISMO")
                         .param("origin", "SIMULATION")
                         .param("scope", "BUILDING")
                         .param("activeAt", "2026-10-05T12:00:00Z")
@@ -274,7 +274,7 @@ class AlertControllerTest {
         AlertFilter filter = captor.getValue();
 
         assertEquals("ACTIVE", filter.status());
-        assertEquals(List.of("EARTHQUAKE"), filter.types());
+        assertEquals(List.of("SISMO"), filter.types());
         assertEquals(AlertOrigin.SIMULATION, filter.origin());
         assertEquals(ScopeType.BUILDING, filter.scope());
         assertEquals(Instant.parse("2026-10-05T12:00:00Z"), filter.activeAt());
@@ -388,7 +388,7 @@ class AlertControllerTest {
                 .thenReturn(response);
 
         String body = """
-                { "types": ["FIRE", "EARTHQUAKE"] }
+                { "types": ["INCENDIO", "SISMO"] }
                 """;
 
         mockMvc.perform(put(BASE_URL + "/{id}", ID)
@@ -403,7 +403,7 @@ class AlertControllerTest {
                 eq(ID), captor.capture(), eq(REQUESTER));
 
         assertEquals(
-                List.of("FIRE", "EARTHQUAKE"),
+                List.of("INCENDIO", "SISMO"),
                 captor.getValue().types());
     }
 

@@ -144,7 +144,7 @@ class AlertServiceImplTest {
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ID);
         alert.setStatus(status);
-        alert.setTypes(Set.of("EARTHQUAKE"));
+        alert.setTypes(Set.of("SISMO"));
         alert.setTitle("Simulacro");
         alert.setInstructions(instructions);
         return alert;
@@ -179,16 +179,16 @@ class AlertServiceImplTest {
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert("DRAFT", "instructions");
         saved.setTypes(new LinkedHashSet<>(List.of(
-                "EARTHQUAKE", "FIRE")));
+                "SISMO", "INCENDIO")));
         List<AlertScopeItemEntity> scopeItems = List.of(scopeItem(ScopeType.CAMPUS, null));
-        when(request.types()).thenReturn(List.of("FIRE", "EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("INCENDIO", "SISMO"));
         List<AlertRecipientEntity> recipientEntities = List.of(new AlertRecipientEntity());
         AlertResponse expected = mock(AlertResponse.class);
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         when(alertMapper.sortedTypes(saved.getTypes()))
-                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
+                .thenReturn(List.of("SISMO", "INCENDIO"));
         when(alertMapper.toEntity(request, ACTOR, NOW)).thenReturn(saved);
         when(alertRepository.saveAndFlush(saved)).thenReturn(saved);
         when(alertMapper.toScopeItems(ID, scope, NOW)).thenReturn(scopeItems);
@@ -209,7 +209,7 @@ class AlertServiceImplTest {
                 ACTOR,
                 null,
                 "DRAFT",
-                "Alert created: title=Simulacro, types=[EARTHQUAKE, FIRE], origin=null, "
+                "Alert created: title=Simulacro, types=[SISMO, INCENDIO], origin=null, "
                         + "simulationId=null, scope=CAMPUS, recipients=1");
     }
 
@@ -221,7 +221,7 @@ class AlertServiceImplTest {
         when(request.scopes()).thenReturn(List.of(scope));
         when(request.origin()).thenReturn(
                 new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
-        when(request.types()).thenReturn(List.of("OTHER"));
+        when(request.types()).thenReturn(List.of("OTRO"));
         when(request.purpose()).thenReturn("GENERAL");
         when(alertMapper.normalizeScopes(any(), any())).thenReturn(List.of(scope));
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
@@ -348,7 +348,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.origin()).thenReturn(
                 new AlertOriginRequest(AlertOrigin.SIMULATION, simulationId));
-        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("SISMO"));
         when(request.title()).thenReturn(title);
         when(request.instructions()).thenReturn(instructions);
         lenient().when(request.activationAt()).thenReturn(activationAt);
@@ -363,7 +363,7 @@ class AlertServiceImplTest {
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
         AlertEntity saved = alert("DRAFT", "instructions");
-        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("SISMO"));
 
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
@@ -381,7 +381,7 @@ class AlertServiceImplTest {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         ScopeRequest scope = scopeRequest(ScopeType.ZONE);
         when(request.scope()).thenReturn(scope);
-        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("SISMO"));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(List.of());
         doThrow(new RuntimeException("invalid scope"))
@@ -400,7 +400,7 @@ class AlertServiceImplTest {
         ScopeRequest scope = scopeRequest(ScopeType.CAMPUS);
         when(request.scope()).thenReturn(scope);
         List<RecipientRequest> recipients = List.of(mock(RecipientRequest.class));
-        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("SISMO"));
         when(alertMapper.normalizeScope(any())).thenReturn(scope);
         when(alertMapper.normalizeRecipients(any())).thenReturn(recipients);
         doThrow(new RuntimeException("invalid recipients"))
@@ -417,7 +417,7 @@ class AlertServiceImplTest {
     void create_shouldRejectDuplicateTypes() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.types()).thenReturn(
-                List.of("FIRE", "FIRE"));
+                List.of("INCENDIO", "INCENDIO"));
 
         InvalidAlertRequestException exception = assertThrows(
                 InvalidAlertRequestException.class,
@@ -432,7 +432,7 @@ class AlertServiceImplTest {
     void create_shouldRejectOperativaCombinedWithOtherTypes() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
         when(request.types()).thenReturn(
-                List.of("OPERATIVA", "EARTHQUAKE"));
+                List.of("OPERATIVA", "SISMO"));
 
         InvalidAlertRequestException exception = assertThrows(
                 InvalidAlertRequestException.class,
@@ -462,7 +462,7 @@ class AlertServiceImplTest {
     @Test
     void create_shouldForbidOrganizer_whenAlertIsNotASimulation() {
         AlertCreateRequest request = mock(AlertCreateRequest.class);
-        when(request.types()).thenReturn(List.of("EARTHQUAKE"));
+        when(request.types()).thenReturn(List.of("SISMO"));
 
         ForbiddenOperationException exception = assertThrows(
                 ForbiddenOperationException.class,
