@@ -31,7 +31,7 @@ class BrevoEmailSenderTest {
     private static final EmailMessage MESSAGE = new EmailMessage(
             "ana@example.edu.co",
             "Ana",
-            "Alerta CampusSeguro: Terremoto",
+            "Alerta CampusSeguro: Sismo",
             "<p>Evacuar</p>",
             "Evacuar");
 
@@ -76,7 +76,7 @@ class BrevoEmailSenderTest {
                         {
                           "sender": {"name": "CampusSeguro", "email": "no-reply@campusseguro.local"},
                           "to": [{"email": "ana@example.edu.co", "name": "Ana"}],
-                          "subject": "Alerta CampusSeguro: Terremoto",
+                          "subject": "Alerta CampusSeguro: Sismo",
                           "htmlContent": "<p>Evacuar</p>",
                           "textContent": "Evacuar"
                         }

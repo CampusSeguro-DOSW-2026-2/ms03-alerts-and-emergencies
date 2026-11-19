@@ -33,10 +33,10 @@ class AlertMigrationIT {
     private static final UUID ARCHIVED_MANUAL =
             UUID.fromString("10000000-0000-4000-8000-000000000003");
 
-    private static final UUID ACTIVE_EARTHQUAKE =
+    private static final UUID ACTIVE_SISMO =
             UUID.fromString("10000000-0000-4000-8000-000000000004");
 
-    private static final UUID DRAFT_FIRE =
+    private static final UUID DRAFT_INCENDIO =
             UUID.fromString("10000000-0000-4000-8000-000000000005");
 
     /**
@@ -90,11 +90,11 @@ class AlertMigrationIT {
                   AND column_name IN ('type', 'ended_at')
                 """));
 
-        assertEquals("OTHER", typeOf(ENDED_SIMULATION));
-        assertEquals("OTHER", typeOf(ACTIVE_SIMULATION));
-        assertEquals("OTHER", typeOf(ARCHIVED_MANUAL));
-        assertEquals("EARTHQUAKE", typeOf(ACTIVE_EARTHQUAKE));
-        assertEquals("FIRE", typeOf(DRAFT_FIRE));
+        assertEquals("OTRO", typeOf(ENDED_SIMULATION));
+        assertEquals("OTRO", typeOf(ACTIVE_SIMULATION));
+        assertEquals("OTRO", typeOf(ARCHIVED_MANUAL));
+        assertEquals("SISMO", typeOf(ACTIVE_SISMO));
+        assertEquals("INCENDIO", typeOf(DRAFT_INCENDIO));
 
         assertEquals("ARCHIVED", statusOf(ENDED_SIMULATION));
         assertNotNull(archivedAtOf(ENDED_SIMULATION));
@@ -110,6 +110,72 @@ class AlertMigrationIT {
                   AND from_status = 'ACTIVE'
                   AND to_status = 'ENDED'
                 """.formatted(ENDED_SIMULATION)));
+    }
+
+    @Test
+    void migration_shouldSeedMs06CatalogRenameLegacyCodesAndKeepOperativaLocal() throws Exception {
+        assertEquals(7, count("SELECT count(*) FROM alert_type"));
+        assertEquals(0, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code IN ('EARTHQUAKE', 'FIRE', 'OTHER')
+                """));
+
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'SISMO' AND label = 'Sismo' AND display_order = 1
+                  AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'INCENDIO' AND label = 'Incendio' AND display_order = 2
+                  AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'DISTURBIOS' AND label = 'Disturbios' AND display_order = 3
+                  AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'INUNDACION' AND label = 'Inundación' AND display_order = 4
+                  AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'FUGA_QUIMICA' AND label = 'Fuga de Sustancias Químicas'
+                  AND display_order = 5 AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'OTRO' AND label = 'Otro' AND display_order = 6
+                  AND source = 'MS06' AND active
+                """));
+        assertEquals(1, count("""
+                SELECT count(*)
+                FROM alert_type
+                WHERE code = 'OPERATIVA' AND label = 'Operativa' AND display_order = 1000
+                  AND source = 'LOCAL' AND active AND synced_at IS NULL
+                """));
+
+        assertEquals(2, count("""
+                SELECT count(*)
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'alert_type'
+                  AND column_name IN ('source', 'synced_at')
+                """));
+        assertEquals(40, columnLength("alert_type", "code"));
+        assertEquals(40, columnLength("alert_types", "type"));
+        assertTrue(constraintDefinition("ck_alert_type_code").contains("39"));
+        assertTrue(constraintDefinition("fk_alert_types_catalog")
+                .contains("ON UPDATE CASCADE"));
     }
 
     @Test
@@ -241,13 +307,13 @@ class AlertMigrationIT {
                                     created_by, activated_at)
                 VALUES ('%s', 'EARTHQUAKE', 'Sismo activo', 'ACTIVE',
                         'Evacuar', 'MANUAL', 'user', now())
-                """.formatted(ACTIVE_EARTHQUAKE));
+                """.formatted(ACTIVE_SISMO));
         execute("""
                 INSERT INTO alerts (id, type, title, status, instructions, origin,
                                     created_by)
                 VALUES ('%s', 'FIRE', 'Incendio en borrador', 'DRAFT',
                         'Revisar', 'MANUAL', 'user')
-                """.formatted(DRAFT_FIRE));
+                """.formatted(DRAFT_INCENDIO));
         execute("""
                 INSERT INTO audit_events (id, alert_id, action, actor, from_status, to_status, details)
                 VALUES ('40000000-0000-4000-8000-000000000001', '%s', 'END', 'ms06',
@@ -309,5 +375,15 @@ class AlertMigrationIT {
                 FROM pg_constraint
                 WHERE conname = '%s'
                 """.formatted(constraintName));
+    }
+
+    private static int columnLength(String table, String column) throws SQLException {
+        return count("""
+                SELECT character_maximum_length
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = '%s'
+                  AND column_name = '%s'
+                """.formatted(table, column));
     }
 }

@@ -84,7 +84,7 @@ class InboxServiceImplTest {
 
         AlertEntity alert = new AlertEntity();
         ReflectionTestUtils.setField(alert, "id", ALERT_ID);
-        alert.setTypes(Set.of("FIRE", "EARTHQUAKE"));
+        alert.setTypes(Set.of("INCENDIO", "SISMO"));
         alert.setTitle("Evacuar");
         alert.setInstructions("Salir por la escalera");
         alert.setStatus(status);
@@ -261,7 +261,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of(confirmation));
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
+                .thenReturn(List.of("SISMO", "INCENDIO"));
         when(alertMapper.toScope(List.of(scopeItem))).thenReturn(scope);
 
         InboxAlertResponse response =
@@ -271,7 +271,7 @@ class InboxServiceImplTest {
 
         assertEquals(ALERT_ID, response.id());
         assertEquals(
-                List.of("EARTHQUAKE", "FIRE"),
+                List.of("SISMO", "INCENDIO"),
                 response.types());
         assertEquals("Evacuar", response.title());
         assertEquals("ACTIVE", response.status());
@@ -304,7 +304,7 @@ class InboxServiceImplTest {
                 List.of(ALERT_ID)))
                 .thenReturn(List.of());
         when(alertMapper.sortedTypes(alert.getTypes()))
-                .thenReturn(List.of("EARTHQUAKE", "FIRE"));
+                .thenReturn(List.of("SISMO", "INCENDIO"));
 
         InboxAlertResponse response =
                 service.inbox(InboxStatus.ACTIVE, 0, 20, ACTOR)

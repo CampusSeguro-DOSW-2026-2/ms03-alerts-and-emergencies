@@ -35,6 +35,8 @@ servers:
 tags:
   - name: Alertas
     description: Gestion y ciclo de vida de alertas
+  - name: Tipos de alerta
+    description: Catalogo de tipos de alerta replicado desde MS06
   - name: Bandeja
     description: Alertas dirigidas al actor autenticado
   - name: Confirmaciones
@@ -156,8 +158,8 @@ paths:
                     contenido:
                       - id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
                         types:
-                          - EARTHQUAKE
-                          - FIRE
+                          - SISMO
+                          - INCENDIO
                         title: Sismo en bloque B
                         scope:
                           type: BUILDING
@@ -216,8 +218,8 @@ paths:
                 summary: Alerta manual multtipo en borrador
                 value:
                   types:
-                    - EARTHQUAKE
-                    - FIRE
+                    - SISMO
+                    - INCENDIO
                   title: Sismo en bloque B
                   scope:
                     type: BUILDING
@@ -233,7 +235,7 @@ paths:
                 summary: Simulacro programado por MS06
                 value:
                   types:
-                    - EARTHQUAKE
+                    - SISMO
                   title: Simulacro nacional de evacuacion
                   scope:
                     type: CAMPUS
@@ -249,7 +251,7 @@ paths:
                 summary: Simulacro con activacion inmediata
                 value:
                   types:
-                    - EARTHQUAKE
+                    - SISMO
                   title: Simulacro de evacuacion inmediata
                   scope:
                     type: CAMPUS
@@ -279,7 +281,7 @@ paths:
                   value:
                     id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
                     types:
-                      - EARTHQUAKE
+                      - SISMO
                     title: Simulacro nacional de evacuacion
                     status: SCHEDULED
                     origin: SIMULATION
@@ -380,8 +382,8 @@ paths:
                     contenido:
                       - id: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
                         types:
-                          - EARTHQUAKE
-                          - FIRE
+                          - SISMO
+                          - INCENDIO
                         title: Sismo en bloque B
                         status: ACTIVE
                         origin: MANUAL
@@ -399,6 +401,68 @@ paths:
                     total_paginas: 1
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/alertas/tipos:
+    parameters:
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
+    get:
+      tags:
+        - Tipos de alerta
+      operationId: listAlertTypes
+      summary: Listar tipos de alerta
+      description: |
+        Catalogo activo de tipos de alerta, ordenado por `displayOrder`. MS06 es
+        la fuente de verdad y MS03 conserva una replica local; `OPERATIVA` es un
+        tipo reservado de MS03 y no se sincroniza. Requiere `ms03:alert:manage`,
+        `ms03:alert:manage_drill` o `ms03:alert:receive`.
+      x-permiso: ms03:alert:manage | ms03:alert:manage_drill | ms03:alert:receive
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
+        - ESTUDIANTE
+        - PROFESOR
+        - ADMINISTRATIVO
+        - BRIGADISTA
+      responses:
+        '200':
+          description: Tipos activos ordenados.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AlertTypeResponse'
+              examples:
+                catalog:
+                  value:
+                    - code: SISMO
+                      label: Sismo
+                      displayOrder: 1
+                    - code: INCENDIO
+                      label: Incendio
+                      displayOrder: 2
+                    - code: DISTURBIOS
+                      label: Disturbios
+                      displayOrder: 3
+                    - code: INUNDACION
+                      label: Inundación
+                      displayOrder: 4
+                    - code: FUGA_QUIMICA
+                      label: Fuga de Sustancias Químicas
+                      displayOrder: 5
+                    - code: OTRO
+                      label: Otro
+                      displayOrder: 6
+                    - code: OPERATIVA
+                      label: Operativa
+                      displayOrder: 1000
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -475,8 +539,8 @@ paths:
                 summary: Reemplazar los tipos
                 value:
                   types:
-                    - FIRE
-                    - EARTHQUAKE
+                    - INCENDIO
+                    - SISMO
       responses:
         '200':
           description: Alerta actualizada.
@@ -725,7 +789,7 @@ paths:
                       action: CREATE
                       fromStatus: null
                       toStatus: DRAFT
-                      detail: 'Alert created: title=Sismo en bloque B, types=[EARTHQUAKE, FIRE]'
+                      detail: 'Alert created: title=Sismo en bloque B, types=[SISMO, INCENDIO]'
                       occurredAt: '2026-10-22T14:05:00Z'
                     - id: 1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d
                       alertId: 7f3c1a2e-9b4d-4c8a-9f1e-2a6d5c8b7e10
@@ -966,14 +1030,33 @@ components:
     AlertType:
       type: string
       description: |
-        Codigo de un tipo de alerta del catalogo (`alert_type`). El catalogo es
-        data: el administrador puede agregar tipos sin desplegar, asi que esta
-        lista abierta. Estos son los tipos iniciales.
+        Codigo de un tipo de alerta del catalogo (`alert_type`). MS06 es la fuente
+        de verdad y MS03 replica el catalogo; `OPERATIVA` es un tipo local de MS03
+        y no se sincroniza. La lista es abierta. Estos son los tipos iniciales.
       examples:
-        - EARTHQUAKE
-        - FIRE
-        - OTHER
+        - SISMO
+        - INCENDIO
+        - DISTURBIOS
+        - INUNDACION
+        - FUGA_QUIMICA
+        - OTRO
         - OPERATIVA
+    AlertTypeResponse:
+      type: object
+      required:
+        - code
+        - label
+        - displayOrder
+      properties:
+        code:
+          $ref: '#/components/schemas/AlertType'
+        label:
+          type: string
+          example: Sismo
+        displayOrder:
+          type: integer
+          format: int32
+          example: 1
     AlertOrigin:
       type: string
       enum:
