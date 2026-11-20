@@ -37,6 +37,8 @@ tags:
     description: Gestion y ciclo de vida de alertas
   - name: Tipos de alerta
     description: Catalogo de tipos de alerta replicado desde MS06
+  - name: Filtros de alerta
+    description: Grupos y opciones para filtrar el listado de alertas
   - name: Bandeja
     description: Alertas dirigidas al actor autenticado
   - name: Confirmaciones
@@ -463,6 +465,74 @@ paths:
                     - code: OPERATIVA
                       label: Operativa
                       displayOrder: 1000
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/alertas/filtros:
+    parameters:
+      - $ref: '#/components/parameters/UserIdHeader'
+      - $ref: '#/components/parameters/UserRoleHeader'
+      - $ref: '#/components/parameters/UserPermissionHeader'
+      - $ref: '#/components/parameters/ServiceNameHeader'
+      - $ref: '#/components/parameters/CorrelationIdHeader'
+    get:
+      tags:
+        - Filtros de alerta
+      operationId: listAlertFilters
+      summary: Listar filtros de alerta
+      description: |
+        Grupos de filtros del listado con sus opciones. El grupo `status` es de
+        seleccion unica y sale de `alert_status` ordenado por `displayOrder`;
+        cada opcion incluye `finalState`. El grupo `type` es de seleccion
+        multiple y sale de los tipos activos. Requiere
+        `ms03:alert:read_history`, el mismo permiso del listado, para que un
+        AUDITOR pueda cargar los filtros.
+      x-permiso: ms03:alert:read_history
+      x-roles:
+        - COORDINADOR
+        - ORGANIZADOR
+        - AUDITOR
+      responses:
+        '200':
+          description: Grupos de filtros con sus opciones.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertFilterCatalogResponse'
+              examples:
+                catalog:
+                  value:
+                    groups:
+                      - key: status
+                        label: Estado
+                        multiple: false
+                        options:
+                          - value: DRAFT
+                            label: Borrador
+                            finalState: false
+                          - value: SCHEDULED
+                            label: Programada
+                            finalState: false
+                          - value: ACTIVE
+                            label: Activa
+                            finalState: false
+                          - value: ARCHIVED
+                            label: Archivada
+                            finalState: true
+                      - key: type
+                        label: Tipo
+                        multiple: true
+                        options:
+                          - value: SISMO
+                            label: Sismo
+                            finalState: null
+                          - value: INCENDIO
+                            label: Incendio
+                            finalState: null
+                          - value: OPERATIVA
+                            label: Operativa
+                            finalState: null
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1057,6 +1127,57 @@ components:
           type: integer
           format: int32
           example: 1
+    AlertFilterCatalogResponse:
+      type: object
+      required:
+        - groups
+      properties:
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertFilterGroupResponse'
+    AlertFilterGroupResponse:
+      type: object
+      required:
+        - key
+        - label
+        - multiple
+        - options
+      properties:
+        key:
+          type: string
+          description: Nombre del grupo y del parametro de consulta.
+          example: status
+        label:
+          type: string
+          example: Estado
+        multiple:
+          type: boolean
+          description: true si el grupo admite seleccion multiple.
+          example: false
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/AlertFilterOptionResponse'
+    AlertFilterOptionResponse:
+      type: object
+      required:
+        - value
+        - label
+      properties:
+        value:
+          type: string
+          example: ACTIVE
+        label:
+          type: string
+          example: Activa
+        finalState:
+          description: |
+            true si la opcion es un estado terminal. Solo aplica al grupo
+            `status`; es nulo para las opciones del grupo `type`.
+          type:
+            - boolean
+            - 'null'
     AlertOrigin:
       type: string
       enum:

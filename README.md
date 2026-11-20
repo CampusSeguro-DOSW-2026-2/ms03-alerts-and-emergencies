@@ -50,6 +50,7 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 | GET | `/api/v1/alertas` | `read_history` |
 | GET | `/api/v1/alertas/mias` | `receive` |
 | GET | `/api/v1/alertas/tipos` | `manage`, `manage_drill` or `receive` |
+| GET | `/api/v1/alertas/filtros` | `read_history` |
 | GET | `/api/v1/alertas/{id}` | `receive` or `read_history` |
 | PUT | `/api/v1/alertas/{id}` | `manage` or `manage_drill` |
 | PATCH | `/api/v1/alertas/{id}/programar` | `manage` or `manage_drill` |
@@ -59,6 +60,8 @@ Errors always use five fields (`status`, `codigo`, `mensaje`, `errores`, `correl
 | GET | `/api/v1/alertas/{id}/auditoria` | `read_history` |
 
 The list endpoint accepts repeated `type` parameters (`GET /api/v1/alertas?type=INCENDIO&type=SISMO`) with OR semantics and returns each alert once. It also accepts `origin`, `scope` (the scope type), `activeAt` (an ISO instant to find alerts active at that moment), `status`, `startDate`, `endDate`, `simulationId` and pagination.
+
+The filter catalog is `GET /api/v1/alertas/filtros`. It returns `{ groups: [{ key, label, multiple, options: [{ value, label, finalState? }] }] }` with a single-select `status` group (`finalState` from `alert_status.final_state`) and a multi-select `type` group. Both groups come from the in-memory catalogs, so adding a state or a type does not require changing the frontend. The endpoint uses `read_history`, the same permission as the list, so an AUDITOR can load the filters without the type-management permissions of `/tipos`.
 
 ### Inbox and confirmation
 
