@@ -165,6 +165,28 @@ public class AlertStateCatalog {
     }
 
     /**
+     * Devuelve las opciones de estado para construir filtros, ordenadas explícitamente por
+     * {@code displayOrder} y, para desempatar, por código.
+     *
+     * <p>El snapshot interno guarda los estados en un mapa sin orden garantizado, así que el orden
+     * de presentación se aplica aquí y no se hereda de la consulta.
+     *
+     * @return las opciones de estado listas para el frontend
+     */
+    public List<AlertStateOption> options() {
+        return current().statuses().values().stream()
+                .sorted(Comparator
+                        .comparingInt(StatusRow::displayOrder)
+                        .thenComparing(StatusRow::code))
+                .map(row -> new AlertStateOption(
+                        row.code(),
+                        row.label(),
+                        row.displayOrder(),
+                        row.finalState()))
+                .toList();
+    }
+
+    /**
      * Devuelve los estados que admiten al menos una transición desde el actual.
      *
      * @param from estado actual
@@ -181,6 +203,21 @@ public class AlertStateCatalog {
             value = snapshot.get();
         }
         return value;
+    }
+
+    /**
+     * Opción de estado expuesta al frontend para construir los filtros del listado.
+     *
+     * @param code código del estado
+     * @param label etiqueta visible
+     * @param displayOrder orden de presentación
+     * @param finalState true si el estado es terminal
+     */
+    public record AlertStateOption(
+            String code,
+            String label,
+            int displayOrder,
+            boolean finalState) {
     }
 
     private record StatusRow(

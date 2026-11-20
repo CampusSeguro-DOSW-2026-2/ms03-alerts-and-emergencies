@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import edu.eci.dosw.campusseguro.alertas.controller.AlertController;
+import edu.eci.dosw.campusseguro.alertas.controller.AlertFilterController;
 import edu.eci.dosw.campusseguro.alertas.controller.AlertTypeController;
 import edu.eci.dosw.campusseguro.alertas.controller.AuditController;
 import edu.eci.dosw.campusseguro.alertas.controller.ConfirmationController;
@@ -40,6 +41,7 @@ class ApiContractTest {
 
     private static final List<Class<?>> CONTROLLERS = List.of(
             AlertController.class,
+            AlertFilterController.class,
             AlertTypeController.class,
             AuditController.class,
             ConfirmationController.class);

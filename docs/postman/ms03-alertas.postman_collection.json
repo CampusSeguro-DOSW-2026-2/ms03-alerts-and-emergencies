@@ -879,6 +879,46 @@
                     }
                 },
                 {
+                    "name": "Listar filtros de alerta",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "pm.test('status 200', () => pm.response.to.have.status(200));",
+                                    "const body = pm.response.json();",
+                                    "pm.test('dos grupos', () => pm.expect(body.groups).to.be.an('array').with.lengthOf(2));",
+                                    "const estado = body.groups.find(g => g.key === 'status');",
+                                    "const tipo = body.groups.find(g => g.key === 'type');",
+                                    "pm.test('estado unico', () => { pm.expect(estado.label).to.eql('Estado'); pm.expect(estado.multiple).to.be.false; });",
+                                    "pm.test('tipo multiple', () => { pm.expect(tipo.label).to.eql('Tipo'); pm.expect(tipo.multiple).to.be.true; });",
+                                    "pm.test('opciones con value y label', () => body.groups.forEach(g => g.options.forEach(o => ['value','label'].forEach(k => pm.expect(o).to.have.property(k)))));",
+                                    "pm.test('estados exponen finalState', () => estado.options.forEach(o => pm.expect(o).to.have.property('finalState')));"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{coordinatorToken}}"
+                            },
+                            {
+                                "key": "X-Correlation-ID",
+                                "value": "{{correlationId}}"
+                            },
+                            {
+                                "key": "Accept",
+                                "value": "application/json"
+                            }
+                        ],
+                        "url": "{{baseUrl}}/api/v1/alertas/filtros"
+                    }
+                },
+                {
                     "name": "Consultar alerta",
                     "event": [
                         {
