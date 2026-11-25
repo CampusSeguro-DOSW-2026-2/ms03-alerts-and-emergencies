@@ -71,7 +71,7 @@ Confirmation is explicit through `POST /api/v1/alertas/{id}/confirmaciones`: the
 
 ### Email
 
-Emergency alerts include the base message "Has recibido una alerta oficial de CampusSeguro." followed by "Confirma la recepcion y sigue las instrucciones." and the alert instructions. `OPERATIVA` alerts omit that base message. The HTML carries the application branding: the logo (`MAIL_LOGO_URL`), the red and amber accents for emergencies and blue for operational notices, the highlighted message and a button instead of the raw address; the plain-text alternative keeps the full link. The link is `{APP_BASE_URL}/bandeja?alerta={id}`; if `APP_BASE_URL` is empty the button is omitted. Email is sent only when an alert becomes `ACTIVE`, never on `DRAFT`, `SCHEDULED` or `ARCHIVED`.
+Emergency alerts include the base message "Ha recibido una alerta oficial de CampusSeguro." followed by "Confirme la recepción y siga las instrucciones." and the alert instructions. `OPERATIVA` alerts omit that base message. The HTML carries the application branding: the logo (`MAIL_LOGO_URL`), the red and amber accents for emergencies and blue for operational notices, the highlighted message and a button instead of the raw address; the plain-text alternative keeps the full link. The link is `{APP_BASE_URL}/bandeja?alerta={id}`; if `APP_BASE_URL` is empty the button is omitted. Email is sent only when an alert becomes `ACTIVE`, never on `DRAFT`, `SCHEDULED` or `ARCHIVED`.
 
 ### Central audit (MS08)
 

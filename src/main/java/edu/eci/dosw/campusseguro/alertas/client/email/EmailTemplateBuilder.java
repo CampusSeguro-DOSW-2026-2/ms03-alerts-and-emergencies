@@ -18,9 +18,9 @@ public class EmailTemplateBuilder {
 
     private static final String BRAND = "CampusSeguro";
 
-    private static final String MESSAGE_BASE = "Has recibido una alerta oficial de CampusSeguro.";
+    private static final String MESSAGE_BASE = "Ha recibido una alerta oficial de CampusSeguro.";
 
-    private static final String MESSAGE_HINT = "Confirma la recepción y sigue las instrucciones.";
+    private static final String MESSAGE_HINT = "Confirme la recepción y siga las instrucciones.";
 
     /** Colors of the application palette (frontend styles.css). */
     private static final String RED = "#990000";
@@ -35,6 +35,9 @@ public class EmailTemplateBuilder {
 
     private static final String FONT =
             "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+    /** Logo published with the frontend, next to the application the email links to. */
+    static final String SITE_LOGO_PATH = "/correo/campusseguro-logo.png";
 
     private final String appBaseUrl;
 
@@ -51,7 +54,18 @@ public class EmailTemplateBuilder {
 
         this.alertTypeCatalog = alertTypeCatalog;
         this.appBaseUrl = normalize(appBaseUrl);
-        this.logoUrl = normalize(logoUrl);
+        this.logoUrl = logoUrl(normalize(logoUrl), this.appBaseUrl);
+    }
+
+    /**
+     * The configured logo or, if there is none, the one published by the application site: Brevo does not support
+     * images embedded in the message, so the logo must be a public address that the email clients can download.
+     */
+    private static String logoUrl(String configured, String appBaseUrl) {
+        if (!configured.isBlank()) {
+            return configured;
+        }
+        return appBaseUrl.isBlank() ? "" : appBaseUrl + SITE_LOGO_PATH;
     }
 
     public EmailMessage build(AlertEntity alert, ResolvedUser recipient) {
