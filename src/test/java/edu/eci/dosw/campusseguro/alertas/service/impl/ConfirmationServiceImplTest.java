@@ -2,6 +2,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,6 +29,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationResult;
 import java.time.Clock;
@@ -40,6 +42,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -174,13 +177,16 @@ class ConfirmationServiceImplTest {
         assertTrue(result.created());
         assertSame(response, result.confirmation());
         verify(accessPolicy).assertCanConfirm(ALERT_ID, ACTOR, RECIPIENTS);
-        verify(auditService).record(
-                ALERT_ID,
-                AuditActions.CONFIRM,
-                ACTOR.userId(),
-                "ACTIVE",
-                "ACTIVE",
-                "Recepción confirmada por " + ACTOR.userId());
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(ALERT_ID, audit.getValue().alertId());
+        assertEquals(AuditActions.CONFIRM, audit.getValue().action());
+        assertEquals(ACTOR.userId(), audit.getValue().actor());
+        assertEquals("ACTIVE", audit.getValue().fromStatus());
+        assertEquals("ACTIVE", audit.getValue().toStatus());
+        assertEquals("Recepción confirmada por " + ACTOR.userId(), audit.getValue().details());
+        assertNull(audit.getValue().usuarioId());
     }
 
     @Test

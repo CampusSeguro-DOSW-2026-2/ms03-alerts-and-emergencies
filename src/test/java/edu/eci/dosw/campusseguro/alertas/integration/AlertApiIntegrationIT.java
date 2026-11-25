@@ -86,6 +86,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 @SpringBootTest(properties = {
         "app.alerts.activation-check-ms=3600000",
+        "app.audit.dispatch-interval-ms=3600000",
         "spring.jpa.properties.hibernate.generate_statistics=true"
 })
 @AutoConfigureMockMvc
@@ -158,8 +159,8 @@ class AlertApiIntegrationIT {
 
     @BeforeEach
     void cleanDatabase() {
-        jdbcTemplate.execute("TRUNCATE TABLE audit_events, notification_deliveries, alert_confirmations, "
-                + "alert_recipients, alert_scope_items, alert_types, alerts CASCADE");
+        jdbcTemplate.execute("TRUNCATE TABLE audit_outbox, audit_events, notification_deliveries, "
+                + "alert_confirmations, alert_recipients, alert_scope_items, alert_types, alerts CASCADE");
     }
 
     @Test
@@ -511,6 +512,47 @@ class AlertApiIntegrationIT {
         mockMvc.perform(as(get(path), AUDITOR_ID, "AUDITOR"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.recipients[0].id").value(STUB_USER_ID));
+    }
+
+    @Test
+    void create_shouldEnqueueTheAuditFactForMs08() throws Exception {
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(createRequestJson()),
+                        COORDINATOR_ID,
+                        "COORDINADOR"))
+                .andExpect(status().isCreated());
+
+        Map<String, Object> fact = jdbcTemplate.queryForMap(
+                "SELECT estado, payload FROM audit_outbox");
+
+        assertEquals("PENDIENTE", fact.get("estado"));
+        String payload = (String) fact.get("payload");
+        assertTrue(payload.contains("\"modulo\":\"MS03\""));
+        assertTrue(payload.contains("\"accion\":\"CREATE\""));
+        assertTrue(payload.contains("\"recurso_afectado\":\"alerta:"));
+        assertTrue(payload.contains("\"tipo_evento\":\"REAL\""));
+    }
+
+    @Test
+    void create_shouldTagTheAuditFactWithTheSimulationEvent() throws Exception {
+        UUID simulationId = UUID.fromString("50000000-0000-4000-8000-000000000001");
+
+        mockMvc.perform(as(
+                        post("/api/v1/alertas")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(simulationCreateRequestJson(simulationId, "Evacuar")),
+                        ORGANIZER_ID,
+                        "ORGANIZADOR"))
+                .andExpect(status().isCreated());
+
+        String payload = jdbcTemplate.queryForObject(
+                "SELECT payload FROM audit_outbox", String.class);
+
+        assertNotNull(payload);
+        assertTrue(payload.contains("\"evento_id\":\"" + simulationId + "\""));
+        assertTrue(payload.contains("\"tipo_evento\":\"SIMULACRO\""));
     }
 
     /**

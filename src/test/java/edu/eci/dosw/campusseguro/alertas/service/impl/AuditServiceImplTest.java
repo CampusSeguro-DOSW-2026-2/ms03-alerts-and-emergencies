@@ -1,15 +1,20 @@
-
 package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import edu.eci.dosw.campusseguro.alertas.client.audit.AuditEventPayload;
+import edu.eci.dosw.campusseguro.alertas.client.audit.AuditEventPayloadMapper;
 import edu.eci.dosw.campusseguro.alertas.entity.AuditEventEntity;
-import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
 import edu.eci.dosw.campusseguro.alertas.repository.AuditEventRepository;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditOutboxService;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
+import edu.eci.dosw.campusseguro.alertas.service.AuditResult;
 import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
@@ -33,8 +38,20 @@ class AuditServiceImplTest {
     private static final UUID ALERT_ID =
             UUID.fromString("11111111-1111-1111-1111-111111111111");
 
+    private static final UUID EVENT_ID =
+            UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+    private static final UUID SIMULATION_ID =
+            UUID.fromString("33333333-3333-3333-3333-333333333333");
+
     @Mock
     private AuditEventRepository auditEventRepository;
+
+    @Mock
+    private AuditOutboxService auditOutboxService;
+
+    private final AuditEventPayloadMapper payloadMapper =
+            new AuditEventPayloadMapper();
 
     private AuditServiceImpl service;
 
@@ -42,7 +59,18 @@ class AuditServiceImplTest {
     void setUp() {
         service = new AuditServiceImpl(
                 auditEventRepository,
+                auditOutboxService,
+                payloadMapper,
                 Clock.fixed(NOW, ZoneOffset.UTC));
+    }
+
+    /** Imita a Hibernate: el id se asigna al guardar. */
+    private void stubSavedEvent() {
+        when(auditEventRepository.save(any())).thenAnswer(invocation -> {
+            AuditEventEntity entity = invocation.getArgument(0);
+            entity.setId(EVENT_ID);
+            return entity;
+        });
     }
 
     private AuditEventEntity captureSaved() {
@@ -56,13 +84,12 @@ class AuditServiceImplTest {
 
     @Test
     void record_shouldSaveEventWithAllFields() {
-        service.record(
-                ALERT_ID,
-                AuditActions.SCHEDULE,
-                "admin",
-                "DRAFT",
-                "SCHEDULED",
-                "detalle");
+        stubSavedEvent();
+
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.SCHEDULE, "admin")
+                .transition("DRAFT", "SCHEDULED")
+                .details("detalle")
+                .build());
 
         AuditEventEntity event = captureSaved();
 
@@ -78,13 +105,11 @@ class AuditServiceImplTest {
 
     @Test
     void record_shouldSaveEvent_whenFromStatusAndDetailsAreNull() {
-        service.record(
-                ALERT_ID,
-                AuditActions.CREATE,
-                "admin",
-                null,
-                "DRAFT",
-                null);
+        stubSavedEvent();
+
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.CREATE, "admin")
+                .transition(null, "DRAFT")
+                .build());
 
         AuditEventEntity event = captureSaved();
 
@@ -97,73 +122,95 @@ class AuditServiceImplTest {
     void record_shouldRejectLegacyEndAction() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> service.record(
+                () -> service.record(AuditRecord.builder(
                         ALERT_ID,
                         AuditActions.END,
-                        "admin",
-                        "ACTIVE",
-                        "ARCHIVED",
-                        "legacy"));
+                        "admin").build()));
     }
 
     @Test
     void record_shouldTruncateActor_whenLongerThan64Chars() {
-        String actor = "a".repeat(100);
+        stubSavedEvent();
 
-        service.record(
-                ALERT_ID,
-                AuditActions.UPDATE,
-                actor,
-                "DRAFT",
-                "DRAFT",
-                "x");
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.UPDATE, "a".repeat(100))
+                .transition("DRAFT", "DRAFT")
+                .details("x")
+                .build());
 
         assertEquals(64, captureSaved().getActor().length());
     }
 
     @Test
     void record_shouldNotTruncateActor_whenExactly64Chars() {
+        stubSavedEvent();
         String actor = "a".repeat(64);
 
-        service.record(
-                ALERT_ID,
-                AuditActions.UPDATE,
-                actor,
-                "DRAFT",
-                "DRAFT",
-                "x");
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.UPDATE, actor)
+                .transition("DRAFT", "DRAFT")
+                .details("x")
+                .build());
 
         assertEquals(actor, captureSaved().getActor());
     }
 
     @Test
     void record_shouldTruncateDetails_whenLongerThan500Chars() {
-        String details = "d".repeat(800);
+        stubSavedEvent();
 
-        service.record(
-                ALERT_ID,
-                AuditActions.UPDATE,
-                "admin",
-                "DRAFT",
-                "DRAFT",
-                details);
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.UPDATE, "admin")
+                .transition("DRAFT", "DRAFT")
+                .details("d".repeat(800))
+                .build());
 
         assertEquals(500, captureSaved().getDetails().length());
     }
 
     @Test
     void record_shouldNotTruncateDetails_whenExactly500Chars() {
+        stubSavedEvent();
         String details = "d".repeat(500);
 
-        service.record(
-                ALERT_ID,
-                AuditActions.UPDATE,
-                "admin",
-                "DRAFT",
-                "DRAFT",
-                details);
+        service.record(AuditRecord.builder(ALERT_ID, AuditActions.UPDATE, "admin")
+                .transition("DRAFT", "DRAFT")
+                .details(details)
+                .build());
 
         assertEquals(details, captureSaved().getDetails());
+    }
+
+    @Test
+    void record_shouldEnqueueTheContractPayload() {
+        stubSavedEvent();
+
+        service.record(AuditRecord.builder(
+                        ALERT_ID,
+                        AuditActions.NOTIFICATION_FAILED,
+                        "SYSTEM_NOTIFIER")
+                .transition("ACTIVE", "ACTIVE")
+                .details("d".repeat(200))
+                .eventoId(SIMULATION_ID)
+                .resultado(AuditResult.FALLO)
+                .atributo("destinatarios", 3)
+                .build());
+
+        ArgumentCaptor<AuditEventPayload> captor =
+                ArgumentCaptor.forClass(AuditEventPayload.class);
+
+        verify(auditOutboxService).enqueue(captor.capture());
+
+        AuditEventPayload payload = captor.getValue();
+
+        assertEquals(EVENT_ID.toString(), payload.id());
+        assertEquals("MS03", payload.modulo());
+        assertEquals(AuditActions.NOTIFICATION_FAILED, payload.accion());
+        assertEquals("alerta:" + ALERT_ID, payload.recursoAfectado());
+        assertEquals("FALLO", payload.resultado());
+        assertEquals("SIMULACRO", payload.tipoEvento());
+        assertEquals(SIMULATION_ID.toString(), payload.eventoId());
+        assertEquals(100, payload.detalle().length());
+        assertNull(payload.usuarioId());
+        assertEquals(3, payload.atributos().get("destinatarios"));
+        assertEquals(NOW.toString(), payload.fechaHora());
     }
 
     @Test
@@ -172,12 +219,7 @@ class AuditServiceImplTest {
 
         Method method = AuditServiceImpl.class.getMethod(
                 "record",
-                UUID.class,
-                String.class,
-                String.class,
-                String.class,
-                String.class,
-                String.class);
+                AuditRecord.class);
 
         Transactional transactional =
                 method.getAnnotation(Transactional.class);

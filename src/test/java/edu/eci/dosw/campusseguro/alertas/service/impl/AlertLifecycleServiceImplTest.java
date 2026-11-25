@@ -29,6 +29,7 @@ import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.security.Identities;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -40,6 +41,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
@@ -129,13 +131,14 @@ class AlertLifecycleServiceImplTest {
         assertEquals(NOW, alert.getUpdatedAt());
         verify(stateMachine).assertTransition("DRAFT", "SCHEDULED");
         verify(alertRepository).saveAndFlush(alert);
-        verify(auditService).record(
-                ID,
-                AuditActions.SCHEDULE,
-                ACTOR,
-                "DRAFT",
-                "SCHEDULED",
-                "Alert scheduled for " + activationAt);
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.SCHEDULE, audit.getValue().action());
+        assertEquals(ACTOR, audit.getValue().actor());
+        assertEquals("DRAFT", audit.getValue().fromStatus());
+        assertEquals("SCHEDULED", audit.getValue().toStatus());
+        assertEquals("Alert scheduled for " + activationAt, audit.getValue().details());
         verifyNoInteractions(eventPublisher);
     }
 
@@ -233,13 +236,14 @@ class AlertLifecycleServiceImplTest {
         verify(alertRepository).activateIfPending(
                 eq(ID), eq("ACTIVE"), eq(NOW), any());
         verify(alertRepository, never()).saveAndFlush(any());
-        verify(auditService).record(
-                ID,
-                AuditActions.ACTIVATE,
-                ACTOR,
-                "SCHEDULED",
-                "ACTIVE",
-                "Alert activated from SCHEDULED");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.ACTIVATE, audit.getValue().action());
+        assertEquals(ACTOR, audit.getValue().actor());
+        assertEquals("SCHEDULED", audit.getValue().fromStatus());
+        assertEquals("ACTIVE", audit.getValue().toStatus());
+        assertEquals("Alert activated from SCHEDULED", audit.getValue().details());
         verify(eventPublisher).publishEvent(
                 new AlertActivatedEvent(ID, "SCHEDULED", NOW, CORRELATION_ID));
     }
@@ -359,13 +363,14 @@ class AlertLifecycleServiceImplTest {
         assertEquals(NOW, alert.getArchivedAt());
         verify(stateMachine).assertTransition("ACTIVE", "ARCHIVED");
         verify(alertRepository).saveAndFlush(alert);
-        verify(auditService).record(
-                ID,
-                AuditActions.ARCHIVE,
-                ACTOR,
-                "ACTIVE",
-                "ARCHIVED",
-                "Alert archived");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.ARCHIVE, audit.getValue().action());
+        assertEquals(ACTOR, audit.getValue().actor());
+        assertEquals("ACTIVE", audit.getValue().fromStatus());
+        assertEquals("ARCHIVED", audit.getValue().toStatus());
+        assertEquals("Alert archived", audit.getValue().details());
         verifyNoInteractions(eventPublisher);
     }
 
@@ -394,13 +399,11 @@ class AlertLifecycleServiceImplTest {
 
         assertSame(expected, result);
         assertEquals("ARCHIVED", alert.getStatus());
-        verify(auditService).record(
-                ID,
-                AuditActions.ARCHIVE,
-                "organizer",
-                "ACTIVE",
-                "ARCHIVED",
-                "Alert archived");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.ARCHIVE, audit.getValue().action());
+        assertEquals("organizer", audit.getValue().actor());
     }
 
     @Test

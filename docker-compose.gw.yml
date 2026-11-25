@@ -23,8 +23,14 @@ services:
       GATEWAY_ROUTES_1_ID: ms03
       GATEWAY_ROUTES_1_URI: http://ms03-alerts-and-emergencies:8083
       GATEWAY_ROUTES_1_PATHS: ${SQUAD_PATHS:-/api/v1/alertas,/api/v1/alertas/**}
+      # Auditoria central. La ruta existe siempre; la entrega solo funciona cuando MS08 esta en el
+      # stack y GW_SERVICE_KEY_MS08 tiene una clave valida (POST /api/v1/audit/events es interna).
+      GATEWAY_ROUTES_2_ID: ms08
+      GATEWAY_ROUTES_2_URI: http://ms08-analytics-and-audit:8088
+      GATEWAY_ROUTES_2_PATHS: /api/v1/audit/**,/api/v1/analytics/**
       GW_SERVICE_KEY_MS01: ${MS01_SERVICE_KEY:-}
       GW_SERVICE_KEY_MS03: ${SQUAD_SERVICE_KEY:?SQUAD_SERVICE_KEY es obligatoria}
+      GW_SERVICE_KEY_MS08: ${MS08_SERVICE_KEY:-}
     networks:
       - edge
       - internal
@@ -50,6 +56,10 @@ services:
       DB_PASSWORD: ${MS03_DB_PASSWORD:?MS03_DB_PASSWORD es obligatoria}
       MS01_URL: http://api-gateway:8080
       MS_SERVICE_KEY: ${SQUAD_SERVICE_KEY:?SQUAD_SERVICE_KEY es obligatoria}
+      # La auditoria se entrega a MS08 por el Gateway. Sin MS08 en el stack los hechos quedan
+      # pendientes en audit_outbox; con AUDIT_ENABLED=false no se encolan.
+      MS08_URL: http://api-gateway:8080
+      AUDIT_ENABLED: ${AUDIT_ENABLED:-true}
       # Los usuarios se resuelven por las rutas internas de MS01 (X-Service-Name): no hay cuenta técnica.
       # La validación del alcance necesita MS02 en ejecución y enrutado por el Gateway; sin él
       # las alertas con edificio o zona responden 503. Descomentar cuando el stack incluya MS02:

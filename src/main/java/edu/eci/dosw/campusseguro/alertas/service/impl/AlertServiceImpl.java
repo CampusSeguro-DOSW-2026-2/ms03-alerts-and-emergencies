@@ -37,6 +37,7 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -222,13 +223,18 @@ public class AlertServiceImpl implements AlertService {
                         : scopes.size() + " scopes")
                 + ", recipients=" + recipients.size();
 
-        auditService.record(
-                alert.getId(),
-                AuditActions.CREATE,
-                auditActor,
-                null,
-                alert.getStatus(),
-                details);
+        auditService.record(AuditRecord.builder(
+                        alert.getId(),
+                        AuditActions.CREATE,
+                        auditActor)
+                .transition(null, alert.getStatus())
+                .details(details)
+                .usuarioId(AuditRecord.userIdOrNull(actor))
+                .eventoId(alert.getSimulationId())
+                .atributo("tipos", String.join(",", alert.getTypes()))
+                .atributo("origen", String.valueOf(alert.getOrigin()))
+                .atributo("destinatarios", recipients.size())
+                .build());
 
         if (Boolean.TRUE.equals(request.activateImmediately())) {
             return new AlertCreationResult(
@@ -361,14 +367,17 @@ public class AlertServiceImpl implements AlertService {
                     recipientRepository);
         }
 
-        auditService.record(
-                id,
-                AuditActions.UPDATE,
-                requester.auditActor(),
-                alert.getStatus(),
-                alert.getStatus(),
-                "Modified fields: "
-                        + String.join(", ", changedFields));
+        auditService.record(AuditRecord.builder(
+                        id,
+                        AuditActions.UPDATE,
+                        requester.auditActor())
+                .transition(alert.getStatus(), alert.getStatus())
+                .details("Modified fields: "
+                        + String.join(", ", changedFields))
+                .usuarioId(AuditRecord.userIdOrNull(requester.actor()))
+                .eventoId(alert.getSimulationId())
+                .atributo("campos_modificados", changedFields.size())
+                .build());
 
         return alertMapper.toResponse(
                 alert,

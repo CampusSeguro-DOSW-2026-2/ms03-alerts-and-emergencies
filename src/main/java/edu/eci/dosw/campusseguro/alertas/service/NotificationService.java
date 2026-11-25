@@ -12,6 +12,8 @@ import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.repository.NotificationDeliveryRepository;
 import edu.eci.dosw.campusseguro.alertas.security.ActorResolver;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
+import edu.eci.dosw.campusseguro.alertas.service.AuditResult;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -67,13 +69,16 @@ public class NotificationService {
             recipients = recipientResolver.resolve(alertId);
         } catch (RuntimeException ex) {
             log.error("No se pudieron resolver los destinatarios de la alerta {}", alertId, ex);
-            auditService.record(
-                    alertId,
-                    AuditActions.RECIPIENT_RESOLUTION_FAILED,
-                    ActorResolver.SYSTEM_NOTIFIER,
-                    alert.getStatus(),
-                    alert.getStatus(),
-                    truncate("No se pudieron resolver destinatarios: " + ex.getMessage()));
+            auditService.record(AuditRecord.builder(
+                            alertId,
+                            AuditActions.RECIPIENT_RESOLUTION_FAILED,
+                            ActorResolver.SYSTEM_NOTIFIER)
+                    .transition(alert.getStatus(), alert.getStatus())
+                    .details(truncate("No se pudieron resolver destinatarios: " + ex.getMessage()))
+                    .eventoId(alert.getSimulationId())
+                    .resultado(AuditResult.FALLO)
+                    .atributo("destinatarios", 0)
+                    .build());
             return;
         }
 
@@ -110,13 +115,18 @@ public class NotificationService {
         }
 
         String details = "Notificaciones de alerta: enviadas=" + sent + ", fallidas=" + failed;
-        auditService.record(
-                alertId,
-                failed == 0 ? AuditActions.NOTIFICATION_SENT : AuditActions.NOTIFICATION_FAILED,
-                ActorResolver.SYSTEM_NOTIFIER,
-                alert.getStatus(),
-                alert.getStatus(),
-                details);
+        auditService.record(AuditRecord.builder(
+                        alertId,
+                        failed == 0 ? AuditActions.NOTIFICATION_SENT : AuditActions.NOTIFICATION_FAILED,
+                        ActorResolver.SYSTEM_NOTIFIER)
+                .transition(alert.getStatus(), alert.getStatus())
+                .details(details)
+                .eventoId(alert.getSimulationId())
+                .resultado(failed == 0 ? AuditResult.EXITO : AuditResult.FALLO)
+                .atributo("destinatarios", recipients.size())
+                .atributo("enviados", sent)
+                .atributo("fallidos", failed)
+                .build());
     }
 
     private void saveSent(UUID alertId, ResolvedUser recipient, NotificationDeliveryEntity existing, Instant now) {

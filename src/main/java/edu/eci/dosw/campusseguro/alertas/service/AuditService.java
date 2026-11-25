@@ -1,8 +1,14 @@
 package edu.eci.dosw.campusseguro.alertas.service;
 
-import java.util.UUID;
-
 public interface AuditService {
 
-    void record(UUID alertId, String action, String actor, String fromStatus, String toStatus, String details);
+    /**
+     * Registra el hecho en el historial local y lo deja en la bandeja de salida hacia MS08.
+     *
+     * <p>Debe llamarse dentro de la transacción que cambia la alerta: así el hecho y la alerta
+     * existen juntos, y un fallo de MS08 nunca deja el cambio sin auditar.
+     *
+     * @param record hecho auditable
+     */
+    void record(AuditRecord record);
 }
