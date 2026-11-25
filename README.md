@@ -73,6 +73,26 @@ Confirmation is explicit through `POST /api/v1/alertas/{id}/confirmaciones`: the
 
 Emergency alerts include the base message "Has recibido una alerta oficial de CampusSeguro." followed by "Confirma la recepcion y sigue las instrucciones." and the alert instructions. `OPERATIVA` alerts omit that base message. The HTML carries the application branding: the logo (`MAIL_LOGO_URL`), the red and amber accents for emergencies and blue for operational notices, the highlighted message and a button instead of the raw address; the plain-text alternative keeps the full link. The link is `{APP_BASE_URL}/bandeja?alerta={id}`; if `APP_BASE_URL` is empty the button is omitted. Email is sent only when an alert becomes `ACTIVE`, never on `DRAFT`, `SCHEDULED` or `ARCHIVED`.
 
+### Central audit (MS08)
+
+Every audited fact (lifecycle, confirmation and notification) is stored in the local history and also delivered to MS08. The delivery uses an outbox (`audit_outbox`) written in the same transaction as the alert change, so a fact is never lost when MS08 is down.
+
+- A dispatcher sends the pending facts to `POST /api/v1/audit/events` through the Gateway with `X-Service-Name: ms03` and the service key. MS08 deduplicates by `id`, so a retry is safe.
+- `usuario_id` is sent only when the actor is a user; scheduler and notifier actions go without a user. `recurso_afectado` is `alerta:<id>`.
+- `evento_id` is the alert `simulationId` (MS06 sends it as the event id) and `tipo_evento` is `SIMULACRO`; a manual alert sends a null `evento_id` and `REAL`.
+- Notifications send `atributos.destinatarios`, `atributos.enviados` and `atributos.fallidos`: the numbers MS08 uses in its per-event indicators.
+- A 5xx, a timeout or a network error is retried with exponential backoff; a 4xx is discarded because retrying does not fix the payload. `AUDIT_ENABLED=false` stops the delivery without touching the local history.
+
+| Variable | Default | Use |
+|----------|---------|-----|
+| `AUDIT_ENABLED` | `true` | Turns the delivery to MS08 on or off |
+| `MS08_URL` | `http://localhost:8080` | Gateway base URL for the audit route |
+| `AUDIT_DISPATCH_INTERVAL_MS` | `5000` | How often the outbox is drained |
+| `AUDIT_BATCH_SIZE` | `50` | Facts per delivery round |
+| `AUDIT_MAX_ATTEMPTS` | `10` | Attempts before a fact is discarded |
+| `AUDIT_BACKOFF_BASE_MS` / `AUDIT_BACKOFF_MAX_MS` | `5000` / `3600000` | Retry backoff base and ceiling |
+| `AUDIT_STUCK_TIMEOUT_MS` | `120000` | A batch left in flight longer than this returns to pending |
+
 ## 2. Team Information
 
 ### Team Members
@@ -180,7 +200,7 @@ The `local` profile is active by default and reads `.env` when present. Start Po
 docker compose up -d postgres
 ```
 
-Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS06_URL`, `MS_SERVICE_KEY`, `MS06_ALERT_TYPES_PATH`, `MS06_SYSTEM_USER_ID`, `MS06_SYSTEM_USER_ROLE`, `MS06_SYSTEM_USER_PERMISSIONS`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
+Relevant variables: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `MS01_URL`, `MS02_URL`, `MS06_URL`, `MS08_URL`, `MS_SERVICE_KEY`, `MS06_ALERT_TYPES_PATH`, `MS06_SYSTEM_USER_ID`, `MS06_SYSTEM_USER_ROLE`, `MS06_SYSTEM_USER_PERMISSIONS`, `AUDIT_ENABLED`, `SPRINGDOC_ENABLED`, `MAIL_*` and `BREVO_*`. Do not commit `.env` or any secret.
 
 Recipients are resolved with the MS01 internal routes (`POST /api/v1/users/batch` and `GET /api/v1/users/by-role`), authorized by `X-Service-Name`, so no technical user identity is needed. Scope (buildings and zones) is validated against MS02 through `GET /api/v1/buildings/{id}` and `GET /api/v1/safe-zones/{id}`. The alert-type catalog is replicated from MS06 through the Gateway (`GET /api/v1/tipos-alerta`), authorized by `X-Service-Key` plus a configurable system identity. All three services are reached through the API Gateway, so `MS01_URL`, `MS02_URL` and `MS06_URL` must point to the Gateway and `MS_SERVICE_KEY` must match the Gateway's `GW_SERVICE_KEY_MS03`.
 
@@ -209,6 +229,7 @@ The schema is managed by Flyway. The migrations live in `src/main/resources/db/m
 9. `V9__catalogo_estados_alerta.sql`
 10. `V10__catalogos_auditoria.sql`
 11. `V11__catalogo_tipos_alerta_ms06.sql` (MS06 replica, source/synced_at and canonical codes)
+12. `V12__auditoria_outbox.sql` (outbox that delivers the audit facts to MS08)
 
 Rules for a new change:
 
