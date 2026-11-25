@@ -190,6 +190,21 @@ class ConfirmationServiceImplTest {
     }
 
     @Test
+    void confirm_shouldAcceptAnActiveStatusReadFromTheDatabase() {
+        // La base devuelve un String nuevo, no el literal: la comparación debe ser por valor
+        AlertEntity fromDatabase = alert(new String("ACTIVE".toCharArray()));
+        AlertConfirmationEntity created = confirmation();
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(fromDatabase));
+        when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(RECIPIENTS);
+        when(confirmationRepository.findByAlertIdAndUserId(ALERT_ID, ACTOR.userId()))
+                .thenReturn(Optional.empty(), Optional.of(created));
+        when(confirmationRepository.insertIfAbsent(ALERT_ID, ACTOR.userId(), NOW)).thenReturn(1);
+        when(mapper.toResponse(created)).thenReturn(new ConfirmationResponse(created.getId(), ALERT_ID, ACTOR.userId(), NOW));
+
+        assertTrue(service.confirm(ALERT_ID, ACTOR).created());
+    }
+
+    @Test
     void confirm_shouldReturnExistingWithoutAudit_whenConcurrentInsertDidNothing() {
         AlertConfirmationEntity existing = confirmation();
         ConfirmationResponse response = new ConfirmationResponse(

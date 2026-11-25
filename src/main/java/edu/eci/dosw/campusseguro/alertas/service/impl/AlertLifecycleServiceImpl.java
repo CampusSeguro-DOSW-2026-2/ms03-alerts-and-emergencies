@@ -87,7 +87,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         // A SCHEDULED alert can be rescheduled in place; any other state must
         // follow the normal transition rules.
-        if (previousStatus != "SCHEDULED") {
+        if (!"SCHEDULED".equals(previousStatus)) {
             alertStateMachine.assertTransition(
                     previousStatus,
                     "SCHEDULED");
@@ -130,7 +130,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         AlertEntity alert = findAlertForUpdate(id);
         assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (alert.getStatus() == "ACTIVE") {
+        if ("ACTIVE".equals(alert.getStatus())) {
             return toResponse(alert);
         }
 
@@ -150,7 +150,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         if (updated == 0) {
             AlertEntity current = findAlertForUpdate(id);
 
-            if (current.getStatus() == "ACTIVE") {
+            if ("ACTIVE".equals(current.getStatus())) {
                 return toResponse(current);
             }
 
@@ -199,7 +199,7 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
         AlertEntity alert = findAlertForUpdate(id);
         assertManageDrillAllowed(requester, alert.getOrigin());
 
-        if (alert.getStatus() == "ARCHIVED") {
+        if ("ARCHIVED".equals(alert.getStatus())) {
             return toResponse(alert);
         }
 

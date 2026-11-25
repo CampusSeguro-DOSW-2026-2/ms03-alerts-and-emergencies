@@ -58,7 +58,7 @@ public class ConfirmationServiceImpl implements ConfirmationService {
         AlertEntity alert = alertRepository.findById(alertId)
                 .orElseThrow(() -> new AlertNotFoundException(alertId));
 
-        if (alert.getStatus() != "ACTIVE") {
+        if (!"ACTIVE".equals(alert.getStatus())) {
             throw new AlertNotActiveException(alertId);
         }
 

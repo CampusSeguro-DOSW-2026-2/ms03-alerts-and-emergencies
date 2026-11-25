@@ -39,10 +39,13 @@ services:
       DB_URL: jdbc:postgresql://db:5432/campusseguro_alerts
       DB_USER: campusseguro
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
-      # MS01 y MS02 se alcanzan SIEMPRE por el Gateway: las rutas internas de MS01 se autorizan con
-      # X-Service-Name, que solo inyecta el GW, y MS02 exige la identidad del usuario.
+      # MS01, MS02, MS06 y MS08 se alcanzan SIEMPRE por el Gateway: las rutas internas se autorizan con
+      # X-Service-Name, que solo inyecta el GW, y MS02 exige la identidad del usuario. Sin MS06_URL y MS08_URL,
+      # MS03 apunta a localhost y no sincroniza los tipos de alerta (MS06) ni entrega su auditoría (MS08).
       MS01_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
       MS02_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
+      MS06_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
+      MS08_URL: ${GATEWAY_URL:?GATEWAY_URL es obligatoria (https://<dominio del GW> o :8443)}
       MS_SERVICE_KEY: ${GATEWAY_SERVICE_KEY:?GATEWAY_SERVICE_KEY es obligatoria}
       SPRINGDOC_ENABLED: "false"
       MAIL_PROVIDER: ${MAIL_PROVIDER:-log}
