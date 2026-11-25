@@ -330,6 +330,27 @@ class AlertLifecycleServiceImplTest {
     }
 
     @Test
+    void activate_shouldBeIdempotent_whenTheActiveStatusComesFromTheDatabase() {
+        // La base devuelve un String nuevo, no el literal: la comparación debe ser por valor
+        AlertEntity alert = alert(new String("ACTIVE".toCharArray()));
+        AlertResponse expected = responseFor(alert);
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
+
+        assertSame(expected, service.activate(ID, REQUESTER, CORRELATION_ID));
+        verify(alertRepository, never()).activateIfPending(any(), any(), any(), any());
+    }
+
+    @Test
+    void archive_shouldBeIdempotent_whenTheArchivedStatusComesFromTheDatabase() {
+        AlertEntity alert = alert(new String("ARCHIVED".toCharArray()));
+        AlertResponse expected = responseFor(alert);
+        when(alertRepository.findForUpdate(ID)).thenReturn(Optional.of(alert));
+
+        assertSame(expected, service.archive(ID, REQUESTER));
+        verifyNoInteractions(stateMachine, auditService, eventPublisher);
+    }
+
+    @Test
     void findDueScheduledAlertIds_shouldReturnIdsOfDueScheduledAlerts() {
         UUID secondId = UUID.fromString("33333333-3333-3333-3333-333333333333");
         AlertEntity first = alert("SCHEDULED");
