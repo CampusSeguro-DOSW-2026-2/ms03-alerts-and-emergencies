@@ -126,8 +126,9 @@ app:
     from: ${MAIL_FROM:no-reply@campusseguro.local}
     from-name: ${MAIL_FROM_NAME:CampusSeguro}
     app-base-url: ${APP_BASE_URL:http://localhost:5173}
-    # Logo del correo: URL pública de una imagen PNG (los clientes de correo no muestran SVG). Vacío = solo el nombre.
-    logo-url: ${MAIL_LOGO_URL:https://raw.githubusercontent.com/CampusSeguro-DOSW-2026-2/ms03-alerts-and-emergencies/develop/docs/images/branding/campusseguro-logo.png}
+    # Logo del correo: URL pública de una imagen PNG (los clientes de correo no muestran SVG; Brevo no admite imágenes
+    # incrustadas). Vacío = el logo que publica el frontend en APP_BASE_URL/correo/campusseguro-logo.png.
+    logo-url: ${MAIL_LOGO_URL:}
     daily-limit: ${MAIL_DAILY_LIMIT:300}
     brevo:
       api-key: ${BREVO_API_KEY:}

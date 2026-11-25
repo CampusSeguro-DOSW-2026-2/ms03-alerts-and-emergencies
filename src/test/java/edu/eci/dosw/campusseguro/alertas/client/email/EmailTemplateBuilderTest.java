@@ -76,9 +76,21 @@ class EmailTemplateBuilderTest {
     }
 
     @Test
-    void build_shouldKeepTheWordmark_whenThereIsNoLogoUrl() {
+    void build_shouldUseTheLogoOfTheApplicationSite_whenThereIsNoLogoUrl() {
+        EmailTemplateBuilder siteLogo = new EmailTemplateBuilder(
+                "https://campus.example/", " ", AlertTypeCatalogStub.create());
+
+        String html = siteLogo.build(
+                alert("INCENDIO", "Salir"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana")).html();
+
+        assertTrue(html.contains("<img src=\"https://campus.example/correo/campusseguro-logo.png\""));
+    }
+
+    @Test
+    void build_shouldKeepTheWordmark_whenThereIsNoLogoNorSite() {
         EmailTemplateBuilder withoutLogo = new EmailTemplateBuilder(
-                "https://campus.example", " ", AlertTypeCatalogStub.create());
+                " ", " ", AlertTypeCatalogStub.create());
 
         String html = withoutLogo.build(
                 alert("INCENDIO", "Salir"),
@@ -150,8 +162,8 @@ class EmailTemplateBuilderTest {
         EmailMessage message = builder.build(alert("OPERATIVA", "Cierre de cafetería"), user);
 
         assertEquals("[Operativa] Titulo de prueba", message.subject());
-        assertFalse(message.text().contains("Has recibido una alerta oficial"));
-        assertFalse(message.html().contains("Has recibido una alerta oficial"));
+        assertFalse(message.text().contains("Ha recibido una alerta oficial"));
+        assertFalse(message.html().contains("Ha recibido una alerta oficial"));
         assertTrue(message.text().contains("Cierre de cafetería"));
         assertTrue(message.html().contains("Cierre de cafetería"));
     }
