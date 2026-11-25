@@ -129,13 +129,19 @@ class NotificationServiceTest {
         verify(deliveryRepository, org.mockito.Mockito.times(2)).save(saved.capture());
         assertEquals(List.of(DeliveryStatus.SENT, DeliveryStatus.SENT),
                 saved.getAllValues().stream().map(NotificationDeliveryEntity::getStatus).toList());
-        verify(auditService).record(
-                ALERT_ID,
-                AuditActions.NOTIFICATION_SENT,
-                ActorResolver.SYSTEM_NOTIFIER,
-                "ACTIVE",
-                "ACTIVE",
-                "Notificaciones de alerta: enviadas=2, fallidas=0");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(ALERT_ID, audit.getValue().alertId());
+        assertEquals(AuditActions.NOTIFICATION_SENT, audit.getValue().action());
+        assertEquals(ActorResolver.SYSTEM_NOTIFIER, audit.getValue().actor());
+        assertEquals("ACTIVE", audit.getValue().fromStatus());
+        assertEquals("ACTIVE", audit.getValue().toStatus());
+        assertEquals("Notificaciones de alerta: enviadas=2, fallidas=0", audit.getValue().details());
+        assertEquals(AuditResult.EXITO, audit.getValue().resultado());
+        assertEquals(2, number(audit.getValue(), "destinatarios"));
+        assertEquals(2, number(audit.getValue(), "enviados"));
+        assertEquals(0, number(audit.getValue(), "fallidos"));
     }
 
     @Test
@@ -197,13 +203,15 @@ class NotificationServiceTest {
         assertEquals(DeliveryStatus.FAILED, saved.getAllValues().get(0).getStatus());
         assertEquals("Brevo caído", saved.getAllValues().get(0).getErrorReason());
         assertEquals(DeliveryStatus.SENT, saved.getAllValues().get(1).getStatus());
-        verify(auditService).record(
-                ALERT_ID,
-                AuditActions.NOTIFICATION_FAILED,
-                ActorResolver.SYSTEM_NOTIFIER,
-                "ACTIVE",
-                "ACTIVE",
-                "Notificaciones de alerta: enviadas=1, fallidas=1");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.NOTIFICATION_FAILED, audit.getValue().action());
+        assertEquals(AuditResult.FALLO, audit.getValue().resultado());
+        assertEquals("Notificaciones de alerta: enviadas=1, fallidas=1", audit.getValue().details());
+        assertEquals(2, number(audit.getValue(), "destinatarios"));
+        assertEquals(1, number(audit.getValue(), "enviados"));
+        assertEquals(1, number(audit.getValue(), "fallidos"));
     }
 
     @Test
@@ -263,13 +271,13 @@ class NotificationServiceTest {
         assertDoesNotThrow(() -> service.notifyAlertActivated(ALERT_ID));
 
         verifyNoInteractions(emailSender, deliveryRepository);
-        verify(auditService).record(
-                ALERT_ID,
-                AuditActions.RECIPIENT_RESOLUTION_FAILED,
-                ActorResolver.SYSTEM_NOTIFIER,
-                "ACTIVE",
-                "ACTIVE",
-                "No se pudieron resolver destinatarios: MS01 caído");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.RECIPIENT_RESOLUTION_FAILED, audit.getValue().action());
+        assertEquals(AuditResult.FALLO, audit.getValue().resultado());
+        assertEquals("No se pudieron resolver destinatarios: MS01 caído", audit.getValue().details());
+        assertEquals(0, number(audit.getValue(), "destinatarios"));
     }
 
     @Test
@@ -291,5 +299,9 @@ class NotificationServiceTest {
         service.notifyAlertActivated(ALERT_ID);
 
         verify(deliveryRepository).countBySentAtGreaterThanEqual(Instant.parse("2026-10-15T00:00:00Z"));
+    }
+
+    private long number(AuditRecord record, String key) {
+        return ((Number) record.atributos().get(key)).longValue();
     }
 }

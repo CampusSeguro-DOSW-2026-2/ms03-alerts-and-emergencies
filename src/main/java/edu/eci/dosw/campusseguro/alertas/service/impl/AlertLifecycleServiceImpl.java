@@ -20,6 +20,7 @@ import edu.eci.dosw.campusseguro.alertas.security.RequesterContext;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateMachine;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -98,13 +99,17 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         alertRepository.saveAndFlush(alert);
 
-        auditService.record(
-                alert.getId(),
-                AuditActions.SCHEDULE,
-                requester.auditActor(),
-                previousStatus,
-                alert.getStatus(),
-                "Alert scheduled for " + activationAt);
+        auditService.record(AuditRecord.builder(
+                        alert.getId(),
+                        AuditActions.SCHEDULE,
+                        requester.auditActor())
+                .transition(previousStatus, alert.getStatus())
+                .details("Alert scheduled for " + activationAt)
+                .usuarioId(AuditRecord.userIdOrNull(requester.actor()))
+                .eventoId(alert.getSimulationId())
+                .atributo("estado_anterior", previousStatus)
+                .atributo("estado_nuevo", alert.getStatus())
+                .build());
 
         return toResponse(alert);
     }
@@ -156,13 +161,16 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         AlertEntity activated = findAlertForUpdate(id);
 
-        auditService.record(
-                activated.getId(),
-                AuditActions.ACTIVATE,
-                requester.auditActor(),
-                previousStatus,
-                activated.getStatus(),
-                "Alert activated from " + previousStatus);
+        auditService.record(AuditRecord.builder(
+                        activated.getId(),
+                        AuditActions.ACTIVATE,
+                        requester.auditActor())
+                .transition(previousStatus, activated.getStatus())
+                .details("Alert activated from " + previousStatus)
+                .usuarioId(AuditRecord.userIdOrNull(requester.actor()))
+                .eventoId(activated.getSimulationId())
+                .atributo("estado_anterior", previousStatus)
+                .build());
 
         eventPublisher.publishEvent(
                 new AlertActivatedEvent(
@@ -208,13 +216,16 @@ public class AlertLifecycleServiceImpl implements AlertLifecycleService {
 
         alertRepository.saveAndFlush(alert);
 
-        auditService.record(
-                alert.getId(),
-                AuditActions.ARCHIVE,
-                requester.auditActor(),
-                previousStatus,
-                alert.getStatus(),
-                "Alert archived");
+        auditService.record(AuditRecord.builder(
+                        alert.getId(),
+                        AuditActions.ARCHIVE,
+                        requester.auditActor())
+                .transition(previousStatus, alert.getStatus())
+                .details("Alert archived")
+                .usuarioId(AuditRecord.userIdOrNull(requester.actor()))
+                .eventoId(alert.getSimulationId())
+                .atributo("estado_anterior", previousStatus)
+                .build());
 
         return toResponse(alert);
     }

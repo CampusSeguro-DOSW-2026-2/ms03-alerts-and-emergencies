@@ -13,6 +13,7 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRepository;
 import edu.eci.dosw.campusseguro.alertas.security.AccessActor;
 import edu.eci.dosw.campusseguro.alertas.security.AlertAccessPolicy;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationResult;
 import edu.eci.dosw.campusseguro.alertas.service.ConfirmationService;
@@ -66,10 +67,11 @@ public class ConfirmationServiceImpl implements ConfirmationService {
 
         return confirmationRepository.findByAlertIdAndUserId(alertId, actor.userId())
                 .map(existing -> new ConfirmationResult(confirmationMapper.toResponse(existing), false))
-                .orElseGet(() -> createConfirmation(alertId, actor));
+                .orElseGet(() -> createConfirmation(alert, actor));
     }
 
-    private ConfirmationResult createConfirmation(UUID alertId, AccessActor actor) {
+    private ConfirmationResult createConfirmation(AlertEntity alert, AccessActor actor) {
+        UUID alertId = alert.getId();
         Instant now = clock.instant();
         int inserted = confirmationRepository.insertIfAbsent(alertId, actor.userId(), now);
 
@@ -78,13 +80,16 @@ public class ConfirmationServiceImpl implements ConfirmationService {
                 .orElseThrow(() -> new IllegalStateException("No se pudo guardar la confirmación"));
 
         if (inserted > 0) {
-            auditService.record(
-                    alertId,
-                    AuditActions.CONFIRM,
-                    actor.userId(),
-                    "ACTIVE",
-                    "ACTIVE",
-                    "Recepción confirmada por " + actor.userId());
+            String userId = actor.userId();
+            auditService.record(AuditRecord.builder(
+                            alertId,
+                            AuditActions.CONFIRM,
+                            userId)
+                    .transition("ACTIVE", "ACTIVE")
+                    .details("Recepción confirmada por " + userId)
+                    .usuarioId(AuditRecord.userIdOrNull(userId))
+                    .eventoId(alert.getSimulationId())
+                    .build());
         }
 
         ConfirmationResponse response = confirmationMapper.toResponse(confirmation);

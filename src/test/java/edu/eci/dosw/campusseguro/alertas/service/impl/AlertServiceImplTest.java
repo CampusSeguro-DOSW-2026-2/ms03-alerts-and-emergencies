@@ -2,6 +2,7 @@ package edu.eci.dosw.campusseguro.alertas.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,6 +53,7 @@ import edu.eci.dosw.campusseguro.alertas.service.AlertCreationResult;
 import edu.eci.dosw.campusseguro.alertas.service.AlertLifecycleService;
 import edu.eci.dosw.campusseguro.alertas.service.AlertStateRules;
 import edu.eci.dosw.campusseguro.alertas.service.AuditActions;
+import edu.eci.dosw.campusseguro.alertas.service.AuditRecord;
 import edu.eci.dosw.campusseguro.alertas.service.AuditService;
 import java.time.Clock;
 import java.time.Instant;
@@ -203,14 +205,17 @@ class AlertServiceImplTest {
         assertTrue(result.created());
         verify(catalogClient, never()).validateBuildingsZones(any(), any(), any());
         verify(catalogClient).validateRecipients(recipients);
-        verify(auditService).record(
-                ID,
-                AuditActions.CREATE,
-                ACTOR,
-                null,
-                "DRAFT",
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.CREATE, audit.getValue().action());
+        assertEquals(ACTOR, audit.getValue().actor());
+        assertNull(audit.getValue().fromStatus());
+        assertEquals("DRAFT", audit.getValue().toStatus());
+        assertEquals(
                 "Alert created: title=Simulacro, types=[SISMO, INCENDIO], origin=null, "
-                        + "simulationId=null, scope=CAMPUS, recipients=1");
+                        + "simulationId=null, scope=CAMPUS, recipients=1",
+                audit.getValue().details());
     }
 
     @Test
@@ -547,13 +552,14 @@ class AlertServiceImplTest {
         assertEquals(NOW, alert.getUpdatedAt());
         verify(stateRules).assertEditable(alert);
         verify(alertRepository).saveAndFlush(alert);
-        verify(auditService).record(
-                ID,
-                AuditActions.UPDATE,
-                ACTOR,
-                "DRAFT",
-                "DRAFT",
-                "Modified fields: instructions");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.UPDATE, audit.getValue().action());
+        assertEquals(ACTOR, audit.getValue().actor());
+        assertEquals("DRAFT", audit.getValue().fromStatus());
+        assertEquals("DRAFT", audit.getValue().toStatus());
+        assertEquals("Modified fields: instructions", audit.getValue().details());
     }
 
     @Test
@@ -597,13 +603,11 @@ class AlertServiceImplTest {
         verify(scopeItemRepository).flush();
         verify(scopeItemRepository).saveAll(List.of(newItem));
         verify(alertRepository).saveAndFlush(alert);
-        verify(auditService).record(
-                ID,
-                AuditActions.UPDATE,
-                ACTOR,
-                "DRAFT",
-                "DRAFT",
-                "Modified fields: scope");
+        ArgumentCaptor<AuditRecord> audit =
+                ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.UPDATE, audit.getValue().action());
+        assertEquals("Modified fields: scope", audit.getValue().details());
     }
 
     @Test

@@ -103,6 +103,23 @@ app:
     safe-zones-path: ${MS02_SAFE_ZONES_PATH:/api/v1/safe-zones/{id}}
     connect-timeout-ms: ${CAMPUS_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${CAMPUS_READ_TIMEOUT_MS:2000}
+  audit:
+    # Entrega de la auditoria a MS08 por el API Gateway (POST /api/v1/audit/events es ruta interna).
+    # Apagarla detiene el envio; el historial local de MS03 sigue igual.
+    enabled: ${AUDIT_ENABLED:true}
+    base-url: ${MS08_URL:http://localhost:8080}
+    events-path: ${MS08_AUDIT_EVENTS_PATH:/api/v1/audit/events}
+    service-key: ${MS_SERVICE_KEY:${MS_SERVICE_TOKEN:}}
+    connect-timeout-ms: ${AUDIT_CONNECT_TIMEOUT_MS:2000}
+    read-timeout-ms: ${AUDIT_READ_TIMEOUT_MS:5000}
+    # Despacho de la bandeja de salida: cada cuanto se busca, tamano del lote, reintentos y backoff.
+    dispatch-interval-ms: ${AUDIT_DISPATCH_INTERVAL_MS:5000}
+    batch-size: ${AUDIT_BATCH_SIZE:50}
+    max-attempts: ${AUDIT_MAX_ATTEMPTS:10}
+    backoff-base-ms: ${AUDIT_BACKOFF_BASE_MS:5000}
+    backoff-max-ms: ${AUDIT_BACKOFF_MAX_MS:3600000}
+    # Un lote en envio mas viejo que esto se devuelve a pendientes (reinicio del proceso).
+    stuck-timeout-ms: ${AUDIT_STUCK_TIMEOUT_MS:120000}
   mail:
     # brevo (correo real) o log (simulado, solo registra en el log)
     provider: ${MAIL_PROVIDER:brevo}

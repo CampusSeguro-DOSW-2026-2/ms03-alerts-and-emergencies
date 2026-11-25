@@ -38,6 +38,10 @@ public class AuditEventEntity extends BaseEntity {
         return id;
     }
 
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
     public UUID getAlertId() {
         return alertId;
     }
