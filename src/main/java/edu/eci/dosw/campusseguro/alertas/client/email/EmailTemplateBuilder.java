@@ -4,6 +4,7 @@ import edu.eci.dosw.campusseguro.alertas.client.catalog.ResolvedUser;
 import edu.eci.dosw.campusseguro.alertas.entity.AlertEntity;
 import edu.eci.dosw.campusseguro.alertas.service.AlertTypeCatalog;
 import java.util.List;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.HtmlUtils;
@@ -46,15 +47,38 @@ public class EmailTemplateBuilder {
     private final AlertTypeCatalog alertTypeCatalog;
 
     public EmailTemplateBuilder(
+            String appBaseUrl,
+            String logoUrl,
+            AlertTypeCatalog alertTypeCatalog) {
+        this(appBaseUrl, logoUrl, alertTypeCatalog, false);
+    }
+
+    /**
+     * @param inlineLogo true if the message travels by SMTP: the logo is referenced by its Content-ID and the sender
+     *                   attaches it, so no email client has to download it
+     */
+    @Autowired
+    public EmailTemplateBuilder(
             @Value("${app.mail.app-base-url:http://localhost:5173}")
             String appBaseUrl,
             @Value("${app.mail.logo-url:}")
             String logoUrl,
-            AlertTypeCatalog alertTypeCatalog) {
+            AlertTypeCatalog alertTypeCatalog,
+            MailTransport transport) {
+        this(appBaseUrl, logoUrl, alertTypeCatalog, transport.smtp());
+    }
+
+    private EmailTemplateBuilder(
+            String appBaseUrl,
+            String logoUrl,
+            AlertTypeCatalog alertTypeCatalog,
+            boolean inlineLogo) {
 
         this.alertTypeCatalog = alertTypeCatalog;
         this.appBaseUrl = normalize(appBaseUrl);
-        this.logoUrl = logoUrl(normalize(logoUrl), this.appBaseUrl);
+        this.logoUrl = inlineLogo
+                ? "cid:" + MailTransport.LOGO_CID
+                : logoUrl(normalize(logoUrl), this.appBaseUrl);
     }
 
     /**

@@ -50,6 +50,12 @@ services:
       SPRINGDOC_ENABLED: "false"
       MAIL_PROVIDER: ${MAIL_PROVIDER:-log}
       BREVO_API_KEY: ${BREVO_API_KEY:-}
+      # smtp = el logo va dentro del correo (requiere MAIL_HOST, MAIL_USERNAME y MAIL_PASSWORD)
+      MAIL_TRANSPORT: ${MAIL_TRANSPORT:-api}
+      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-no-reply@campusseguro.local}
       MAIL_FROM_NAME: ${MAIL_FROM_NAME:-CampusSeguro}
       APP_BASE_URL: ${APP_BASE_URL:-}

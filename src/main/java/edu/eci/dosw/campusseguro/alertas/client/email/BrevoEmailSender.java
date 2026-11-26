@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Component;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -34,6 +36,7 @@ public class BrevoEmailSender implements EmailSender {
     private final JavaMailSender mailSender;
     private final RestClient restClient;
     private final String apiKey;
+    private final boolean smtp;
     private final String fromEmail;
     private final String fromName;
     private final int maxAttempts;
@@ -50,6 +53,24 @@ public class BrevoEmailSender implements EmailSender {
             @Value("${app.mail.from-name:CampusSeguro}") String fromName,
             @Value("${app.mail.brevo.max-attempts:3}") int maxAttempts,
             @Value("${app.mail.brevo.retry-delay-ms:200}") long retryDelayMs) {
+        this(mailSender, restClientBuilder, apiKey, baseUrl, connectTimeoutMs, readTimeoutMs, fromEmail, fromName,
+                maxAttempts, retryDelayMs, new MailTransport("api", apiKey));
+    }
+
+    @Autowired
+    public BrevoEmailSender(
+            JavaMailSender mailSender,
+            RestClient.Builder restClientBuilder,
+            @Value("${app.mail.brevo.api-key:}") String apiKey,
+            @Value("${app.mail.brevo.base-url:https://api.brevo.com}") String baseUrl,
+            @Value("${app.mail.brevo.connect-timeout-ms:5000}") long connectTimeoutMs,
+            @Value("${app.mail.brevo.read-timeout-ms:10000}") long readTimeoutMs,
+            @Value("${app.mail.from:no-reply@campusseguro.local}") String fromEmail,
+            @Value("${app.mail.from-name:CampusSeguro}") String fromName,
+            @Value("${app.mail.brevo.max-attempts:3}") int maxAttempts,
+            @Value("${app.mail.brevo.retry-delay-ms:200}") long retryDelayMs,
+            MailTransport transport) {
+        this.smtp = transport.smtp();
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
         requestFactory.setConnectTimeout(Duration.ofMillis(connectTimeoutMs));
         requestFactory.setReadTimeout(Duration.ofMillis(readTimeoutMs));
@@ -70,7 +91,7 @@ public class BrevoEmailSender implements EmailSender {
         if (fromEmail == null || fromEmail.isBlank()) {
             throw new EmailSendException("El remitente de correo no está configurado");
         }
-        if (apiKey != null && !apiKey.isBlank()) {
+        if (!smtp) {
             sendHttp(message);
             return;
         }
@@ -134,6 +155,10 @@ public class BrevoEmailSender implements EmailSender {
         }
         helper.setSubject(message.subject());
         helper.setText(message.text(), message.html());
+        if (message.html() != null && message.html().contains("cid:" + MailTransport.LOGO_CID)) {
+            helper.addInline(MailTransport.LOGO_CID, "campusseguro-logo.png",
+                    new ClassPathResource(MailTransport.LOGO_PATH), "image/png");
+        }
         return mimeMessage;
     }
 
