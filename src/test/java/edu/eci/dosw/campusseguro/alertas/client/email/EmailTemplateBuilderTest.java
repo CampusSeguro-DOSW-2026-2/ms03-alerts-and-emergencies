@@ -88,6 +88,19 @@ class EmailTemplateBuilderTest {
     }
 
     @Test
+    void build_shouldReferenceTheInlineLogo_whenTheEmailTravelsBySmtp() {
+        EmailTemplateBuilder smtp = new EmailTemplateBuilder(
+                "https://campus.example", LOGO, AlertTypeCatalogStub.create(), new MailTransport("smtp", "key"));
+
+        String html = smtp.build(
+                alert("INCENDIO", "Salir"),
+                new ResolvedUser("usr-001", "ana@example.edu.co", "Ana")).html();
+
+        assertTrue(html.contains("<img src=\"cid:campusseguro-logo\""));
+        assertFalse(html.contains(LOGO));
+    }
+
+    @Test
     void build_shouldKeepTheWordmark_whenThereIsNoLogoNorSite() {
         EmailTemplateBuilder withoutLogo = new EmailTemplateBuilder(
                 " ", " ", AlertTypeCatalogStub.create());

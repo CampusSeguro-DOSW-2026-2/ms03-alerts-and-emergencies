@@ -95,6 +95,37 @@ class BrevoEmailSenderTest {
     }
 
     @Test
+    void send_shouldUseSmtpWithTheInlineLogo_whenTransportIsSmtp() throws Exception {
+        when(mailSender.createMimeMessage())
+                .thenReturn(new MimeMessage(Session.getDefaultInstance(new Properties())));
+        BrevoEmailSender smtp = new BrevoEmailSender(
+                mailSender, RestClient.builder(), "api-key", server.baseUrl(), 500, 1000,
+                "no-reply@campusseguro.local", "CampusSeguro", 3, 10, new MailTransport("smtp", "api-key"));
+
+        smtp.send(new EmailMessage("ana@example.edu.co", "Ana", "Alerta CampusSeguro: Sismo",
+                "<img src=\"cid:campusseguro-logo\"><p>Evacuar</p>", "Evacuar"));
+
+        org.mockito.ArgumentCaptor<MimeMessage> sent = org.mockito.ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender).send(sent.capture());
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
+        MimeMessage message = sent.getValue();
+        message.saveChanges();
+        java.io.ByteArrayOutputStream raw = new java.io.ByteArrayOutputStream();
+        message.writeTo(raw);
+        String mime = raw.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(mime.contains("Content-ID: <campusseguro-logo>"));
+        assertTrue(mime.contains("image/png"));
+        assertTrue(mime.contains("multipart/related"));
+    }
+
+    @Test
+    void transport_shouldBeApiOnlyWithApiKeyAndTransportApi() {
+        assertEquals(false, new MailTransport("api", "key").smtp());
+        assertEquals(true, new MailTransport("smtp", "key").smtp());
+        assertEquals(true, new MailTransport("api", " ").smtp());
+    }
+
+    @Test
     void send_shouldThrow_whenSenderIsBlank() {
         BrevoEmailSender sender = new BrevoEmailSender(
                 mailSender,

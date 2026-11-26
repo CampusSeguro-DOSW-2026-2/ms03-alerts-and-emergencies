@@ -48,7 +48,12 @@ jobs:
           MAIL_PROVIDER: ${{ vars.MAIL_PROVIDER }}
           MAIL_FROM: ${{ vars.MAIL_FROM }}
           MAIL_FROM_NAME: ${{ vars.MAIL_FROM_NAME }}
+          MAIL_TRANSPORT: ${{ vars.MAIL_TRANSPORT }}
+          MAIL_HOST: ${{ vars.MAIL_HOST }}
+          MAIL_PORT: ${{ vars.MAIL_PORT }}
+          MAIL_USERNAME: ${{ vars.MAIL_USERNAME }}
           APP_BASE_URL: ${{ vars.APP_BASE_URL }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           GATEWAY_SERVICE_KEY: ${{ secrets.GATEWAY_SERVICE_KEY }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
