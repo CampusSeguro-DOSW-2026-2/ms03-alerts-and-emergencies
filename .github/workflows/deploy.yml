@@ -53,6 +53,8 @@ jobs:
           MAIL_PORT: ${{ vars.MAIL_PORT }}
           MAIL_USERNAME: ${{ vars.MAIL_USERNAME }}
           APP_BASE_URL: ${{ vars.APP_BASE_URL }}
+          DB_URL: ${{ vars.DB_URL }}
+          DB_USER: ${{ vars.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           GATEWAY_SERVICE_KEY: ${{ secrets.GATEWAY_SERVICE_KEY }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}

@@ -1,43 +1,22 @@
-# Stack de MS03 en la nube: uno por entorno en la misma VM (ms03-prod y ms03-test), cada uno con su BD.
-# No publica puertos: solo el Caddy de borde de la VM (red campus-edge) llega a MS03, con el alias ms03-<entorno>,
-# y la BD solo es visible dentro del stack. Lo usa infra/deploy.sh con el .env que escribe en DEPLOY_DIR/<entorno>;
-# no se ejecuta a mano.
+# Stack de MS03 en la nube: uno por entorno en la misma VM (ms03-prod y ms03-test).
+# La base de datos NO vive en el stack: es una instancia administrada (RDS) fuera de la VM, en la
+# misma VPC, y se alcanza por la red privada. No publica puertos: solo el Caddy de borde de la VM
+# (red campus-edge) llega a MS03, con el alias ms03-<entorno>. Lo usa infra/deploy.sh con el .env
+# que escribe en DEPLOY_DIR/<entorno>; no se ejecuta a mano.
 name: ms03-${ENTORNO:?ENTORNO es obligatoria (test o prod)}
 
 services:
-  db:
-    image: postgres:17.6-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: campusseguro_alerts
-      POSTGRES_USER: campusseguro
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
-    volumes:
-      - datos:/var/lib/postgresql/data
-      # El esquema lo crea Flyway cuando arranca ms03, con las migraciones de
-      # src/main/resources/db/migration. Los datos de ejemplo no son una migracion y
-      # nunca llegan a un entorno desplegado.
-
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U campusseguro -d campusseguro_alerts"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    networks:
-      - interna
-
   ms03:
     image: ${IMAGE:?IMAGE es obligatoria}:${TAG:?TAG es obligatoria (sha-xxxxxxx)}
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
       # Nunca `local` ni `test`: esos perfiles usan el catálogo de ejemplo y no validan contra MS02.
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: "8083"
-      DB_URL: jdbc:postgresql://db:5432/campusseguro_alerts
-      DB_USER: campusseguro
+      # Base administrada (RDS). TLS obligatorio: con `rds.force_ssl=1` una conexión sin
+      # cifrar se rechaza, así que la URL debe llevar `sslmode=require`.
+      DB_URL: ${DB_URL:?DB_URL es obligatoria (jdbc:postgresql://<endpoint>:5432/<base>?sslmode=require)}
+      DB_USER: ${DB_USER:?DB_USER es obligatoria (campusseguro_test o campusseguro_prod)}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD es obligatoria}
       # MS01, MS02, MS06 y MS08 se alcanzan SIEMPRE por el Gateway: las rutas internas se autorizan con
       # X-Service-Name, que solo inyecta el GW, y MS02 exige la identidad del usuario. Sin MS06_URL y MS08_URL,
@@ -64,16 +43,11 @@ services:
       - path: extra.env
         required: false
     networks:
-      interna:
       edge:
         aliases:
           - ms03-${ENTORNO}
 
-volumes:
-  datos:
-
 networks:
-  interna:
   edge:
     name: campus-edge
     external: true

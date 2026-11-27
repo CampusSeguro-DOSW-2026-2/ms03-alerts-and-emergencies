@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Despliega MS03 en su VM: stack ms03-<entorno> (MS03 + PostgreSQL) detrás del Caddy de borde, y verifica el
+# Despliega MS03 en su VM: stack ms03-<entorno> (solo MS03; la base de datos es una instancia RDS
+# externa al stack) detrás del Caddy de borde, y verifica el
 # despliegue. Lo ejecuta el runner self-hosted desde .github/workflows/deploy.yml con las variables y secretos del
 # Environment ms03-<entorno> de GitHub. Es idempotente: volver a ejecutarlo con otro TAG es el rollback.
 # El borde (Caddy con mTLS) se levanta una sola vez a mano, con la guía "Conexión al API Gateway" de la wiki.
 set -euo pipefail
 
 falta() { echo "::error::Falta la variable $1 (Environment ms03-${ENTORNO:-?} en GitHub)" >&2; exit 1; }
-for VAR in ENTORNO DB_PASSWORD GATEWAY_URL GATEWAY_SERVICE_KEY; do
+for VAR in ENTORNO DB_URL DB_USER DB_PASSWORD GATEWAY_URL GATEWAY_SERVICE_KEY; do
     [ -n "${!VAR:-}" ] || falta "$VAR"
 done
 [[ "$ENTORNO" =~ ^(test|prod)$ ]] || { echo "::error::ENTORNO debe ser test o prod" >&2; exit 1; }
@@ -43,6 +44,8 @@ cp "$REPO_DIR/infra/docker-compose.prod.yml" "$STACK_DIR/docker-compose.yml"
     linea_env ENTORNO "$ENTORNO"
     linea_env IMAGE "$IMAGE"
     linea_env TAG "$TAG"
+    linea_env DB_URL "$DB_URL"
+    linea_env DB_USER "$DB_USER"
     linea_env DB_PASSWORD "$DB_PASSWORD"
     linea_env GATEWAY_URL "$GATEWAY_URL"
     linea_env GATEWAY_SERVICE_KEY "$GATEWAY_SERVICE_KEY"
