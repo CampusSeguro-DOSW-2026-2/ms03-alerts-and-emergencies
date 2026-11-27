@@ -8,5 +8,9 @@ target/
 hs_err_pid*.log
 replay_pid*.log
 
+# Respaldos de base de datos: nunca al repositorio
+*.dump
+*.backup
+
 # Notas locales del asistente
 CLAUDE.md
