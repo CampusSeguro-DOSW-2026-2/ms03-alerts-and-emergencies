@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -42,7 +41,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -52,6 +53,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionOperations;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
@@ -91,7 +94,8 @@ class NotificationServiceTest {
                 emailSender,
                 auditService,
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                3);
+                3,
+                TransactionOperations.withoutTransaction());
     }
 
     private AlertEntity alert() {
@@ -102,6 +106,13 @@ class NotificationServiceTest {
         alert.setOrigin(AlertOrigin.MANUAL);
         alert.setInstructions("Evacuar");
         return alert;
+    }
+
+    private NotificationDeliveryEntity delivery(ResolvedUser user, DeliveryStatus status) {
+        NotificationDeliveryEntity delivery = new NotificationDeliveryEntity();
+        delivery.setUserId(user.id());
+        delivery.setStatus(status);
+        return delivery;
     }
 
     private EmailMessage messageFor(ResolvedUser user) {
@@ -115,15 +126,15 @@ class NotificationServiceTest {
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA, LUIS));
         when(deliveryRepository.countBySentAtGreaterThanEqual(Instant.parse("2026-10-15T00:00:00Z")))
                 .thenReturn(0L);
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.empty());
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, LUIS.id())).thenReturn(Optional.empty());
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
         when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
         when(templateBuilder.build(alert, LUIS)).thenReturn(messageFor(LUIS));
+        when(emailSender.sendAll(List.of(messageFor(ANA), messageFor(LUIS)))).thenReturn(Map.of());
 
         service.notifyAlertActivated(ALERT_ID);
 
-        verify(emailSender).send(messageFor(ANA));
-        verify(emailSender).send(messageFor(LUIS));
+        verify(emailSender).sendAll(List.of(messageFor(ANA), messageFor(LUIS)));
+        verify(emailSender, never()).send(any());
         ArgumentCaptor<NotificationDeliveryEntity> saved =
                 ArgumentCaptor.forClass(NotificationDeliveryEntity.class);
         verify(deliveryRepository, org.mockito.Mockito.times(2)).save(saved.capture());
@@ -147,31 +158,30 @@ class NotificationServiceTest {
     @Test
     void notify_shouldNotResend_whenDeliveryIsAlreadySent() {
         AlertEntity alert = alert();
-        NotificationDeliveryEntity sent = new NotificationDeliveryEntity();
-        sent.setStatus(DeliveryStatus.SENT);
+        NotificationDeliveryEntity sent = delivery(ANA, DeliveryStatus.SENT);
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA, LUIS));
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.of(sent));
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, LUIS.id())).thenReturn(Optional.empty());
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(sent));
         when(templateBuilder.build(alert, LUIS)).thenReturn(messageFor(LUIS));
+        when(emailSender.sendAll(List.of(messageFor(LUIS)))).thenReturn(Map.of());
 
         service.notifyAlertActivated(ALERT_ID);
 
-        verify(emailSender, never()).send(messageFor(ANA));
-        verify(emailSender).send(messageFor(LUIS));
+        verify(templateBuilder, never()).build(alert, ANA);
+        verify(emailSender).sendAll(List.of(messageFor(LUIS)));
         verify(deliveryRepository).save(any(NotificationDeliveryEntity.class));
     }
 
     @Test
     void notify_shouldReuseFailedDelivery_whenRetrying() {
         AlertEntity alert = alert();
-        NotificationDeliveryEntity failed = new NotificationDeliveryEntity();
-        failed.setStatus(DeliveryStatus.FAILED);
+        NotificationDeliveryEntity failed = delivery(ANA, DeliveryStatus.FAILED);
         failed.setErrorReason("anterior");
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA));
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.of(failed));
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(failed));
         when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
+        when(emailSender.sendAll(List.of(messageFor(ANA)))).thenReturn(Map.of());
 
         service.notifyAlertActivated(ALERT_ID);
 
@@ -189,11 +199,11 @@ class NotificationServiceTest {
         AlertEntity alert = alert();
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA, LUIS));
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.empty());
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, LUIS.id())).thenReturn(Optional.empty());
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
         when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
         when(templateBuilder.build(alert, LUIS)).thenReturn(messageFor(LUIS));
-        doThrow(new EmailSendException("Brevo caído")).when(emailSender).send(messageFor(ANA));
+        when(emailSender.sendAll(List.of(messageFor(ANA), messageFor(LUIS))))
+                .thenReturn(Map.of(0, "Brevo caído"));
 
         assertDoesNotThrow(() -> service.notifyAlertActivated(ALERT_ID));
 
@@ -224,13 +234,13 @@ class NotificationServiceTest {
                 emailSender,
                 auditService,
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                1);
+                1,
+                TransactionOperations.withoutTransaction());
         AlertEntity alert = alert();
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA, LUIS));
         when(deliveryRepository.countBySentAtGreaterThanEqual(any())).thenReturn(1L);
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.empty());
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, LUIS.id())).thenReturn(Optional.empty());
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
 
         service.notifyAlertActivated(ALERT_ID);
 
@@ -250,9 +260,9 @@ class NotificationServiceTest {
         String longError = "x".repeat(600);
         when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
         when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA));
-        when(deliveryRepository.findByAlertIdAndUserId(ALERT_ID, ANA.id())).thenReturn(Optional.empty());
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
         when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
-        doThrow(new EmailSendException(longError)).when(emailSender).send(any());
+        when(emailSender.sendAll(List.of(messageFor(ANA)))).thenReturn(Map.of(0, longError));
 
         service.notifyAlertActivated(ALERT_ID);
 
@@ -299,6 +309,81 @@ class NotificationServiceTest {
         service.notifyAlertActivated(ALERT_ID);
 
         verify(deliveryRepository).countBySentAtGreaterThanEqual(Instant.parse("2026-10-15T00:00:00Z"));
+    }
+
+    @Test
+    void notify_shouldMarkEveryRecipientFailed_whenTheWholeBatchFails() {
+        AlertEntity alert = alert();
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
+        when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA, LUIS));
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
+        when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
+        when(templateBuilder.build(alert, LUIS)).thenReturn(messageFor(LUIS));
+        when(emailSender.sendAll(any())).thenThrow(new EmailSendException("Proveedor caído"));
+
+        assertDoesNotThrow(() -> service.notifyAlertActivated(ALERT_ID));
+
+        ArgumentCaptor<NotificationDeliveryEntity> saved =
+                ArgumentCaptor.forClass(NotificationDeliveryEntity.class);
+        verify(deliveryRepository, org.mockito.Mockito.times(2)).save(saved.capture());
+        assertEquals(List.of(DeliveryStatus.FAILED, DeliveryStatus.FAILED),
+                saved.getAllValues().stream().map(NotificationDeliveryEntity::getStatus).toList());
+        ArgumentCaptor<AuditRecord> audit = ArgumentCaptor.forClass(AuditRecord.class);
+        verify(auditService).record(audit.capture());
+        assertEquals(AuditActions.NOTIFICATION_FAILED, audit.getValue().action());
+        assertEquals("Notificaciones de alerta: enviadas=0, fallidas=2", audit.getValue().details());
+    }
+
+    @Test
+    void notify_shouldSendOutsideTheTransactionAndSaveResultsInside() {
+        AtomicBoolean inTransaction = new AtomicBoolean();
+        TransactionOperations tracking = new TransactionOperations() {
+            @Override
+            public <T> T execute(TransactionCallback<T> action) {
+                inTransaction.set(true);
+                try {
+                    return action.doInTransaction(null);
+                } finally {
+                    inTransaction.set(false);
+                }
+            }
+        };
+        service = new NotificationService(
+                alertRepository,
+                deliveryRepository,
+                recipientResolver,
+                templateBuilder,
+                emailSender,
+                auditService,
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                3,
+                tracking);
+        AlertEntity alert = alert();
+        when(alertRepository.findById(ALERT_ID)).thenReturn(Optional.of(alert));
+        when(recipientResolver.resolve(ALERT_ID)).thenReturn(List.of(ANA));
+        when(deliveryRepository.findByAlertId(ALERT_ID)).thenReturn(List.of());
+        when(templateBuilder.build(alert, ANA)).thenReturn(messageFor(ANA));
+        AtomicBoolean sentInTransaction = new AtomicBoolean(true);
+        AtomicBoolean savedInTransaction = new AtomicBoolean();
+        AtomicBoolean auditedInTransaction = new AtomicBoolean();
+        when(emailSender.sendAll(any())).thenAnswer(invocation -> {
+            sentInTransaction.set(inTransaction.get());
+            return Map.of();
+        });
+        when(deliveryRepository.save(any())).thenAnswer(invocation -> {
+            savedInTransaction.set(inTransaction.get());
+            return invocation.getArgument(0);
+        });
+        org.mockito.Mockito.doAnswer(invocation -> {
+            auditedInTransaction.set(inTransaction.get());
+            return null;
+        }).when(auditService).record(any());
+
+        service.notifyAlertActivated(ALERT_ID);
+
+        assertEquals(false, sentInTransaction.get());
+        assertEquals(true, savedInTransaction.get());
+        assertEquals(true, auditedInTransaction.get());
     }
 
     private long number(AuditRecord record, String key) {

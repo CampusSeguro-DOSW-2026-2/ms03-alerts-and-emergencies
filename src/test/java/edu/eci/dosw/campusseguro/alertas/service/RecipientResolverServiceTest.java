@@ -14,7 +14,7 @@ import edu.eci.dosw.campusseguro.alertas.entity.enums.RecipientType;
 import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableException;
 import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,7 +62,7 @@ class RecipientResolverServiceTest {
     void resolve_shouldResolveDirectUsers() {
         when(recipientRepository.findByAlertId(ALERT_ID))
                 .thenReturn(List.of(recipient(RecipientType.USER, "usr-001")));
-        when(catalogClient.findUserById("usr-001")).thenReturn(Optional.of(ANA));
+        when(catalogClient.findUsers(List.of("usr-001"))).thenReturn(Map.of("usr-001", ANA));
 
         assertEquals(List.of(ANA), service.resolve(ALERT_ID));
     }
@@ -81,7 +81,7 @@ class RecipientResolverServiceTest {
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(
                 recipient(RecipientType.USER, "usr-001"),
                 recipient(RecipientType.ROLE, "ESTUDIANTE")));
-        when(catalogClient.findUserById("usr-001")).thenReturn(Optional.of(ANA));
+        when(catalogClient.findUsers(List.of("usr-001"))).thenReturn(Map.of("usr-001", ANA));
         when(catalogClient.getUsersByRole("ESTUDIANTE")).thenReturn(List.of(ANA, LUIS));
 
         assertEquals(List.of(ANA, LUIS), service.resolve(ALERT_ID));
@@ -92,11 +92,22 @@ class RecipientResolverServiceTest {
         when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(
                 recipient(RecipientType.USER, "usr-404"),
                 recipient(RecipientType.USER, "usr-001")));
-        when(catalogClient.findUserById("usr-404")).thenReturn(Optional.empty());
-        when(catalogClient.findUserById("usr-001")).thenReturn(Optional.of(ANA));
+        when(catalogClient.findUsers(List.of("usr-404", "usr-001"))).thenReturn(Map.of("usr-001", ANA));
 
         assertEquals(List.of(ANA), service.resolve(ALERT_ID));
-        verify(catalogClient).findUserById("usr-404");
+        verify(catalogClient).findUsers(List.of("usr-404", "usr-001"));
+    }
+
+    @Test
+    void resolve_shouldLookUpAllDirectUsersInOneCall() {
+        when(recipientRepository.findByAlertId(ALERT_ID)).thenReturn(List.of(
+                recipient(RecipientType.USER, "usr-002"),
+                recipient(RecipientType.USER, "usr-001")));
+        when(catalogClient.findUsers(List.of("usr-002", "usr-001")))
+                .thenReturn(Map.of("usr-001", ANA, "usr-002", LUIS));
+
+        assertEquals(List.of(LUIS, ANA), service.resolve(ALERT_ID));
+        verify(catalogClient, org.mockito.Mockito.never()).findUserById(org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

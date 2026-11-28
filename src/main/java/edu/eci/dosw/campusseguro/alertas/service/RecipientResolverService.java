@@ -8,7 +8,6 @@ import edu.eci.dosw.campusseguro.alertas.repository.AlertRecipientRepository;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,16 +30,23 @@ public class RecipientResolverService {
         Map<String, ResolvedUser> users = new LinkedHashMap<>();
         List<AlertRecipientEntity> recipients = recipientRepository.findByAlertId(alertId);
 
+        // Los usuarios individuales se consultan a MS01 en una sola llamada por lote, no uno por uno.
+        List<String> userIds = recipients.stream()
+                .filter(recipient -> recipient.getRecipientType() == RecipientType.USER)
+                .map(AlertRecipientEntity::getRecipientRefId)
+                .toList();
+        Map<String, ResolvedUser> direct = userIds.isEmpty() ? Map.of() : catalogClient.findUsers(userIds);
+
         for (AlertRecipientEntity recipient : recipients) {
             if (recipient.getRecipientType() == RecipientType.USER) {
                 // Un usuario que ya no existe en MS01 no debe impedir notificar a los demás.
-                Optional<ResolvedUser> user = catalogClient.findUserById(recipient.getRecipientRefId());
-                if (user.isEmpty()) {
+                ResolvedUser user = direct.get(recipient.getRecipientRefId());
+                if (user == null) {
                     log.warn("Destinatario {} de la alerta {} no existe en MS01; se omite",
                             recipient.getRecipientRefId(), alertId);
                     continue;
                 }
-                users.putIfAbsent(user.get().id(), user.get());
+                users.putIfAbsent(user.id(), user);
             } else {
                 for (ResolvedUser user : catalogClient.getUsersByRole(recipient.getRecipientRefId())) {
                     users.putIfAbsent(user.id(), user);
