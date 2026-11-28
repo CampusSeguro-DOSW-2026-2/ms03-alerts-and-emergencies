@@ -27,7 +27,7 @@ public class AlertActivationScheduler {
     }
 
     // Cada activación corre en su propia transacción: si una falla, las demás se procesan igual.
-    @Scheduled(fixedDelayString = "${app.alerts.activation-check-ms:10000}")
+    @Scheduled(fixedDelayString = "${app.alerts.activation-check-ms:2000}")
     public void activateScheduledAlerts() {
         for (UUID alertId : alertLifecycleService.findDueScheduledAlertIds()) {
             String correlationId = CorrelationIds.resolve(null);

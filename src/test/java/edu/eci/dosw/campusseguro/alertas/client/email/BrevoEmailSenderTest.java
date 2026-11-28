@@ -1,8 +1,10 @@
 package edu.eci.dosw.campusseguro.alertas.client.email;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.equalToJson;
+import static com.github.tomakehurst.wiremock.client.WireMock.matchingJsonPath;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
@@ -19,7 +21,10 @@ import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import edu.eci.dosw.campusseguro.alertas.exception.EmailSendException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -240,5 +245,146 @@ class BrevoEmailSenderTest {
                 () -> sender("api-key", 1).send(MESSAGE));
 
         assertEquals("Brevo respondió 400: ", ex.getMessage());
+    }
+
+    private static EmailMessage to(String email) {
+        return new EmailMessage(email, null, "Alerta CampusSeguro: Sismo", "<p>Evacuar</p>", "Evacuar");
+    }
+
+    private BrevoEmailSender batchSender(int batchSize, MailTransport transport, int maxAttempts) {
+        return new BrevoEmailSender(
+                mailSender, RestClient.builder(), "api-key", server.baseUrl(), 500, 1000,
+                "no-reply@campusseguro.local", "CampusSeguro", maxAttempts, 10, batchSize, 4, transport);
+    }
+
+    @Test
+    void sendAll_shouldSendOneRequestWithAVersionPerRecipient() {
+        server.stubFor(post("/v3/smtp/email").willReturn(aResponse().withStatus(201)));
+
+        Map<Integer, String> failures = sender("api-key", 3).sendAll(List.of(MESSAGE, to("luis@example.edu.co")));
+
+        assertTrue(failures.isEmpty());
+        server.verify(1, postRequestedFor(urlEqualTo("/v3/smtp/email")));
+        server.verify(postRequestedFor(urlEqualTo("/v3/smtp/email"))
+                .withRequestBody(equalToJson("""
+                        {
+                          "sender": {"name": "CampusSeguro", "email": "no-reply@campusseguro.local"},
+                          "subject": "Alerta CampusSeguro: Sismo",
+                          "htmlContent": "<p>Evacuar</p>",
+                          "textContent": "Evacuar",
+                          "messageVersions": [
+                            {"to": [{"email": "ana@example.edu.co", "name": "Ana"}]},
+                            {"to": [{"email": "luis@example.edu.co"}]}
+                          ]
+                        }
+                        """)));
+    }
+
+    @Test
+    void sendAll_shouldSplitRecipientsIntoBatchesOfTheConfiguredSize() {
+        server.stubFor(post("/v3/smtp/email").willReturn(aResponse().withStatus(201)));
+        List<EmailMessage> messages = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            messages.add(to("persona" + i + "@example.edu.co"));
+        }
+
+        Map<Integer, String> failures = batchSender(2, new MailTransport("api", "api-key"), 3).sendAll(messages);
+
+        assertTrue(failures.isEmpty());
+        server.verify(2, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(containing("messageVersions")));
+        server.verify(1, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(matchingJsonPath("$.to")));
+    }
+
+    @Test
+    void sendAll_shouldSendOneByOne_whenBrevoRejectsTheBatch() {
+        server.stubFor(post("/v3/smtp/email").atPriority(5).willReturn(aResponse().withStatus(201)));
+        server.stubFor(post("/v3/smtp/email").atPriority(1)
+                .withRequestBody(containing("messageVersions"))
+                .willReturn(aResponse().withStatus(400).withBody("{\"code\":\"invalid_parameter\"}")));
+        server.stubFor(post("/v3/smtp/email").atPriority(2)
+                .withRequestBody(containing("malo@"))
+                .willReturn(aResponse().withStatus(400).withBody("correo invalido")));
+
+        Map<Integer, String> failures = sender("api-key", 1)
+                .sendAll(List.of(MESSAGE, to("malo@example"), to("luis@example.edu.co")));
+
+        assertEquals(Set.of(1), failures.keySet());
+        assertTrue(failures.get(1).startsWith("Brevo respondió 400"));
+        server.verify(1, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(containing("messageVersions")));
+        server.verify(3, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(matchingJsonPath("$.to")));
+    }
+
+    @Test
+    void sendAll_shouldRetryTheBatchAndNotSendOneByOne_whenBrevoIsUnavailable() {
+        server.stubFor(post("/v3/smtp/email").willReturn(aResponse().withStatus(503)));
+
+        Map<Integer, String> failures = sender("api-key", 3)
+                .sendAll(List.of(MESSAGE, to("luis@example.edu.co"), to("eva@example.edu.co")));
+
+        assertEquals(Set.of(0, 1, 2), failures.keySet());
+        assertTrue(failures.get(0).startsWith("Brevo respondió 503"));
+        server.verify(3, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(containing("messageVersions")));
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(matchingJsonPath("$.to")));
+    }
+
+    @Test
+    void sendAll_shouldBatchOnlyMessagesWithTheSameContent() {
+        server.stubFor(post("/v3/smtp/email").willReturn(aResponse().withStatus(201)));
+        EmailMessage other = new EmailMessage("eva@example.edu.co", null, "[Operativa] Corte", "<p>Corte</p>", "Corte");
+
+        Map<Integer, String> failures = sender("api-key", 3)
+                .sendAll(List.of(MESSAGE, other, to("luis@example.edu.co")));
+
+        assertTrue(failures.isEmpty());
+        server.verify(1, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(containing("messageVersions")));
+        server.verify(1, postRequestedFor(urlEqualTo("/v3/smtp/email")).withRequestBody(containing("eva@example.edu.co")));
+    }
+
+    @Test
+    void sendAll_shouldSendEveryMessageBySmtpInParallel() {
+        when(mailSender.createMimeMessage())
+                .thenAnswer(invocation -> new MimeMessage(Session.getDefaultInstance(new Properties())));
+        List<EmailMessage> messages = new java.util.ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            messages.add(to("persona" + i + "@example.edu.co"));
+        }
+
+        Map<Integer, String> failures = batchSender(500, new MailTransport("smtp", "api-key"), 3).sendAll(messages);
+
+        assertTrue(failures.isEmpty());
+        verify(mailSender, org.mockito.Mockito.times(6)).send(any(MimeMessage.class));
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
+    }
+
+    @Test
+    void sendAll_shouldReportEachSmtpFailureByPosition() {
+        when(mailSender.createMimeMessage())
+                .thenAnswer(invocation -> new MimeMessage(Session.getDefaultInstance(new Properties())));
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("SMTP caído"))
+                .when(mailSender).send(any(MimeMessage.class));
+
+        Map<Integer, String> failures = batchSender(500, new MailTransport("smtp", "api-key"), 1)
+                .sendAll(List.of(MESSAGE, to("luis@example.edu.co")));
+
+        assertEquals(Set.of(0, 1), failures.keySet());
+        assertTrue(failures.get(0).contains("SMTP caído"));
+    }
+
+    @Test
+    void sendAll_shouldFailEveryMessage_whenSenderIsBlank() {
+        BrevoEmailSender sender = new BrevoEmailSender(
+                mailSender, RestClient.builder(), "api-key", server.baseUrl(), 500, 1000,
+                " ", "CampusSeguro", 3, 10);
+
+        Map<Integer, String> failures = sender.sendAll(List.of(MESSAGE, to("luis@example.edu.co")));
+
+        assertEquals(Set.of(0, 1), failures.keySet());
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
+    }
+
+    @Test
+    void sendAll_shouldReturnEmpty_whenThereAreNoMessages() {
+        assertTrue(sender("api-key", 3).sendAll(List.of()).isEmpty());
+        server.verify(0, postRequestedFor(urlEqualTo("/v3/smtp/email")));
     }
 }

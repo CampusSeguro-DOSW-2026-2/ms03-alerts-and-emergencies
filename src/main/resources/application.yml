@@ -23,6 +23,12 @@ spring:
     baseline-on-migrate: true
     baseline-version: 7
     locations: classpath:db/migration
+  task:
+    scheduling:
+      # Las tareas programadas (activar alertas, auditoria hacia MS08, catalogos de MS06, reintento de correos)
+      # no comparten un solo hilo: una llamada lenta a MS08 o MS06 no atrasa la activacion de una alerta.
+      pool:
+        size: ${SCHEDULING_POOL_SIZE:4}
   mail:
     host: ${MAIL_HOST:smtp-relay.brevo.com}
     port: ${MAIL_PORT:587}
@@ -81,6 +87,8 @@ app:
     connect-timeout-ms: ${CATALOG_CONNECT_TIMEOUT_MS:2000}
     read-timeout-ms: ${CATALOG_READ_TIMEOUT_MS:2000}
   alerts:
+    # Cada cuanto se buscan las alertas programadas que ya deben activarse.
+    activation-check-ms: ${ALERT_ACTIVATION_CHECK_MS:2000}
     types:
       # MS06 es la fuente de verdad; el API Gateway publica /api/v1/tipos-alerta hacia MS06.
       base-url: ${MS06_URL:http://localhost:8080}
@@ -134,6 +142,15 @@ app:
     # Por SMTP no se usa: el logo va dentro del mensaje.
     logo-url: ${MAIL_LOGO_URL:}
     daily-limit: ${MAIL_DAILY_LIMIT:300}
+    # Envio en bloque: por la API, correos por llamada a Brevo (hasta 1000); por SMTP o si Brevo rechaza un lote,
+    # envios simultaneos. Hilos y cola de las alertas que se notifican a la vez.
+    batch-size: ${MAIL_BATCH_SIZE:500}
+    parallelism: ${MAIL_PARALLELISM:8}
+    notification-threads: ${MAIL_NOTIFICATION_THREADS:4}
+    notification-queue: ${MAIL_NOTIFICATION_QUEUE:500}
+    # Reintento de las entregas fallidas de las alertas activas: cada cuanto y durante cuanto desde la activacion.
+    retry-interval-ms: ${MAIL_RETRY_INTERVAL_MS:60000}
+    retry-window-ms: ${MAIL_RETRY_WINDOW_MS:1800000}
     brevo:
       api-key: ${BREVO_API_KEY:}
       base-url: ${BREVO_API_URL:https://api.brevo.com}

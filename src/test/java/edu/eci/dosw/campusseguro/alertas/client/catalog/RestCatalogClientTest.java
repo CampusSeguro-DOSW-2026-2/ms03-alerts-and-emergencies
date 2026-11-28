@@ -19,7 +19,9 @@ import edu.eci.dosw.campusseguro.alertas.exception.ExternalServiceUnavailableExc
 import edu.eci.dosw.campusseguro.alertas.exception.InvalidReferenceException;
 import edu.eci.dosw.campusseguro.alertas.security.CorrelationIds;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -236,6 +238,17 @@ class RestCatalogClientTest {
         assertThrows(
                 ExternalServiceUnavailableException.class,
                 () -> client.findUserById(USER_ID));
+    }
+
+    @Test
+    void findUsers_shouldResolveSeveralUsersInOneBatchCallAndSkipInactive() {
+        String inactive = "33333333-3333-4333-8333-333333333333";
+        stubBatch(batchJson(userJson(USER_ID, "ACTIVO") + "," + userJson(inactive, "INACTIVO"), ""));
+
+        Map<String, ResolvedUser> users = client.findUsers(List.of(USER_ID, inactive, USER_ID));
+
+        assertEquals(Set.of(USER_ID), users.keySet());
+        server.verify(1, postRequestedFor(urlPathEqualTo(BATCH_PATH)));
     }
 
     @Test

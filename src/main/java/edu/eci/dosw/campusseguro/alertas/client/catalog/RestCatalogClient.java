@@ -141,6 +141,11 @@ public class RestCatalogClient implements CatalogClient {
         return Optional.ofNullable(findUsersByIds(List.of(userId)).get(userId));
     }
 
+    @Override
+    public Map<String, ResolvedUser> findUsers(Collection<String> userIds) {
+        return findUsersByIds(new LinkedHashSet<>(userIds));
+    }
+
     /**
      * Consulta por lotes los usuarios activos. Los ids inexistentes o inactivos no aparecen en el
      * mapa resultante.
